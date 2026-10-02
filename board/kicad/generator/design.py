@@ -207,9 +207,9 @@ lcd = {'1': 'GND', '2': 'GND', '3': '+3V0_LCD', '4': '+3V0_LCD', '5': 'GND', '6'
        '14': 'GND', '15': '+3V0_LCD', '16': '+3V0_LCD', '17': 'LCD_D7', '18': 'LCD_D6', '19': 'LCD_D5',
        '20': 'LCD_D4', '21': 'LCD_D3', '22': 'LCD_D2', '23': 'LCD_D1', '24': 'LCD_D0', '25': '+3V0_LCD',
        '26': 'GND', 'MP': 'GND'}
-ui.place('Connector_Generic_MountingPin:Conn_01x26_MountingPin', (40, 85), value='X05A20H26G',
-         footprint='Connector_FFC-FPC:Hirose_FH12-26S-0.5SH_1x26-1MP_P0.50mm_Horizontal',
-         fields={'LCSC': 'C528050', 'Note': 'Footprint placeholder: create X05A20H26G footprint'}, nets=lcd)
+ui.place('Connector_Generic_MountingPin:Conn_01x26_MountingPin', (40, 85), value='KH-FPC0.5-H1.0SMT-26P-QCHF',
+         footprint='cmd-z5:FPC-SMD_26P-P0.50_KH-FPC0.5-H1.0SMT-26P-QCHF',
+         fields={'LCSC': 'C3250122'}, nets=lcd)
 ui.C('1u', (95, 40), '+3V0_LCD'); ui.C('100n', (105, 40), '+3V0_LCD')
 ui.text('Pin 9 -> GND, pin 14 (/CS) -> GND,\npin 15 (CS) -> +3V0_LCD.\nWhen +3V0_LCD is off, drive all\nLCD_* lines low (no back-powering).', (80, 60))
 
@@ -219,9 +219,9 @@ kb = {'1': 'LID_SW', '2': 'KB_COL0', '3': 'KB_COL1', '4': 'KB_COL2', '5': 'KB_CO
       '13': 'VSYS', '14': 'VSYS', '15': 'VIBE', '16': 'SPK', '18': 'GND', '19': 'GND',
       '20': 'ENC_A', '21': 'ENC_B', '22': 'KB_ROW4', '25': 'GND', '26': 'EAR_P', '27': 'EAR_N', '28': 'GND',
       'MP': 'GND'}
-ui.place('Connector_Generic_MountingPin:Conn_01x28_MountingPin', (180, 85), value='FH12-28S-0.5SH(55)',
-         footprint='Connector_FFC-FPC:Hirose_FH12-28S-0.5SH_1x28-1MP_P0.50mm_Horizontal',
-         fields={'LCSC': 'C597983'}, nets=kb, nc=('17', '23', '24'))
+ui.place('Connector_Generic_MountingPin:Conn_01x28_MountingPin', (180, 85), value='KH-FPC0.5-H1.0SMT-28P-QCHF',
+         footprint='cmd-z5:FPC-SMD_28P-P0.50_KH-FPC0.5-H1.0SMT-28P-QCHF',
+         fields={'LCSC': 'C3250123'}, nets=kb, nc=('17', '23', '24'))
 ui.text('Pin 23 = RTC battery + (not used; the nRF52840\nhas no backup domain). Pins 17, 24: NC on flex.', (215, 150))
 ui.R('10M', (240, 40), '+3V0', 'LID_SW')
 ui.R('10M', (255, 40), '+3V0', 'ENC_A'); ui.R('10M', (270, 40), '+3V0', 'ENC_B')

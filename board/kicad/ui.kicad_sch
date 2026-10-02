@@ -4604,7 +4604,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "X05A20H26G"
+		(property "Value" "KH-FPC0.5-H1.0SMT-26P-QCHF"
 			(at 36.83 127 0)
 			(effects
 				(font
@@ -4613,7 +4613,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_FFC-FPC:Hirose_FH12-26S-0.5SH_1x26-1MP_P0.50mm_Horizontal"
+		(property "Footprint" "cmd-z5:FPC-SMD_26P-P0.50_KH-FPC0.5-H1.0SMT-26P-QCHF"
 			(at 39.37 85.09 0)
 			(hide yes)
 			(effects
@@ -4640,16 +4640,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C528050"
-			(at 39.37 85.09 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Note" "Footprint placeholder: create X05A20H26G footprint"
+		(property "LCSC" "C3250122"
 			(at 39.37 85.09 0)
 			(hide yes)
 			(effects
@@ -5605,7 +5596,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "FH12-28S-0.5SH(55)"
+		(property "Value" "KH-FPC0.5-H1.0SMT-28P-QCHF"
 			(at 177.8 129.54 0)
 			(effects
 				(font
@@ -5614,7 +5605,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_FFC-FPC:Hirose_FH12-28S-0.5SH_1x28-1MP_P0.50mm_Horizontal"
+		(property "Footprint" "cmd-z5:FPC-SMD_28P-P0.50_KH-FPC0.5-H1.0SMT-28P-QCHF"
 			(at 180.34 85.09 0)
 			(hide yes)
 			(effects
@@ -5641,7 +5632,7 @@
 				)
 			)
 		)
-		(property "LCSC" "C597983"
+		(property "LCSC" "C3250123"
 			(at 180.34 85.09 0)
 			(hide yes)
 			(effects
