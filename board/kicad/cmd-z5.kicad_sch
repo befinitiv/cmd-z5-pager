@@ -1,0 +1,198 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "6abffa09-a441-4dde-b1c7-3053cb1129f2")
+	(paper "A4")
+	(title_block
+		(title "Sony CMD-Z5 Meshtastic replacement board")
+		(comment 1 "nRF52840 + Wio-SX1262 + TBS M10N + nPM1300")
+		(comment 2 "Generated schematic - verify against datasheets before layout")
+	)
+	(lib_symbols)
+	(sheet
+		(at 30 40)
+		(size 90 40)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "c246016d-b8d4-41e1-afd7-6e94ddc5dfd4")
+		(property "Sheetname" "Power"
+			(at 30 39.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "power.kicad_sch"
+			(at 30 80.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 150 40)
+		(size 90 40)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "6e57a889-a3f3-4bed-9470-97f39177cd39")
+		(property "Sheetname" "MCU"
+			(at 150 39.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "mcu.kicad_sch"
+			(at 150 80.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 30 100)
+		(size 90 40)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "3a4134b2-37ff-49cc-8b15-13b6ede026fa")
+		(property "Sheetname" "Radio_GPS"
+			(at 30 99.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "radio_gps.kicad_sch"
+			(at 30 140.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2"
+					(page "4")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 150 100)
+		(size 90 40)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "ed4711e8-45ae-43a3-ad71-54dc99e47515")
+		(property "Sheetname" "UI"
+			(at 150 99.3 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "ui.kicad_sch"
+			(at 150 140.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2"
+					(page "5")
+				)
+			)
+		)
+	)
+	(text "Block overview: see README.md (component selection, power architecture, GPIO assignment)."
+		(exclude_from_sim no)
+		(at 30 165 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "c8697ae3-20a6-491a-8a52-efadb23c7faa")
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)
