@@ -21,8 +21,8 @@ The flex cable that is inserted into the connector has a total width of 14.5mm a
 |  10 | Power button, pin 1        |                                             |
 |  11 | Power button, pin 2        |                                             |
 |  12 | LED control                |                                             |
-|  13 | LED / loudspeaker common   |                                             |
-|  14 | LED / loudspeaker common   | Connected to pin 13                         |
+|  13 | LED / loudspeaker common   | Connected to VBAT+                          |
+|  14 | LED / loudspeaker common   | Connected to VBAT+                          |
 |  15 | Vibration motor            | Other motor terminal connects to GND        |
 |  16 | Loudspeaker +              |                                             |
 |  17 | NC                         | Not connected                               |

@@ -170,16 +170,17 @@ mc.text('Shared by nPM1300 and LIS2DH12.', (330, 130))
 rg = P.sheet('Radio_GPS', 'radio_gps.kicad_sch', 'LoRa (Wio-SX1262) and GPS (TBS M10N)')
 
 rg.box(10, 15, 200, 130, 'LoRa: Wio-SX1262')
-rg.place('cmd-z5:Wio-SX1262', (80, 65),
+rg.place('cmd-z5:Wio-SX1262', (80, 65), footprint='cmd-z5:Seeed_Wio-SX1262',
          nets={'8': '+3V0_RF', '5': 'LORA_NRST', '6': 'LORA_NSS', '4': 'LORA_SCK', '3': 'LORA_MOSI',
                '2': 'LORA_MISO', '1': 'LORA_RF_SW', '9': 'LORA_ANT', '11': 'LORA_BUSY', '12': 'LORA_DIO1',
                '7': 'GND', '10': 'GND'})
 rg.C('10u', (30, 105), '+3V0_RF', fp=C0603); rg.C('100n', (40, 105), '+3V0_RF')
 rg.R('0', (130, 50), 'LORA_ANT', 'LORA_ANT2', rot=90)
 rg.C('DNP', (120, 60), 'LORA_ANT', dnp=True); rg.C('DNP', (140, 60), 'LORA_ANT2', dnp=True)
-rg.place('Device:Antenna', (165, 45), value='PCB antenna 868/915 MHz', footprint='', nets={'1': 'LORA_ANT2'})
+rg.place('Device:Antenna', (165, 45), value='PCB antenna 868/915 MHz',
+         footprint='RF_Antenna:Texas_SWRA416_868MHz_915MHz', nets={'1': 'LORA_ANT2'})
 rg.text('Standard Wio-SX1262 uses its IPEX connector; the ANT pad\nis only connected on the RF SMT-pin version (ask Seeed).\nPi network: 0R + 2x DNP for antenna tuning.', (100, 85))
-rg.text('Meshtastic: SX126X_RXEN = RF_SW, DIO2 as RF switch,\nTCXO 1.8 V on DIO3. Footprint: create from datasheet.', (100, 105))
+rg.text('Meshtastic: SX126X_RXEN = RF_SW, DIO2 as RF switch,\nTCXO 1.8 V on DIO3.', (100, 105))
 
 rg.box(10, 140, 200, 230, 'GPS: TBS M10N (5 V, switched)')
 rg.place('cmd-z5:TPS610997YFF', (60, 180), fields={'LCSC': 'C2072359'},
@@ -317,6 +318,8 @@ root.append([Sym('embedded_fonts'), Sym('no')])
 open(os.path.join(OUT, PROJECT + '.kicad_sch'), 'w').write(dump(root) + "\n")
 
 customsyms.write_library(os.path.join(OUT, PROJECT + '.kicad_sym'))
+open(os.path.join(OUT, 'fp-lib-table'), 'w').write(
+    '(fp_lib_table\n\t(version 7)\n\t(lib (name "%s")(type "KiCad")(uri "${KIPRJMOD}/%s.pretty")(options "")(descr "CMD-Z5 custom footprints"))\n)\n' % (PROJECT, PROJECT))
 open(os.path.join(OUT, 'sym-lib-table'), 'w').write(
     '(sym_lib_table\n\t(version 7)\n\t(lib (name "%s")(type "KiCad")(uri "${KIPRJMOD}/%s.kicad_sym")(options "")(descr "CMD-Z5 custom symbols"))\n)\n' % (PROJECT, PROJECT))
 pro = {"meta": {"filename": PROJECT + ".kicad_pro", "version": 3},

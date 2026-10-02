@@ -1924,7 +1924,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "cmd-z5:Seeed_Wio-SX1262"
 			(at 80.01 64.77 0)
 			(hide yes)
 			(effects
@@ -3052,7 +3052,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "RF_Antenna:Texas_SWRA416_868MHz_915MHz"
 			(at 165.1 44.45 0)
 			(hide yes)
 			(effects
@@ -3113,7 +3113,7 @@
 		)
 		(uuid "12ceeb00-cb9c-4c09-87a0-c5de8c1a4d6e")
 	)
-	(text "Meshtastic: SX126X_RXEN = RF_SW, DIO2 as RF switch,\nTCXO 1.8 V on DIO3. Footprint: create from datasheet."
+	(text "Meshtastic: SX126X_RXEN = RF_SW, DIO2 as RF switch,\nTCXO 1.8 V on DIO3."
 		(exclude_from_sim no)
 		(at 100 105 0)
 		(effects
