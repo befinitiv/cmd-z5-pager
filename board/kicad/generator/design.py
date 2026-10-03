@@ -311,6 +311,10 @@ mc.text('Inner pad = MIC_IN, outer ring = GND.\nMIC_VDD from nPM1300 GPIO1 (6 mA
 pw.place('Connector_Generic_MountingPin:Conn_01x02_MountingPin', (30, 165), nets={'1': 'GND'}, nc=('2', 'MP'),
          ref_pos=(20, 158, 'left'), val_pos=(36, 161, 'left'), **BAT_CONN)
 pw.text('Battery -', (36, 166))
+pw.place('Connector_Generic:Conn_01x02', (100, 160), value='Battery header', dnp=True,
+         footprint='Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical',
+         nets={'1': 'VBAT', '2': 'GND'}, ref_pos=(97, 154, 'left'), val_pos=(103, 158, 'left'))
+pw.text('2.54 mm header, not fitted:\n1 = VBAT, 2 = GND', (85, 168))
 
 
 # =====================================================================
