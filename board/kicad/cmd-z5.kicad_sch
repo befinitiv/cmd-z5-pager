@@ -1,7 +1,7 @@
 (kicad_sch
-	(version 20250114)
+	(version 20260306)
 	(generator "eeschema")
-	(generator_version "9.0")
+	(generator_version "10.0")
 	(uuid "6abffa09-a441-4dde-b1c7-3053cb1129f2")
 	(paper "A4")
 	(title_block
@@ -10,8 +10,19 @@
 		(comment 2 "Generated schematic - verify against datasheets before layout")
 	)
 	(lib_symbols)
+	(text "Block overview: see README.md (component selection, power architecture, GPIO assignment)."
+		(exclude_from_sim no)
+		(at 30 165 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "c8697ae3-20a6-491a-8a52-efadb23c7faa")
+	)
 	(sheet
-		(at 30 40)
+		(at 30 100)
 		(size 90 40)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -25,9 +36,11 @@
 		(fill
 			(color 0 0 0 0)
 		)
-		(uuid "c246016d-b8d4-41e1-afd7-6e94ddc5dfd4")
-		(property "Sheetname" "Power"
-			(at 30 39.3 0)
+		(uuid "3a4134b2-37ff-49cc-8b15-13b6ede026fa")
+		(property "Sheetname" "Radio_GPS"
+			(at 30 99.3 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -35,8 +48,10 @@
 				(justify left bottom)
 			)
 		)
-		(property "Sheetfile" "power.kicad_sch"
-			(at 30 80.6 0)
+		(property "Sheetfile" "radio_gps.kicad_sch"
+			(at 30 140.6 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -47,7 +62,7 @@
 		(instances
 			(project "cmd-z5"
 				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2"
-					(page "2")
+					(page "4")
 				)
 			)
 		)
@@ -70,6 +85,8 @@
 		(uuid "6e57a889-a3f3-4bed-9470-97f39177cd39")
 		(property "Sheetname" "MCU"
 			(at 150 39.3 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -79,6 +96,8 @@
 		)
 		(property "Sheetfile" "mcu.kicad_sch"
 			(at 150 80.6 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -95,7 +114,7 @@
 		)
 	)
 	(sheet
-		(at 30 100)
+		(at 30 40)
 		(size 90 40)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -109,9 +128,11 @@
 		(fill
 			(color 0 0 0 0)
 		)
-		(uuid "3a4134b2-37ff-49cc-8b15-13b6ede026fa")
-		(property "Sheetname" "Radio_GPS"
-			(at 30 99.3 0)
+		(uuid "c246016d-b8d4-41e1-afd7-6e94ddc5dfd4")
+		(property "Sheetname" "Power"
+			(at 30 39.3 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -119,8 +140,10 @@
 				(justify left bottom)
 			)
 		)
-		(property "Sheetfile" "radio_gps.kicad_sch"
-			(at 30 140.6 0)
+		(property "Sheetfile" "power.kicad_sch"
+			(at 30 80.6 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -131,7 +154,7 @@
 		(instances
 			(project "cmd-z5"
 				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2"
-					(page "4")
+					(page "2")
 				)
 			)
 		)
@@ -154,6 +177,8 @@
 		(uuid "ed4711e8-45ae-43a3-ad71-54dc99e47515")
 		(property "Sheetname" "UI"
 			(at 150 99.3 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -163,6 +188,8 @@
 		)
 		(property "Sheetfile" "ui.kicad_sch"
 			(at 150 140.6 0)
+			(show_name no)
+			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -177,17 +204,6 @@
 				)
 			)
 		)
-	)
-	(text "Block overview: see README.md (component selection, power architecture, GPIO assignment)."
-		(exclude_from_sim no)
-		(at 30 165 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "c8697ae3-20a6-491a-8a52-efadb23c7faa")
 	)
 	(sheet_instances
 		(path "/"

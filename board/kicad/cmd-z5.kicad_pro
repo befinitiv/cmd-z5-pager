@@ -658,7 +658,7 @@
       {
         "filename": "cmd-z5.kicad_sch",
         "name": "cmd-z5",
-        "uuid": "00000000-0000-0000-0000-000000000000"
+        "uuid": "6abffa09-a441-4dde-b1c7-3053cb1129f2"
       }
     ],
     "used_designators": "",
@@ -666,23 +666,23 @@
   },
   "sheets": [
     [
-      "dfc888d6-33ba-4d42-9e2f-80350794ff50",
-      "Root"
+      "6abffa09-a441-4dde-b1c7-3053cb1129f2",
+      "cmd-z5"
     ],
     [
-      "89ff155c-724a-4641-8f55-fe8caf783646",
+      "c246016d-b8d4-41e1-afd7-6e94ddc5dfd4",
       "Power"
     ],
     [
-      "e86c3301-bd5c-4574-b9ad-832e92537de5",
+      "6e57a889-a3f3-4bed-9470-97f39177cd39",
       "MCU"
     ],
     [
-      "6037f5b9-c02a-4bef-b9c5-5d0ca3c66fad",
+      "3a4134b2-37ff-49cc-8b15-13b6ede026fa",
       "Radio_GPS"
     ],
     [
-      "85f1a992-f54f-4b39-8265-4ea193d78adc",
+      "ed4711e8-45ae-43a3-ad71-54dc99e47515",
       "UI"
     ]
   ],

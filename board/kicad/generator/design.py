@@ -38,11 +38,11 @@ pw.box(125, 15, 410, 200, 'nPM1300 PMIC')
 pw.place('cmd-z5:nPM1300-QEAA', (215, 105), value='nPM1300-QEAA-R7', fields={'LCSC': 'C7501206'},
          nets={'21': 'VBUS', '23': 'USB_CC1', '24': 'USB_CC2', '22': 'VBUS_NRF',
                '19': 'VBAT', '18': 'PMIC_NTC', '15': 'SHPHLD', '17': 'GND', '16': 'PMIC_VSET2',
-               '12': '+3V0', '13': 'I2C_SDA', '14': 'I2C_SCL', '7': 'PMIC_INT',
+               '12': '+3V0', '13': 'I2C_SDA', '14': 'I2C_SCL', '7': 'PMIC_INT', '8': 'MIC_VDD',
                '20': 'VSYS', '4': 'VSYS', '3': 'PMIC_SW1', '1': '+3V0_RF', '2': 'GND',
                '5': 'PMIC_SW2', '32': '+3V0', '6': 'GND',
                '28': '+3V0', '29': '+3V0_LCD', '30': '+3V0', '31': 'VAMP', '33': 'GND'},
-         nc=('8', '9', '10', '11', '25', '26', '27'))
+         nc=('9', '10', '11', '25', '26', '27'))
 
 # input / output capacitors (Nordic reference configuration 1)
 x = 140
@@ -75,11 +75,14 @@ pw.text('VSET2: 150k = 3.0 V\nNTC: 0R to GND when the cell has\nno thermistor (c
 
 # Battery
 pw.box(10, 125, 120, 200, 'Battery')
-pw.place('Connector_Generic:Conn_01x02', (30, 160), value='Battery 1S Li-ion',
-         footprint='Connector_JST:JST_SH_SM02B-SRSS-TB_1x02-1MP_P1.00mm_Horizontal',
-         nets={'1': 'VBAT', '2': 'GND'})
-pw.flag('VBAT', (60, 150))
-pw.text('Charging is disabled at power-up; firmware must\nset charge current and VTERM over I2C.', (15, 180))
+BAT_CONN = dict(value='GT-BTP30002-0500B-015A', footprint='cmd-z5:BAT-SMD_2P-P3.00_G-Switch_GT-BTP30002-0500B-015A',
+                fields={'LCSC': 'C41378718'})
+pw.place('Connector_Generic_MountingPin:Conn_01x02_MountingPin', (30, 145), nets={'2': 'VBAT'}, nc=('1', 'MP'),
+         ref_pos=(20, 138, 'left'), val_pos=(36, 141, 'left'), **BAT_CONN)
+P.pwrcount += 1   # keep the #PWR numbering of the 3-pin version (one VBAT symbol less)
+pw.text('Battery +', (36, 146))
+pw.flag('VBAT', (80, 150))
+pw.text('Battery contacts: 2x G-Switch side-push springs\n(one per terminal): + on pin 2, - on pin 1,\nother pin and fixing foot not connected.\nCharging is disabled at power-up; firmware must\nset charge current and VTERM over I2C.', (15, 180))
 
 # =====================================================================
 # Sheet 2: MCU (nRF52840, crystals, RF, SWD, accelerometer)
@@ -104,10 +107,11 @@ nrf_nets = {
     'A8': 'KB_COL0', 'B9': 'KB_COL1', 'A10': 'KB_COL2', 'B11': 'KB_COL3',
     'A12': 'KB_ROW0', 'B13': 'KB_ROW1', 'A14': 'KB_ROW2', 'B15': 'KB_ROW3', 'A16': 'KB_ROW4',
     'B17': 'ENC_A', 'B19': 'ENC_B', 'A20': 'LID_SW',
+    'K2': 'MIC_OUT',
 }
 mc.place('MCU_Nordic:nRF52840', (205, 150), value='nRF52840-QIAA-R', fields={'LCSC': 'C190794'},
-         nets=nrf_nets, nc=('J1', 'K2', 'A18', 'N24'))
-mc.text('P0.04 / P0.05: spare (AIN2/AIN3)\nDEC2, DEC5: not connected (aQFN73 build code Fxx and later)', (150, 236))
+         nets=nrf_nets, nc=('J1', 'A18', 'N24'))
+mc.text('P0.04: spare (AIN2), P0.05 (AIN3): microphone\nDEC2, DEC5: not connected (aQFN73 build code Fxx and later)', (150, 236))
 
 # decoupling (Nordic reference circuit configuration no. 5)
 mc.box(10, 15, 140, 75, 'nRF52840 supply and decoupling')
@@ -270,6 +274,43 @@ ui.C('100n', (75, 200), 'EAR_RC', 'EAR_IN', rot=90)
 ui.C('100n', (55, 245), 'EAR_INN', 'GND')
 ui.C('10u', (115, 255), 'VAMP', fp=C0603); ui.C('100n', (125, 255), 'VAMP')
 ui.text('PWM -> RC low-pass -> AC coupling. Amplifier is\npowered from nPM1300 LSOUT2 (VAMP), SD tied to VAMP.\nDrive EAR_PWM low while VAMP is off.', (15, 265))
+
+# =====================================================================
+# MCU sheet: electret microphone (added after the UI sheet so the
+# reference designators of the existing parts stay unchanged)
+# =====================================================================
+mc.box(285, 165, 410, 250, 'Microphone (original capsule)')
+mc.place('Device:Microphone_Condenser', (289, 236), value='Capsule mic (original)',
+         footprint='cmd-z5:MIC_Contact_Concentric_D6.2mm', in_bom=False, hide_value=True,
+         fields={'Note': 'Electret capsule from the original phone, presses on concentric pads'},
+         nets={'2': 'MIC_IN', '1': 'GND'}, ref_pos=(292, 236, 'left'), val_pos=(292, 239, 'left'))
+# series parts: bias filter, bias load, coupling, reference, gain network, ADC RC
+mc.R('1k', (302, 175), 'MIC_VDD', 'MIC_BIAS', rot=90)
+mc.R('2.2k', (337, 175), 'MIC_BIAS', 'MIC_IN', rot=90)
+mc.C('1u', (372, 175), 'MIC_IN', 'MIC_INP', rot=90)
+mc.R('100k', (302, 186), 'MIC_VDD', 'MIC_VREF', rot=90)
+mc.R('100k', (337, 186), 'MIC_VREF', 'MIC_INP', rot=90)
+mc.R('100k', (372, 186), 'MIC_FB', 'MIC_AMP', rot=90)
+mc.R('2.2k', (302, 197), 'MIC_RG', 'MIC_FB', rot=90)
+mc.R('1k', (337, 197), 'MIC_AMP', 'MIC_OUT', rot=90)
+mc.C('330p', (372, 197), 'MIC_FB', 'MIC_AMP', rot=90)
+# shunt parts
+mc.C('10u', (298, 217), 'MIC_BIAS', fp=C0603)
+mc.C('1u', (310, 217), 'MIC_VREF'); mc.R('100k', (322, 217), 'MIC_VREF', 'GND')
+mc.C('4.7u', (334, 217), 'MIC_RG')
+mc.C('1u', (346, 217), 'MIC_VDD'); mc.C('100n', (358, 217), 'MIC_VDD')
+mc.C('10n', (370, 217), 'MIC_OUT')
+mc.flag('MIC_VDD', (380, 210))
+# non-inverting preamp, gain 1 + 100k/2.2k = 33 dB
+mc.place('Amplifier_Operational:TLV9001IDCK', (384, 236), value='TLV9001IDCKR', fields={'LCSC': 'C398362'},
+         nets={'1': 'MIC_INP', '3': 'MIC_FB', '4': 'MIC_AMP', '5': 'MIC_VDD', '2': 'GND'},
+         ref_pos=(387, 226, 'left'), val_pos=(387, 247, 'left'))
+mc.text('Inner pad = MIC_IN, outer ring = GND.\nMIC_VDD from nPM1300 GPIO1 (6 mA drive,\nhigh = on, off in low-power mode).\nBias 1k + 10u filter, 2.2k load (~2 V on mic).\nGain 33 dB, 15 Hz - 4.8 kHz; MIC_OUT idles\nat VDD/2 -> SAADC AIN3 (P0.05), single-ended.', (300, 228))
+
+# Power sheet: battery - contact (second connector, added here to keep existing references)
+pw.place('Connector_Generic_MountingPin:Conn_01x02_MountingPin', (30, 165), nets={'1': 'GND'}, nc=('2', 'MP'),
+         ref_pos=(20, 158, 'left'), val_pos=(36, 161, 'left'), **BAT_CONN)
+pw.text('Battery -', (36, 166))
 
 
 # =====================================================================
