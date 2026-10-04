@@ -316,6 +316,19 @@ pw.place('Connector_Generic:Conn_01x02', (100, 160), value='Battery header', dnp
          nets={'1': 'VBAT', '2': 'GND'}, ref_pos=(97, 154, 'left'), val_pos=(103, 158, 'left'))
 pw.text('2.54 mm header, not fitted:\n1 = VBAT, 2 = GND', (85, 168))
 
+# UI sheet: green board LEDs in parallel with the keyboard flex LEDs (switched by Q1A / LED_EN)
+ui.box(322, 167, 408, 208, 'Board LEDs')
+for i in range(4):
+    x = kisch.snap(360 + i * 10)
+    yl, yr = kisch.snap(182.88), kisch.snap(191.77)
+    ui.place('Device:LED', (x, yl), rot=90, value='green', footprint='LED_SMD:LED_0603_1608Metric',
+             fields={'LCSC': 'C72043', 'MPN': '19-217/GHC-YR1S2/3T'}, nets={'2': 'VSYS'}, auto_nc=False,
+             hide_value=True, ref_pos=(x + 2.3, yl, 'center'))
+    ui.place('Device:R_Small', (x, yr), value='330', footprint=R0402, nets={'2': 'LED_K_SW'}, auto_nc=False)
+    ui.items.append([Sym('wire'), [Sym('pts'), [Sym('xy'), x, round(yl + 3.81, 4)], [Sym('xy'), x, round(yr - 2.54, 4)]],
+                     [Sym('stroke'), [Sym('width'), 0], [Sym('type'), Sym('default')]], [Sym('uuid'), U()]])
+ui.text('0603 green, 330R each:\n~3 mA (3.6 V) to\n~7 mA (5 V USB).\nOn with the flex LEDs\n(Q1A, LED_EN).', (324, 178))
+
 
 # =====================================================================
 # write files

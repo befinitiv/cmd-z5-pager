@@ -31,6 +31,7 @@ LCSC part numbers were checked on 2026-10-02. Check stock again before ordering.
 | Accelerometer | ST LIS2DH12TR | C110926 | LGA-12 2×2 | About 2 µA in low-power motion detection; same WHO_AM_I as the LIS3DH. Alternative: LIS2DW12TR (C189624), lower current but needs its own driver |
 | Earpiece amplifier | Diodes PAM8302AASCR | C113367 | MSOP-8 | BTL output for the floating earpiece; input from nRF PWM via RC filter |
 | LED and loudspeaker drivers | Diodes DMG1024UV-7 | C2759893 | SOT-563 | Dual N-FET, low-side switches |
+| Board LEDs (4×) | Everlight 19-217/GHC-YR1S2/3T | C72043 | 0603 | Green, 330 Ω each from VSYS, in parallel with the keyboard flex LEDs on the same low-side switch (Q1A, LED_EN) |
 | Vibration motor driver | Diodes DMG1016UDW-7 | C211433 | SOT-363 | N+P pair, high-side switch (motor's other terminal is tied to GND) |
 | Microphone preamp | TI TLV9001IDCKR | C398362 | SC-70-5 | 60 µA rail-to-rail op-amp, 33 dB gain for the original electret capsule, powered from an nPM1300 GPIO |
 | Flyback diodes | 1N5819WS | C191023 | SOD-323 | For motor and loudspeaker |
