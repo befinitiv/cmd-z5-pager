@@ -28,4 +28,9 @@
 	(pad "10" smd roundrect (at -0.68 -5.50) (size 0.6 2.2) (layers "F.Cu" "F.Paste" "F.Mask") (roundrect_rratio 0.25))
 	(pad "11" smd roundrect (at -1.95 -5.50) (size 0.6 2.2) (layers "F.Cu" "F.Paste" "F.Mask") (roundrect_rratio 0.25))
 	(pad "12" smd roundrect (at -3.22 -5.50) (size 0.6 2.2) (layers "F.Cu" "F.Paste" "F.Mask") (roundrect_rratio 0.25))
+	(model "${KIPRJMOD}/cmd-z5.3dshapes/Seeed_Wio-SX1262.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

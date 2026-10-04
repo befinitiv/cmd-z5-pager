@@ -50,8 +50,50 @@ def bat_2p_p3_00():
     return a
 
 
+GREEN = cq.Color(0.05, 0.35, 0.15)
+WHITE = cq.Color(0.9, 0.88, 0.8)
+
+
+def wio_sx1262():
+    """Seeed Wio-SX1262: 11.6 x 11 mm, 2.95 mm high, 0.8 mm PCB with gull-wing leads,
+    L-shaped shield can, IPEX (U.FL) connector in the corner next to pins 9-12.
+    Footprint pads 1-8 at footprint y = +5.5 (model y = -5.5), pads 9-12 at model y = +5.5."""
+    w, l = 11.6, 11.0
+    z_pcb, t_pcb, h = 0.15, 0.8, 2.95
+    pcb = cq.Workplane('XY').box(w, l, t_pcb, centered=(True, True, False)).translate((0, 0, z_pcb))
+    z_top = z_pcb + t_pcb
+    ipex_x, ipex_y = 3.8, 3.8                     # model coordinates (footprint y is negated)
+    cut_x0, cut_y0 = 2.5, 1.9                     # shield leaves this corner free for the IPEX
+    shield = (cq.Workplane('XY').box(w - 0.3, l - 0.3, h - z_top, centered=(True, True, False))
+              .translate((0, 0, z_top))
+              .cut(cq.Workplane('XY').box(w, l, h, centered=(False, False, False)).translate((cut_x0, cut_y0, z_top - 0.01))))
+    ipex = (cq.Workplane('XY').box(2.6, 2.6, 0.5, centered=(True, True, False)).translate((ipex_x, ipex_y, z_top)))
+    post = (cq.Workplane('XY').circle(1.0).circle(0.8).extrude(0.75).translate((ipex_x, ipex_y, z_top + 0.5))
+            .union(cq.Workplane('XY').circle(0.2).extrude(0.7).translate((ipex_x, ipex_y, z_top + 0.5))))
+    leads = None
+    pins = [(-4.49 + i * 1.27, -1) for i in range(8)] + [(0.59 - i * 1.27, 1) for i in range(4)]
+    for x, s in pins:
+        e = s * l / 2   # module edge
+        top = cq.Workplane('XY').box(0.4, 0.45, 0.15, centered=(True, False, False)).translate((x, 0, z_pcb + 0.35))
+        drop = cq.Workplane('XY').box(0.4, 0.15, z_pcb + 0.5, centered=(True, False, False)).translate((x, 0.3, 0))
+        foot = cq.Workplane('XY').box(0.4, 0.55, 0.15, centered=(True, False, False)).translate((x, 0.3, 0))
+        lead = top.union(drop).union(foot)
+        if s < 0:
+            lead = lead.mirror('XZ')
+        lead = lead.translate((0, e - s * 0.15, 0))
+        leads = lead if leads is None else leads.union(lead)
+    a = cq.Assembly(name='Wio-SX1262')
+    a.add(pcb, name='pcb', color=GREEN)
+    a.add(shield, name='shield', color=TIN)
+    a.add(ipex, name='ipex', color=WHITE)
+    a.add(post, name='ipex_post', color=GOLD)
+    a.add(leads, name='leads', color=GOLD)
+    return a
+
+
 MODELS = {
     'BAT-SMD_2P-P3.00_G-Switch_GT-BTP30002-0500B-015A': bat_2p_p3_00,
+    'Seeed_Wio-SX1262': wio_sx1262,
 }
 
 if __name__ == '__main__':

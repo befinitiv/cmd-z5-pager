@@ -169,7 +169,7 @@ Open points before layout:
 * ERC reports nRF52840 DCCH (power output) connected to +3V0. This follows Nordic reference circuit configuration 5 (DCCH tied to VDD) and can be excluded.
 * Custom footprints are in `kicad/cmd-z5.pretty` with 3D models in `kicad/cmd-z5.3dshapes`: Wio-SX1262 (drawn from the Seeed datasheet) and the two FFC connectors J5 (C3250122) and J6 (C3250123), imported from LCSC/EasyEDA with easyeda2kicad. The EasyEDA STEP model of C3250122 has a wrong origin, so J5 uses its WRL model.
 * Values to tune on the prototype: crystal load capacitors, BLE and LoRa antenna matching, LED and loudspeaker series resistors, microphone bias resistor and preamp gain.
-* Check the TBS M10N cable pin order against the 4-pin connector.
+* The TBS M10N is wired to J4, four SMD solder pads at 2 mm pitch (1 = +5V_GPS, 2 = GND, 3 = GPS TX via 1 kΩ, 4 = GPS RX). Check the wire colours against the M10N pinout before soldering.
 
 # Microphone
 

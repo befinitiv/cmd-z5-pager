@@ -220,8 +220,7 @@
 				)
 				(polyline
 					(pts
-						(xy -8.89 -3.81)
-						(xy -8.89 3.81)
+						(xy -8.89 -3.81) (xy -8.89 3.81)
 					)
 					(stroke
 						(width 0.508)
@@ -316,8 +315,7 @@
 				)
 				(polyline
 					(pts
-						(xy -5.08 3.81)
-						(xy -5.08 -3.81)
+						(xy -5.08 3.81) (xy -5.08 -3.81)
 					)
 					(stroke
 						(width 0.508)
@@ -340,10 +338,7 @@
 				)
 				(polyline
 					(pts
-						(xy -1.27 4.318)
-						(xy 0 6.858)
-						(xy 1.27 4.318)
-						(xy -1.27 4.318)
+						(xy -1.27 4.318) (xy 0 6.858) (xy 1.27 4.318) (xy -1.27 4.318)
 					)
 					(stroke
 						(width 0.254)
@@ -355,9 +350,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 -2.032)
-						(xy 2.54 0.508)
-						(xy 2.54 1.778)
+						(xy 0 -2.032) (xy 2.54 0.508) (xy 2.54 1.778)
 					)
 					(stroke
 						(width 0.508)
@@ -369,9 +362,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 -3.302)
-						(xy -2.54 -0.762)
-						(xy -2.54 0.508)
+						(xy 0 -3.302) (xy -2.54 -0.762) (xy -2.54 0.508)
 					)
 					(stroke
 						(width 0.508)
@@ -383,8 +374,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 -5.842)
-						(xy 0 4.318)
+						(xy 0 -5.842) (xy 0 4.318)
 					)
 					(stroke
 						(width 0.508)
@@ -1013,8 +1003,7 @@
 				)
 				(polyline
 					(pts
-						(xy -1.016 -4.572)
-						(xy 1.016 -4.572)
+						(xy -1.016 -4.572) (xy 1.016 -4.572)
 					)
 					(stroke
 						(width 0.1524)
@@ -1182,8 +1171,7 @@
 			(symbol "C_Small_0_1"
 				(polyline
 					(pts
-						(xy -1.524 0.508)
-						(xy 1.524 0.508)
+						(xy -1.524 0.508) (xy 1.524 0.508)
 					)
 					(stroke
 						(width 0.3048)
@@ -1195,8 +1183,7 @@
 				)
 				(polyline
 					(pts
-						(xy -1.524 -0.508)
-						(xy 1.524 -0.508)
+						(xy -1.524 -0.508) (xy 1.524 -0.508)
 					)
 					(stroke
 						(width 0.3048)
@@ -1728,8 +1715,7 @@
 			(symbol "USBLC6-2SC6_0_1"
 				(polyline
 					(pts
-						(xy -2.54 0)
-						(xy 2.54 0)
+						(xy -2.54 0) (xy 2.54 0)
 					)
 					(stroke
 						(width 0)
@@ -1741,8 +1727,7 @@
 				)
 				(polyline
 					(pts
-						(xy -2.54 -2.54)
-						(xy 2.54 -2.54)
+						(xy -2.54 -2.54) (xy 2.54 -2.54)
 					)
 					(stroke
 						(width 0)
@@ -1754,10 +1739,7 @@
 				)
 				(polyline
 					(pts
-						(xy -2.032 0.508)
-						(xy -1.016 0.508)
-						(xy -1.524 1.524)
-						(xy -2.032 0.508)
+						(xy -2.032 0.508) (xy -1.016 0.508) (xy -1.524 1.524) (xy -2.032 0.508)
 					)
 					(stroke
 						(width 0)
@@ -1769,8 +1751,7 @@
 				)
 				(polyline
 					(pts
-						(xy -2.032 -3.048)
-						(xy -1.016 -3.048)
+						(xy -2.032 -3.048) (xy -1.016 -3.048)
 					)
 					(stroke
 						(width 0)
@@ -1782,8 +1763,7 @@
 				)
 				(polyline
 					(pts
-						(xy -1.016 1.524)
-						(xy -2.032 1.524)
+						(xy -1.016 1.524) (xy -2.032 1.524)
 					)
 					(stroke
 						(width 0)
@@ -1795,10 +1775,7 @@
 				)
 				(polyline
 					(pts
-						(xy -1.016 -4.064)
-						(xy -2.032 -4.064)
-						(xy -1.524 -3.048)
-						(xy -1.016 -4.064)
+						(xy -1.016 -4.064) (xy -2.032 -4.064) (xy -1.524 -3.048) (xy -1.016 -4.064)
 					)
 					(stroke
 						(width 0)
@@ -1810,9 +1787,7 @@
 				)
 				(polyline
 					(pts
-						(xy -0.508 -1.143)
-						(xy -0.508 -0.762)
-						(xy 0.508 -0.762)
+						(xy -0.508 -1.143) (xy -0.508 -0.762) (xy 0.508 -0.762)
 					)
 					(stroke
 						(width 0)
@@ -1824,13 +1799,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy -0.508 2.032)
-						(xy 0.508 2.032)
-						(xy 0 1.524)
-						(xy 0 -4.064)
-						(xy -0.508 -4.572)
-						(xy 0.508 -4.572)
+						(xy 0 2.54) (xy -0.508 2.032) (xy 0.508 2.032) (xy 0 1.524) (xy 0 -4.064) (xy -0.508 -4.572) (xy 0.508 -4.572)
 						(xy 0 -5.08)
 					)
 					(stroke
@@ -1843,10 +1812,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0.508 -1.778)
-						(xy -0.508 -1.778)
-						(xy 0 -0.762)
-						(xy 0.508 -1.778)
+						(xy 0.508 -1.778) (xy -0.508 -1.778) (xy 0 -0.762) (xy 0.508 -1.778)
 					)
 					(stroke
 						(width 0)
@@ -1858,8 +1824,7 @@
 				)
 				(polyline
 					(pts
-						(xy 1.016 1.524)
-						(xy 2.032 1.524)
+						(xy 1.016 1.524) (xy 2.032 1.524)
 					)
 					(stroke
 						(width 0)
@@ -1871,8 +1836,7 @@
 				)
 				(polyline
 					(pts
-						(xy 1.016 -3.048)
-						(xy 2.032 -3.048)
+						(xy 1.016 -3.048) (xy 2.032 -3.048)
 					)
 					(stroke
 						(width 0)
@@ -1884,10 +1848,7 @@
 				)
 				(polyline
 					(pts
-						(xy 2.032 0.508)
-						(xy 1.016 0.508)
-						(xy 1.524 1.524)
-						(xy 2.032 0.508)
+						(xy 2.032 0.508) (xy 1.016 0.508) (xy 1.524 1.524) (xy 2.032 0.508)
 					)
 					(stroke
 						(width 0)
@@ -1899,10 +1860,7 @@
 				)
 				(polyline
 					(pts
-						(xy 2.032 -4.064)
-						(xy 1.016 -4.064)
-						(xy 1.524 -3.048)
-						(xy 2.032 -4.064)
+						(xy 2.032 -4.064) (xy 1.016 -4.064) (xy 1.524 -3.048) (xy 2.032 -4.064)
 					)
 					(stroke
 						(width 0)
@@ -1927,10 +1885,7 @@
 				)
 				(polyline
 					(pts
-						(xy -0.508 2.032)
-						(xy -1.524 2.032)
-						(xy -1.524 -4.572)
-						(xy -0.508 -4.572)
+						(xy -0.508 2.032) (xy -1.524 2.032) (xy -1.524 -4.572) (xy -0.508 -4.572)
 					)
 					(stroke
 						(width 0)
@@ -1942,10 +1897,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0.508 -4.572)
-						(xy 1.524 -4.572)
-						(xy 1.524 2.032)
-						(xy 0.508 2.032)
+						(xy 0.508 -4.572) (xy 1.524 -4.572) (xy 1.524 2.032) (xy 0.508 2.032)
 					)
 					(stroke
 						(width 0)
@@ -2148,8 +2100,7 @@
 			(symbol "+3V0_LCD_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2161,8 +2112,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -2174,8 +2124,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2290,8 +2239,7 @@
 			(symbol "+3V0_RF_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2303,8 +2251,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -2316,8 +2263,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2432,8 +2378,7 @@
 			(symbol "VAMP_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2445,8 +2390,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -2458,8 +2402,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2574,8 +2517,7 @@
 			(symbol "VBAT_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2587,8 +2529,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -2600,8 +2541,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2716,8 +2656,7 @@
 			(symbol "VBUS_NRF_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2729,8 +2668,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -2742,8 +2680,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2858,8 +2795,7 @@
 			(symbol "VSYS_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2871,8 +2807,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -2884,8 +2819,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -2922,8 +2856,12 @@
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
 			(property "Reference" "U"
 				(at -15.24 29.21 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -2933,6 +2871,8 @@
 			)
 			(property "Value" "nPM1300-QEAA-R7"
 				(at -15.24 -29.21 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(effects
 					(font
 						(size 1.27 1.27)
@@ -2942,6 +2882,8 @@
 			)
 			(property "Footprint" "Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.45x3.45mm"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -2951,6 +2893,8 @@
 			)
 			(property "Datasheet" "https://docs.nordicsemi.com/bundle/ps_npm1300/page/keyfeatures_html5.html"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -2960,6 +2904,8 @@
 			)
 			(property "Description" "Nordic nPM1300 PMIC: Li-ion charger, 2x 200 mA buck, 2x load switch/LDO, USB-C detection, QFN-32"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -2969,6 +2915,8 @@
 			)
 			(property "LCSC" "C7501206"
 				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
 				(hide yes)
 				(effects
 					(font
@@ -2990,71 +2938,17 @@
 				)
 			)
 			(symbol "nPM1300-QEAA_1_1"
-				(pin power_in line
-					(at -17.78 25.4 0)
-					(length 2.54)
-					(name "VBUS"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "21"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin bidirectional line
-					(at -17.78 22.86 0)
-					(length 2.54)
-					(name "CC1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "23"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin bidirectional line
-					(at -17.78 20.32 0)
-					(length 2.54)
-					(name "CC2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "24"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
 				(pin power_out line
-					(at -17.78 17.78 0)
+					(at 17.78 15.24 180)
 					(length 2.54)
-					(name "VBUSOUT"
+					(name "VOUT1"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "22"
+					(number "1"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3063,16 +2957,16 @@
 					)
 				)
 				(pin power_in line
-					(at -17.78 12.7 0)
+					(at 17.78 12.7 180)
 					(length 2.54)
-					(name "VBAT"
+					(name "PVSS1"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "19"
+					(number "2"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3080,71 +2974,17 @@
 						)
 					)
 				)
-				(pin input line
-					(at -17.78 10.16 0)
+				(pin output line
+					(at 17.78 17.78 180)
 					(length 2.54)
-					(name "NTC"
+					(name "SW1"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "18"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -17.78 5.08 0)
-					(length 2.54)
-					(name "SHPHLD"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "15"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -17.78 2.54 0)
-					(length 2.54)
-					(name "VSET1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "17"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -17.78 0 0)
-					(length 2.54)
-					(name "VSET2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "16"
+					(number "3"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3153,16 +2993,16 @@
 					)
 				)
 				(pin power_in line
-					(at -17.78 -5.08 0)
+					(at 17.78 22.86 180)
 					(length 2.54)
-					(name "VDDIO"
+					(name "PVDD"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "12"
+					(number "4"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3170,17 +3010,17 @@
 						)
 					)
 				)
-				(pin bidirectional line
-					(at -17.78 -7.62 0)
+				(pin output line
+					(at 17.78 7.62 180)
 					(length 2.54)
-					(name "SDA"
+					(name "SW2"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "13"
+					(number "5"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3188,17 +3028,17 @@
 						)
 					)
 				)
-				(pin input line
-					(at -17.78 -10.16 0)
+				(pin power_in line
+					(at 17.78 2.54 180)
 					(length 2.54)
-					(name "SCL"
+					(name "PVSS2"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "14"
+					(number "6"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3296,6 +3136,150 @@
 						)
 					)
 				)
+				(pin power_in line
+					(at -17.78 -5.08 0)
+					(length 2.54)
+					(name "VDDIO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin bidirectional line
+					(at -17.78 -7.62 0)
+					(length 2.54)
+					(name "SDA"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "13"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -17.78 -10.16 0)
+					(length 2.54)
+					(name "SCL"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "14"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -17.78 5.08 0)
+					(length 2.54)
+					(name "SHPHLD"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "15"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -17.78 0 0)
+					(length 2.54)
+					(name "VSET2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "16"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -17.78 2.54 0)
+					(length 2.54)
+					(name "VSET1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "17"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -17.78 10.16 0)
+					(length 2.54)
+					(name "NTC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "18"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at -17.78 12.7 0)
+					(length 2.54)
+					(name "VBAT"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "19"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
 				(pin power_out line
 					(at 17.78 25.4 180)
 					(length 2.54)
@@ -3315,34 +3299,16 @@
 					)
 				)
 				(pin power_in line
-					(at 17.78 22.86 180)
+					(at -17.78 25.4 0)
 					(length 2.54)
-					(name "PVDD"
+					(name "VBUS"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin output line
-					(at 17.78 17.78 180)
-					(length 2.54)
-					(name "SW1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
+					(number "21"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3351,16 +3317,16 @@
 					)
 				)
 				(pin power_out line
-					(at 17.78 15.24 180)
+					(at -17.78 17.78 0)
 					(length 2.54)
-					(name "VOUT1"
+					(name "VBUSOUT"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "1"
+					(number "22"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3368,17 +3334,17 @@
 						)
 					)
 				)
-				(pin power_in line
-					(at 17.78 12.7 180)
+				(pin bidirectional line
+					(at -17.78 22.86 0)
 					(length 2.54)
-					(name "PVSS1"
+					(name "CC1"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "2"
+					(number "23"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3386,17 +3352,17 @@
 						)
 					)
 				)
-				(pin output line
-					(at 17.78 7.62 180)
+				(pin bidirectional line
+					(at -17.78 20.32 0)
 					(length 2.54)
-					(name "SW2"
+					(name "CC2"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "5"
+					(number "24"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3404,17 +3370,17 @@
 						)
 					)
 				)
-				(pin power_out line
-					(at 17.78 5.08 180)
+				(pin open_collector line
+					(at 17.78 -15.24 180)
 					(length 2.54)
-					(name "VOUT2"
+					(name "LED0"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "32"
+					(number "25"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3422,17 +3388,35 @@
 						)
 					)
 				)
-				(pin power_in line
-					(at 17.78 2.54 180)
+				(pin open_collector line
+					(at 17.78 -17.78 180)
 					(length 2.54)
-					(name "PVSS2"
+					(name "LED1"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "6"
+					(number "26"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin open_collector line
+					(at 17.78 -20.32 180)
+					(length 2.54)
+					(name "LED2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "27"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3512,53 +3496,17 @@
 						)
 					)
 				)
-				(pin open_collector line
-					(at 17.78 -15.24 180)
+				(pin power_out line
+					(at 17.78 5.08 180)
 					(length 2.54)
-					(name "LED0"
+					(name "VOUT2"
 						(effects
 							(font
 								(size 1.27 1.27)
 							)
 						)
 					)
-					(number "25"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin open_collector line
-					(at 17.78 -17.78 180)
-					(length 2.54)
-					(name "LED1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "26"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin open_collector line
-					(at 17.78 -20.32 180)
-					(length 2.54)
-					(name "LED2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "27"
+					(number "32"
 						(effects
 							(font
 								(size 1.27 1.27)
@@ -3585,6 +3533,7 @@
 					)
 				)
 			)
+			(embedded_fonts no)
 		)
 		(symbol "power:+3V0"
 			(power global)
@@ -3668,8 +3617,7 @@
 			(symbol "+3V0_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -3681,8 +3629,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -3694,8 +3641,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -3810,12 +3756,7 @@
 			(symbol "GND_0_1"
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 -1.27)
-						(xy 1.27 -1.27)
-						(xy 0 -2.54)
-						(xy -1.27 -1.27)
-						(xy 0 -1.27)
+						(xy 0 0) (xy 0 -1.27) (xy 1.27 -1.27) (xy 0 -2.54) (xy -1.27 -1.27) (xy 0 -1.27)
 					)
 					(stroke
 						(width 0)
@@ -3950,12 +3891,7 @@
 			(symbol "PWR_FLAG_0_1"
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 1.27)
-						(xy -1.016 1.905)
-						(xy 0 2.54)
-						(xy 1.016 1.905)
-						(xy 0 1.27)
+						(xy 0 0) (xy 0 1.27) (xy -1.016 1.905) (xy 0 2.54) (xy 1.016 1.905) (xy 0 1.27)
 					)
 					(stroke
 						(width 0)
@@ -4050,8 +3986,7 @@
 			(symbol "VBUS_0_1"
 				(polyline
 					(pts
-						(xy -0.762 1.27)
-						(xy 0 2.54)
+						(xy -0.762 1.27) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -4063,8 +3998,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 2.54)
-						(xy 0.762 1.27)
+						(xy 0 2.54) (xy 0.762 1.27)
 					)
 					(stroke
 						(width 0)
@@ -4076,8 +4010,7 @@
 				)
 				(polyline
 					(pts
-						(xy 0 0)
-						(xy 0 2.54)
+						(xy 0 0) (xy 0 2.54)
 					)
 					(stroke
 						(width 0)
@@ -4247,6 +4180,17 @@
 		)
 		(uuid "a22c0b05-44ad-481e-9672-e38ae0bf7e2b")
 	)
+	(text "2.54 mm header, not fitted:\n1 = VBAT, 2 = GND"
+		(exclude_from_sim no)
+		(at 85 168 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "b08852fe-d8a6-44f0-bf61-19b490d98bb4")
+	)
 	(text "Battery +"
 		(exclude_from_sim no)
 		(at 36 146 0)
@@ -4268,6 +4212,17 @@
 			(justify left top)
 		)
 		(uuid "c6c0aac2-6081-4fae-a109-7c1c8e26f6d8")
+	)
+	(text "Battery contacts: 2x G-Switch side-push springs\n(one per terminal): + on pin 2, - on pin 1,\nother pin and fixing foot not connected.\nCharging is disabled at power-up; firmware must\nset charge current and VTERM over I2C."
+		(exclude_from_sim no)
+		(at 15 180 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "d7039bc1-91d0-449b-a245-24c7588406a8")
 	)
 	(text "LSOUT1 -> +3V0_LCD (display supply)\nLSOUT2 -> VAMP (earpiece amplifier)\nBoth off in low-power mode."
 		(exclude_from_sim no)
@@ -4303,6 +4258,10 @@
 			(justify left top)
 		)
 		(uuid "fb46957d-dfc9-4713-85dd-984d5b1baf95")
+	)
+	(no_connect
+		(at 25.4 144.78)
+		(uuid "3dcbe383-21f8-4af4-bea0-b22df4400940")
 	)
 	(no_connect
 		(at 50.8 80.01)
@@ -4660,6 +4619,16 @@
 	)
 	(wire
 		(pts
+			(xy 95.25 160.02) (xy 92.71 160.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5ddc03ca-9d65-487f-bb72-9d3166ef1659")
+	)
+	(wire
+		(pts
 			(xy 281.94 105.41) (xy 279.4 105.41)
 		)
 		(stroke
@@ -4667,6 +4636,16 @@
 			(type default)
 		)
 		(uuid "6994ffb0-2d10-44ef-8d4a-a11da2225bc9")
+	)
+	(wire
+		(pts
+			(xy 95.25 162.56) (xy 92.71 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "708b94f4-accf-4691-b8ee-8427bfbaddd0")
 	)
 	(wire
 		(pts
@@ -8101,6 +8080,84 @@
 		)
 	)
 	(symbol
+		(lib_id "cmd-z5:VBAT")
+		(at 92.71 160.02 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "8333a07c-d980-41c0-b9b4-0c318246e324")
+		(property "Reference" "#PWR135"
+			(at 92.71 160.02 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "VBAT"
+			(at 87.63 160.02 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 92.71 160.02 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 92.71 160.02 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBAT\""
+			(at 92.71 160.02 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "7b7b1565-a716-47e5-a1ec-6fe60f4839d3")
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
+					(reference "#PWR135")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 149.86 40.64 0)
 		(unit 1)
@@ -9054,6 +9111,179 @@
 		)
 	)
 	(symbol
+		(lib_id "Connector_Generic_MountingPin:Conn_01x02_MountingPin")
+		(at 30.48 165.1 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "a8e6fb67-228e-48cf-8bcc-7618f5db6a30")
+		(property "Reference" "J7"
+			(at 20 158 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "GT-BTP30002-0500B-015A"
+			(at 36 161 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "cmd-z5:BAT-SMD_2P-P3.00_G-Switch_GT-BTP30002-0500B-015A"
+			(at 30.48 165.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 30.48 165.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connectable mounting pin connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 30.48 165.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C41378718"
+			(at 30.48 165.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d1229601-d011-4283-847c-41bd44f9a56a")
+		)
+		(pin "2"
+			(uuid "4df67079-b604-4df5-b2d2-ef434321a334")
+		)
+		(pin "MP"
+			(uuid "27edbecc-15b8-4a88-acf8-2e75a569cc8c")
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
+					(reference "J7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 92.71 162.56 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ad56e3fd-f643-4630-9708-fb4e2b2b944f")
+		(property "Reference" "#PWR136"
+			(at 92.71 162.56 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 87.63 162.56 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 92.71 162.56 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 92.71 162.56 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 92.71 162.56 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "964294b5-123b-4c7c-80f9-e93172f93ba6")
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
+					(reference "#PWR136")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3V0")
 		(at 304.8 110.49 0)
 		(unit 1)
@@ -9670,6 +9900,182 @@
 			(project "cmd-z5"
 				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
 					(reference "#PWR034")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector_Generic_MountingPin:Conn_01x02_MountingPin")
+		(at 30.48 144.78 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d2afed16-8ada-4f25-b90c-1ac7c9c1fa6d")
+		(property "Reference" "J2"
+			(at 20 138 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "GT-BTP30002-0500B-015A"
+			(at 36 141 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "cmd-z5:BAT-SMD_2P-P3.00_G-Switch_GT-BTP30002-0500B-015A"
+			(at 30.48 144.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 30.48 144.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connectable mounting pin connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 30.48 144.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC" "C41378718"
+			(at 30.48 144.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5b8fba1c-656f-4060-bfa4-c87a3964403d")
+		)
+		(pin "2"
+			(uuid "f059d43c-8c49-4ba4-ac8f-baae2f0d2d67")
+		)
+		(pin "MP"
+			(uuid "f5727219-151a-4877-8dc1-f6f63780284d")
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
+					(reference "J2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector_Generic:Conn_01x02")
+		(at 100.33 160.02 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp yes)
+		(uuid "d9953353-eaf2-4f84-8a72-9398e071b037")
+		(property "Reference" "J8"
+			(at 97 154 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Battery header"
+			(at 103 158 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+			(at 100.33 160.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 100.33 160.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 100.33 160.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d41589f0-6a68-44ae-9746-d8b50a116b3f")
+		)
+		(pin "2"
+			(uuid "8ffa9fc9-5184-461e-b033-b6a1ac4ee37b")
+		)
+		(instances
+			(project "cmd-z5"
+				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
+					(reference "J8")
 					(unit 1)
 				)
 			)
@@ -10588,416 +10994,5 @@
 				)
 			)
 		)
-	)
-	(symbol
-		(lib_id "Connector_Generic_MountingPin:Conn_01x02_MountingPin")
-		(at 30.48 144.78 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "d2afed16-8ada-4f25-b90c-1ac7c9c1fa6d")
-		(property "Reference" "J2"
-			(at 20 138 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "GT-BTP30002-0500B-015A"
-			(at 36 141 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "cmd-z5:BAT-SMD_2P-P3.00_G-Switch_GT-BTP30002-0500B-015A"
-			(at 30.48 144.78 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 30.48 144.78 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Generic connectable mounting pin connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
-			(at 30.48 144.78 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC" "C41378718"
-			(at 30.48 144.78 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "5b8fba1c-656f-4060-bfa4-c87a3964403d")
-		)
-		(pin "2"
-			(uuid "f059d43c-8c49-4ba4-ac8f-baae2f0d2d67")
-		)
-		(pin "MP"
-			(uuid "f5727219-151a-4877-8dc1-f6f63780284d")
-		)
-		(instances
-			(project "cmd-z5"
-				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
-					(reference "J2")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(no_connect
-		(at 25.4 144.78)
-		(uuid "3dcbe383-21f8-4af4-bea0-b22df4400940")
-	)
-	(text "Battery contacts: 2x G-Switch side-push springs\n(one per terminal): + on pin 2, - on pin 1,\nother pin and fixing foot not connected.\nCharging is disabled at power-up; firmware must\nset charge current and VTERM over I2C."
-		(exclude_from_sim no)
-		(at 15 180 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left top)
-		)
-		(uuid "d7039bc1-91d0-449b-a245-24c7588406a8")
-	)
-	(symbol
-		(lib_id "Connector_Generic_MountingPin:Conn_01x02_MountingPin")
-		(at 30.48 165.1 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(uuid "a8e6fb67-228e-48cf-8bcc-7618f5db6a30")
-		(property "Reference" "J7"
-			(at 20 158 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "GT-BTP30002-0500B-015A"
-			(at 36 161 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "cmd-z5:BAT-SMD_2P-P3.00_G-Switch_GT-BTP30002-0500B-015A"
-			(at 30.48 165.1 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 30.48 165.1 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Generic connectable mounting pin connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
-			(at 30.48 165.1 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC" "C41378718"
-			(at 30.48 165.1 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d1229601-d011-4283-847c-41bd44f9a56a")
-		)
-		(pin "2"
-			(uuid "4df67079-b604-4df5-b2d2-ef434321a334")
-		)
-		(pin "MP"
-			(uuid "27edbecc-15b8-4a88-acf8-2e75a569cc8c")
-		)
-		(instances
-			(project "cmd-z5"
-				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
-					(reference "J7")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Connector_Generic:Conn_01x02")
-		(at 100.33 160.02 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp yes)
-		(uuid "d9953353-eaf2-4f84-8a72-9398e071b037")
-		(property "Reference" "J8"
-			(at 97 154 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Value" "Battery header"
-			(at 103 158 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
-			(at 100.33 160.02 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 100.33 160.02 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
-			(at 100.33 160.02 0)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d41589f0-6a68-44ae-9746-d8b50a116b3f")
-		)
-		(pin "2"
-			(uuid "8ffa9fc9-5184-461e-b033-b6a1ac4ee37b")
-		)
-		(instances
-			(project "cmd-z5"
-				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
-					(reference "J8")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(wire
-		(pts
-			(xy 95.25 160.02)
-			(xy 92.71 160.02)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "5ddc03ca-9d65-487f-bb72-9d3166ef1659")
-	)
-	(symbol
-		(lib_id "cmd-z5:VBAT")
-		(at 92.71 160.02 90)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(uuid "8333a07c-d980-41c0-b9b4-0c318246e324")
-		(property "Reference" "#PWR135"
-			(at 92.71 160.02 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "VBAT"
-			(at 87.63 160.02 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 92.71 160.02 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 92.71 160.02 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"VBAT\""
-			(at 92.71 160.02 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "7b7b1565-a716-47e5-a1ec-6fe60f4839d3")
-		)
-		(instances
-			(project "cmd-z5"
-				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
-					(reference "#PWR135")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(wire
-		(pts
-			(xy 95.25 162.56)
-			(xy 92.71 162.56)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "708b94f4-accf-4691-b8ee-8427bfbaddd0")
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 92.71 162.56 270)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board yes)
-		(dnp no)
-		(uuid "ad56e3fd-f643-4630-9708-fb4e2b2b944f")
-		(property "Reference" "#PWR136"
-			(at 92.71 162.56 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 87.63 162.56 90)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" ""
-			(at 92.71 162.56 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 92.71 162.56 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 92.71 162.56 90)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "964294b5-123b-4c7c-80f9-e93172f93ba6")
-		)
-		(instances
-			(project "cmd-z5"
-				(path "/6abffa09-a441-4dde-b1c7-3053cb1129f2/c246016d-b8d4-41e1-afd7-6e94ddc5dfd4"
-					(reference "#PWR136")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(text "2.54 mm header, not fitted:\n1 = VBAT, 2 = GND"
-		(exclude_from_sim no)
-		(at 85 168 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left top)
-		)
-		(uuid "b08852fe-d8a6-44f0-bf61-19b490d98bb4")
 	)
 )

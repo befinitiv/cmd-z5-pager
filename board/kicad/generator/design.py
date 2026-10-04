@@ -182,7 +182,7 @@ rg.C('10u', (30, 105), '+3V0_RF', fp=C0603); rg.C('100n', (40, 105), '+3V0_RF')
 rg.R('0', (130, 50), 'LORA_ANT', 'LORA_ANT2', rot=90)
 rg.C('DNP', (120, 60), 'LORA_ANT', dnp=True); rg.C('DNP', (140, 60), 'LORA_ANT2', dnp=True)
 rg.place('Device:Antenna', (165, 45), value='PCB antenna 868/915 MHz',
-         footprint='RF_Antenna:Texas_SWRA416_868MHz_915MHz', nets={'1': 'LORA_ANT2'})
+         footprint='cmd-z5:Texas_SWRA416_868MHz_915MHz_Mirrored', nets={'1': 'LORA_ANT2'})
 rg.text('Standard Wio-SX1262 uses its IPEX connector; the ANT pad\nis only connected on the RF SMT-pin version (ask Seeed).\nPi network: 0R + 2x DNP for antenna tuning.', (100, 85))
 rg.text('Meshtastic: SX126X_RXEN = RF_SW, DIO2 as RF switch,\nTCXO 1.8 V on DIO3.', (100, 105))
 
@@ -194,7 +194,7 @@ rg.C('10u', (25, 195), 'VSYS', fp=C0603)
 rg.C('10u', (90, 200), '+5V_GPS', fp=C0603); rg.C('10u', (100, 200), '+5V_GPS', fp=C0603)
 rg.R('1M', (35, 210), 'GPS_EN', 'GND')
 rg.place('Connector_Generic:Conn_01x04', (150, 180), value='TBS M10N',
-         footprint='Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal',
+         footprint='cmd-z5:SolderPads_1x04_P2.00mm_SMD',
          nets={'1': '+5V_GPS', '2': 'GND', '3': 'GPS_TX_M', '4': 'GPS_TXD'})
 rg.R('1k', (125, 205), 'GPS_TX_M', 'GPS_RXD', rot=90)
 rg.text('GPS_TXD (nRF TX) -> GPS RX; GPS TX -> 1k -> nRF RX.\nCheck the M10N cable pin order before ordering.\nEN low = GPS fully unpowered (boost load disconnect).', (110, 215))

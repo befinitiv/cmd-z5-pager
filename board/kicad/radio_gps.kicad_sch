@@ -5167,7 +5167,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "RF_Antenna:Texas_SWRA416_868MHz_915MHz"
+		(property "Footprint" "cmd-z5:Texas_SWRA416_868MHz_915MHz_Mirrored"
 			(at 165.1 44.45 0)
 			(hide yes)
 			(show_name no)
@@ -5557,7 +5557,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal"
+		(property "Footprint" "cmd-z5:SolderPads_1x04_P2.00mm_SMD"
 			(at 149.86 180.34 0)
 			(hide yes)
 			(show_name no)
