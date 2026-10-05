@@ -91,7 +91,63 @@ def wio_sx1262():
     return a
 
 
+DIE = cq.Color(0.15, 0.15, 0.17)
+CERAMIC = cq.Color(0.92, 0.88, 0.78)
+
+
+def dsbga6_yff():
+    """TI DSBGA-6 (YFF), 0.855 x 1.255 mm, 2x3 balls at 0.4 mm pitch, 0.5 mm high.
+    Ball A1 at footprint (-0.2, -0.4) = model (-0.2, +0.4)."""
+    ball_d, z_die, h = 0.25, 0.19, 0.5
+    die = cq.Workplane('XY').box(0.855, 1.255, h - z_die, centered=(True, True, False)).translate((0, 0, z_die))
+    dot = cq.Workplane('XY').circle(0.06).extrude(0.005).translate((-0.25, 0.45, h))
+    balls = None
+    for x in (-0.2, 0.2):
+        for y in (-0.4, 0.0, 0.4):
+            s = cq.Workplane('XY').sphere(ball_d / 2).translate((x, y, ball_d / 2 - 0.02))
+            balls = s if balls is None else balls.union(s)
+    balls = balls.intersect(cq.Workplane('XY').box(2, 2, z_die + 0.01, centered=(True, True, False)))
+    a = cq.Assembly(name='DSBGA-6')
+    a.add(die, name='die', color=DIE)
+    a.add(dot, name='pin1', color=cq.Color(0.8, 0.8, 0.8))
+    a.add(balls, name='balls', color=TIN)
+    return a
+
+
+def crystal_2012():
+    """2.0 x 1.2 x 0.6 mm 2-pad crystal (32.768 kHz): ceramic base, metal lid,
+    terminals at the short ends over the footprint pads (x = +/-0.7)."""
+    base = cq.Workplane('XY').box(2.0, 1.2, 0.25, centered=(True, True, False)).translate((0, 0, 0.02))
+    lid = cq.Workplane('XY').box(1.8, 1.0, 0.33, centered=(True, True, False)).edges('|Z').fillet(0.1).translate((0, 0, 0.27))
+    pads = None
+    for x in (-0.75, 0.75):
+        p = cq.Workplane('XY').box(0.5, 1.0, 0.03, centered=(True, True, False)).translate((x, 0, 0))
+        pads = p if pads is None else pads.union(p)
+    a = cq.Assembly(name='Crystal_2012')
+    a.add(base, name='base', color=CERAMIC)
+    a.add(lid, name='lid', color=TIN)
+    a.add(pads, name='terminals', color=GOLD)
+    return a
+
+
+def fpc_26p_kh():
+    """Kinghelm KH-FPC0.5-H1.0SMT-26P-QCHF, derived from the vendor 28-pin STEP of the same
+    series: a 1.0 mm slice (two contacts at x = +/-0.25) is removed from the middle."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    src = os.path.join(here, '..', 'cmd-z5.3dshapes', 'CONN-SMD_28P-P0.50_KH-FPC0.5-H1.0SMT-28P-QCHF.step')
+    s = cq.importers.importStep(src)
+    left = s.intersect(cq.Workplane('XY').box(20, 20, 20, centered=(False, True, True)).translate((-20.5, 0, 0)))
+    right = s.intersect(cq.Workplane('XY').box(20, 20, 20, centered=(False, True, True)).translate((0.5, 0, 0)))
+    body = left.translate((0.5, 0, 0)).union(right.translate((-0.5, 0, 0)))
+    a = cq.Assembly(name='KH-FPC0.5-H1.0SMT-26P-QCHF')
+    a.add(body, name='connector', color=cq.Color(0.2, 0.2, 0.2))
+    return a
+
+
 MODELS = {
+    'CONN-SMD_26P-P0.50_KH-FPC0.5-H1.0SMT-26P-QCHF': fpc_26p_kh,
+    'Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB': dsbga6_yff,
+    'Crystal_SMD_2012-2Pin_2.0x1.2mm': crystal_2012,
     'BAT-SMD_2P-P3.00_G-Switch_GT-BTP30002-0500B-015A': bat_2p_p3_00,
     'Seeed_Wio-SX1262': wio_sx1262,
 }

@@ -122,7 +122,7 @@ for v, n, fp in [('4.7u', '+3V0', C0402), ('1u', '+3V0', C0402), ('100n', '+3V0'
                  ('4.7u', 'VBUS_NRF', C0603)]:
     mc.C(v, (x, y), n, fp=fp)
     x += 11
-mc.L('10u', (45, 65), 'NRF_DCC', 'NRF_DCC_L', fp='Inductor_SMD:L_0603_1608Metric')
+mc.L('10u', (38.1, 65), 'NRF_DCC', 'NRF_DCC_L', fp='Inductor_SMD:L_0603_1608Metric')
 mc.L('15n', (70, 65), 'NRF_DCC_L', 'NRF_DEC4', fp='Inductor_SMD:L_0402_1005Metric')
 mc.text('DC/DC REG1: DCC -> 10 uH -> 15 nH -> DEC4/DEC6', (90, 63))
 
@@ -132,7 +132,7 @@ mc.place('Device:Crystal_GND24', (40, 100), value='32 MHz CL=10pF', footprint='C
          fields={'LCSC': 'C91742', 'MPN': 'X1E0000210163'}, nets={'1': 'XC1', '3': 'XC2', '2': 'GND'},
          ref_pos=(36, 93, 'left'), val_pos=(48, 104, 'left'))
 mc.C('15p', (25, 115), 'XC1'); mc.C('15p', (55, 115), 'XC2')
-mc.place('Device:Crystal_Small', (100, 100), value='32.768 kHz CL=7pF', footprint='Crystal:Crystal_SMD_2012-2Pin_2.0x1.2mm',
+mc.place('Device:Crystal_Small', (100, 100), value='32.768 kHz CL=7pF', footprint='cmd-z5:Crystal_SMD_2012-2Pin_2.0x1.2mm',
          fields={'LCSC': 'C99009', 'MPN': 'X1A0000610006'}, nets={'1': 'XL1', '2': 'XL2'})
 mc.C('8.2p', (90, 115), 'XL1'); mc.C('8.2p', (110, 115), 'XL2')
 mc.text('Load caps: C = 2*CL - ~4 pF stray; tune on prototype.', (15, 127))

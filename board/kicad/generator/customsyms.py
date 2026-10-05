@@ -127,7 +127,7 @@ def build():
     for e in s:
         if isinstance(e, list) and e[0] == 'property':
             if e[1] == 'Value': e[2] = 'TPS610997YFFR'
-            if e[1] == 'Footprint': e[2] = 'Package_BGA:Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB'
+            if e[1] == 'Footprint': e[2] = 'cmd-z5:Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB'
             if e[1] == 'Description': e[2] = 'Synchronous boost converter, fixed 5.0 V output, true load disconnect, DSBGA-6 (YFF)'
             if e[1] == 'Datasheet': e[2] = 'https://www.ti.com/lit/ds/symlink/tps61099.pdf'
     for e in s:

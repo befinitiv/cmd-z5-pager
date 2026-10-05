@@ -1136,7 +1136,7 @@
 					(justify left)
 				)
 			)
-			(property "Footprint" "Package_BGA:Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB"
+			(property "Footprint" "cmd-z5:Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB"
 				(at 1.27 -3.81 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -4749,7 +4749,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Package_BGA:Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB"
+		(property "Footprint" "cmd-z5:Texas_DSBGA-6_0.855x1.255mm_Layout2x3_P0.4mm_LevelB"
 			(at 59.69 180.34 0)
 			(hide yes)
 			(show_name no)
