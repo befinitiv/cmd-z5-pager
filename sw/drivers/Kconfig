@@ -1,0 +1,50 @@
+# Drivers for the CMD-Z5 hardware
+
+config CMDZ5_LCD
+	bool "CMD-Z5 display controller driver"
+	default y
+	depends on DT_HAS_SONY_CMDZ5_LCD_ENABLED
+
+config CMDZ5_LCD_INIT_PRIORITY
+	int "Display driver init priority"
+	default 90
+	help
+	  Must be after the regulator that supplies the display.
+	depends on CMDZ5_LCD
+
+config CMDZ5_LCD_BUS_GPIO
+	bool "Display bus bit-banged on GPIOs"
+	default y
+	depends on DT_HAS_CMDZ5_LCD_BUS_GPIO_ENABLED
+	select GPIO
+
+config CMDZ5_LCD_BUS_WR_LOW_NOPS
+	int "Extra NOPs while /WR is low"
+	default 16
+	depends on CMDZ5_LCD_BUS_GPIO
+	help
+	  Stretches the /WR low phase. The original phone uses 300-350 ns.
+
+config CMDZ5_LCD_BUS_INIT_PRIORITY
+	int "Display bus init priority"
+	default 80
+
+module = CMDZ5_LCD
+module-str = CMD-Z5 display
+source "subsys/logging/Kconfig.template.log_config"
+
+config CMDZ5_AUDIO_PWM
+	bool "Tone output on PWM"
+	default y
+	depends on DT_HAS_CMDZ5_AUDIO_PWM_ENABLED
+	select PWM
+
+config CMDZ5_AUDIO_INIT_PRIORITY
+	int "Audio output init priority"
+	default 90
+	help
+	  Must be after the regulator that supplies the earpiece amplifier.
+
+module = CMDZ5_AUDIO
+module-str = CMD-Z5 audio
+source "subsys/logging/Kconfig.template.log_config"

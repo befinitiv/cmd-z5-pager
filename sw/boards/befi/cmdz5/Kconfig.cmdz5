@@ -1,0 +1,4 @@
+# CMD-Z5 replacement board
+
+config BOARD_CMDZ5
+	select SOC_NRF52840_QIAA

@@ -1,0 +1,17 @@
+description: |
+  Emulated LED-like outputs shown on the emulator front panel. Implements the
+  Zephyr LED API; each child is one LED index.
+
+compatible: "cmdz5,led-emul"
+
+include: base.yaml
+
+child-binding:
+  description: One emulated output.
+  properties:
+    role:
+      type: string
+      required: true
+      enum:
+        - "backlight"
+        - "vibration"

@@ -1,0 +1,2 @@
+cmdz5	CMD-Z5 replacement board project
+befi	befi (board vendor of the CMD-Z5 replacement board)

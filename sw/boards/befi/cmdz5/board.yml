@@ -1,0 +1,6 @@
+board:
+  name: cmdz5
+  full_name: CMD-Z5 replacement board
+  vendor: befi
+  socs:
+    - name: nrf52840

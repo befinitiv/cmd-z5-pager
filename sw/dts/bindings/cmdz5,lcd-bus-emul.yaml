@@ -1,0 +1,7 @@
+description: |
+  Emulated display bus for native_sim. Feeds the written bytes into a model of
+  the display controller and shows the result on the emulator front panel.
+
+compatible: "cmdz5,lcd-bus-emul"
+
+include: base.yaml

@@ -1,0 +1,13 @@
+description: |
+  SDL2 front panel of the native_sim emulator. Reports the phone keys, the
+  rotary wheel and the lid switch as input events.
+
+compatible: "cmdz5,frontpanel"
+
+include: base.yaml
+
+properties:
+  scale:
+    type: int
+    default: 5
+    description: Display scaling factor in the emulator window.

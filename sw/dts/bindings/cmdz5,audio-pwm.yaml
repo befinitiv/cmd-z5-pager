@@ -1,0 +1,15 @@
+description: Tone output on a PWM channel (loudspeaker or earpiece).
+
+compatible: "cmdz5,audio-pwm"
+
+include: base.yaml
+
+properties:
+  pwms:
+    type: phandle-array
+    required: true
+    description: PWM channel. Use a separate PWM instance per output.
+
+  amp-supply:
+    type: phandle
+    description: Regulator for an amplifier, switched on only while playing.

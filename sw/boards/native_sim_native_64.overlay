@@ -1,0 +1,50 @@
+/*
+ * Emulator: the same node labels as the board (lcd, backlight, vibration,
+ * speaker, earpiece), backed by the SDL front panel in emul/.
+ */
+
+/* Zephyr's own SDL display and touch input are not used. */
+&sdl_dc {
+	status = "disabled";
+};
+
+&input_sdl_touch {
+	status = "disabled";
+};
+
+/ {
+	frontpanel: frontpanel {
+		compatible = "cmdz5,frontpanel";
+		scale = <5>;
+	};
+
+	lcd_bus: lcd-bus {
+		compatible = "cmdz5,lcd-bus-emul";
+
+		lcd: lcd {
+			compatible = "sony,cmdz5-lcd";
+		};
+	};
+
+	emul-outputs {
+		compatible = "cmdz5,led-emul";
+
+		backlight: backlight {
+			role = "backlight";
+		};
+
+		vibration: vibration {
+			role = "vibration";
+		};
+	};
+
+	speaker: speaker {
+		compatible = "cmdz5,audio-emul";
+		sink = "speaker";
+	};
+
+	earpiece: earpiece {
+		compatible = "cmdz5,audio-emul";
+		sink = "earpiece";
+	};
+};

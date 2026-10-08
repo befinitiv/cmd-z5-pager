@@ -1,0 +1,14 @@
+CONFIG_ARM_MPU=y
+CONFIG_HW_STACK_PROTECTION=y
+CONFIG_GPIO=y
+CONFIG_PINCTRL=y
+
+# Link into code_partition (the flash layout leaves room for the language models).
+CONFIG_USE_DT_CODE_PARTITION=y
+
+# There is no console UART (the only UART goes to the GPS). The console goes
+# to SEGGER RTT over the SWD connector until USB CDC ACM is set up.
+CONFIG_CONSOLE=y
+CONFIG_USE_SEGGER_RTT=y
+CONFIG_RTT_CONSOLE=y
+CONFIG_UART_CONSOLE=n

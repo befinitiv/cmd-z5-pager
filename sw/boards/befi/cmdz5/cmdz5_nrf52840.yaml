@@ -1,0 +1,14 @@
+identifier: cmdz5/nrf52840
+name: CMD-Z5 replacement board
+vendor: befi
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+ram: 256
+flash: 1024
+supported:
+  - gpio
+  - i2c
+  - pwm
+  - spi

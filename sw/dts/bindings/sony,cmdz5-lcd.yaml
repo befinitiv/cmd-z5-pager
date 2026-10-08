@@ -1,0 +1,18 @@
+description: |
+  Display controller of the Sony CMD-Z5 (96 x 72 pixels, 2 bpp, write-only).
+  The node is a child of an lcd bus node (cmdz5,lcd-bus-gpio or
+  cmdz5,lcd-bus-emul).
+
+compatible: "sony,cmdz5-lcd"
+
+include: base.yaml
+
+properties:
+  power-supply:
+    type: phandle
+    description: Regulator for the display supply, switched off with the display.
+
+  contrast:
+    type: int
+    default: 0x85
+    description: Initial value of registers 0x23/0x24 (probably the contrast).

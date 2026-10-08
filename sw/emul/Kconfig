@@ -1,0 +1,16 @@
+# Emulator front panel for native_sim
+
+config CMDZ5_EMUL
+	bool "CMD-Z5 emulator"
+	default y
+	depends on DT_HAS_CMDZ5_FRONTPANEL_ENABLED
+	select HAS_SDL
+	select INPUT
+	select LED
+	help
+	  SDL2 front panel with display, keys, wheel, LEDs, vibration and
+	  audio, plus emulated drivers behind the same APIs as the board.
+
+module = CMDZ5_EMUL
+module-str = CMD-Z5 emulator
+source "subsys/logging/Kconfig.template.log_config"

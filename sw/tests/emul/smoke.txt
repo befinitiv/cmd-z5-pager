@@ -1,0 +1,67 @@
+# Emulator smoke test: walks through all phase 1 screens and saves screenshots.
+#   SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy \
+#     build-sim/zephyr/zephyr.exe --script=tests/emul/smoke.txt
+wait 1200
+shot smoke-01-home.bmp
+key push
+wait 200
+shot smoke-02-menu.bmp
+key 5
+wait 200
+key 1
+wait 200
+shot smoke-03-display-settings.bmp
+key push
+wait 200
+wheel 4
+wait 200
+shot smoke-04-contrast.bmp
+key clear
+wait 200
+key clear 900
+wait 200
+key push
+wait 200
+key 6
+wait 200
+key 1
+key 2
+key 3
+wait 600
+key 4
+wait 600
+shot smoke-05-hwtest.bmp
+key 7
+wait 200
+key 5
+key 7 900
+wheel 3
+wait 200
+shot smoke-06-keytest.bmp
+key clear 900
+wait 200
+key 8
+wait 200
+shot smoke-07-gray.bmp
+key 1
+key 1
+key 1
+key 1
+wait 200
+shot smoke-08-fonts.bmp
+key clear 900
+wait 200
+lid closed
+wait 300
+shot smoke-09-lid-closed.bmp
+lid open
+wait 300
+shot smoke-10-lid-open.bmp
+key push
+wait 200
+key 5
+wait 200
+key up
+wait 200
+shot smoke-11-back-to-menu.bmp
+quit

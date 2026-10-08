@@ -1,0 +1,252 @@
+/*
+ * Settings menus. Values are applied immediately and saved when changed.
+ */
+
+#include <stdio.h>
+
+#include <zephyr/kernel.h>
+
+#include "../config.h"
+#include "../hw.h"
+#include "../i18n.h"
+#include "../power.h"
+#include "screens.h"
+
+static const uint8_t backlight_timeouts[] = {5, 10, 20, 30, 60};
+static const uint16_t screen_timeouts[] = {30, 60, 120, 300, 0};
+
+static void saved(void)
+{
+	config_save();
+	power_settings_changed();
+	ui_invalidate();
+}
+
+/* Display ------------------------------------------------------------------ */
+
+static void contrast_changed(struct ui_slider *s, int v)
+{
+	ARG_UNUSED(s);
+	hw_display_contrast(v);
+}
+
+static void contrast_done(struct ui_slider *s, int v, bool accepted)
+{
+	ARG_UNUSED(s);
+	if (accepted) {
+		app_config.contrast = v;
+		saved();
+	}
+}
+
+static void backlight_changed(struct ui_slider *s, int v)
+{
+	ARG_UNUSED(s);
+	hw_backlight(v);
+}
+
+static void backlight_done(struct ui_slider *s, int v, bool accepted)
+{
+	ARG_UNUSED(s);
+	if (accepted) {
+		app_config.backlight_level = v;
+	}
+	saved();
+}
+
+/* Contrast range is a guess around the phone's default of 0x85. */
+static struct ui_slider contrast_slider =
+	UI_SLIDER("Contrast", 0x60, 0xB0, 1, NULL, contrast_changed, contrast_done);
+static struct ui_slider backlight_slider =
+	UI_SLIDER("Backlight", 10, 100, 10, "%", backlight_changed, backlight_done);
+
+static int index_of_u8(const uint8_t *arr, int n, int v)
+{
+	for (int i = 0; i < n; i++) {
+		if (arr[i] == v) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+static int index_of_u16(const uint16_t *arr, int n, int v)
+{
+	for (int i = 0; i < n; i++) {
+		if (arr[i] == v) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+static void display_action(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+
+	switch (idx) {
+	case 0:
+		ui_slider_open(&contrast_slider, app_config.contrast);
+		break;
+	case 1:
+		ui_slider_open(&backlight_slider, app_config.backlight_level);
+		break;
+	case 2: {
+		int i = index_of_u8(backlight_timeouts, ARRAY_SIZE(backlight_timeouts),
+				    app_config.backlight_timeout_s);
+
+		app_config.backlight_timeout_s =
+			backlight_timeouts[(i + 1) % ARRAY_SIZE(backlight_timeouts)];
+		saved();
+		break;
+	}
+	case 3: {
+		int i = index_of_u16(screen_timeouts, ARRAY_SIZE(screen_timeouts),
+				     app_config.screen_timeout_s);
+
+		app_config.screen_timeout_s = screen_timeouts[(i + 1) % ARRAY_SIZE(screen_timeouts)];
+		saved();
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+static const char *display_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	ARG_UNUSED(m);
+
+	switch (idx) {
+	case 0:
+		snprintf(buf, len, "%d", app_config.contrast);
+		return buf;
+	case 1:
+		snprintf(buf, len, "%d%%", app_config.backlight_level);
+		return buf;
+	case 2:
+		snprintf(buf, len, "%ds", app_config.backlight_timeout_s);
+		return buf;
+	case 3:
+		if (app_config.screen_timeout_s == 0) {
+			return tr("never");
+		}
+		snprintf(buf, len, "%ds", app_config.screen_timeout_s);
+		return buf;
+	default:
+		return NULL;
+	}
+}
+
+static const struct ui_menu_item display_items[] = {
+	{"Contrast", NULL, display_action},
+	{"Backlight", NULL, display_action},
+	{"Light off", NULL, display_action},
+	{"Screen off", NULL, display_action},
+};
+
+static struct ui_menu display_menu = UI_MENU("Display", display_items, display_value);
+
+/* Sound -------------------------------------------------------------------- */
+
+static void volume_changed(struct ui_slider *s, int v)
+{
+	ARG_UNUSED(s);
+	hw_tone(HW_SPEAKER, 1000, 80, v);
+}
+
+static void volume_done(struct ui_slider *s, int v, bool accepted)
+{
+	ARG_UNUSED(s);
+	if (accepted) {
+		app_config.volume = v;
+		saved();
+	}
+}
+
+static struct ui_slider volume_slider =
+	UI_SLIDER("Volume", 0, 100, 10, "%", volume_changed, volume_done);
+
+static void sound_action(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+
+	switch (idx) {
+	case 0:
+		ui_slider_open(&volume_slider, app_config.volume);
+		break;
+	case 1:
+		app_config.key_click = !app_config.key_click;
+		saved();
+		break;
+	case 2:
+		app_config.vibrate = !app_config.vibrate;
+		if (app_config.vibrate) {
+			hw_vibrate(200);
+		}
+		saved();
+		break;
+	default:
+		break;
+	}
+}
+
+static const char *sound_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	ARG_UNUSED(m);
+
+	switch (idx) {
+	case 0:
+		snprintf(buf, len, "%d%%", app_config.volume);
+		return buf;
+	case 1:
+		return tr(app_config.key_click ? "on" : "off");
+	case 2:
+		return tr(app_config.vibrate ? "on" : "off");
+	default:
+		return NULL;
+	}
+}
+
+static const struct ui_menu_item sound_items[] = {
+	{"Volume", NULL, sound_action},
+	{"Key clicks", NULL, sound_action},
+	{"Vibration", NULL, sound_action},
+};
+
+static struct ui_menu sound_menu = UI_MENU("Sound", sound_items, sound_value);
+
+/* Top level ---------------------------------------------------------------- */
+
+static void input_not_yet(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+	ARG_UNUSED(idx);
+	ui_message("Text input", "Language and predictive text settings follow in phase 2.");
+}
+
+static void language_next(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+	ARG_UNUSED(idx);
+	app_config.language = (app_config.language + 1) % LANG_COUNT;
+	i18n_set(app_config.language);
+	saved();
+}
+
+static const char *settings_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	ARG_UNUSED(m);
+	ARG_UNUSED(buf);
+	ARG_UNUSED(len);
+	return idx == 3 ? i18n_name(app_config.language) : NULL;
+}
+
+static const struct ui_menu_item settings_items[] = {
+	{"Display", &display_menu.screen, NULL},
+	{"Sound", &sound_menu.screen, NULL},
+	{"Text input", NULL, input_not_yet},
+	{"Language", NULL, language_next},
+};
+
+struct ui_menu settings_menu = UI_MENU("Settings", settings_items, settings_value);

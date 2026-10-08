@@ -1,0 +1,28 @@
+description: |
+  8080-style write-only parallel display bus, bit-banged on GPIOs.
+  Levels are driven raw; the GPIO flags are ignored.
+
+compatible: "cmdz5,lcd-bus-gpio"
+
+include: base.yaml
+
+properties:
+  data-gpios:
+    type: phandle-array
+    required: true
+    description: D0..D7, in this order. Consecutive pins on one port are fastest.
+
+  wr-gpios:
+    type: phandle-array
+    required: true
+    description: /WR strobe (active low, data latched on the rising edge).
+
+  a0-gpios:
+    type: phandle-array
+    required: true
+    description: A0 register select (low = index, high = data).
+
+  reset-gpios:
+    type: phandle-array
+    required: true
+    description: /RESET (active low).

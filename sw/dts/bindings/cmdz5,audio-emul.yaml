@@ -1,0 +1,13 @@
+description: Emulated audio output, played through the PC's sound card.
+
+compatible: "cmdz5,audio-emul"
+
+include: base.yaml
+
+properties:
+  sink:
+    type: string
+    required: true
+    enum:
+      - "speaker"
+      - "earpiece"

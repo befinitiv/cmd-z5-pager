@@ -1,0 +1,12 @@
+# CMD-Z5 firmware
+
+mainmenu "CMD-Z5 firmware"
+
+rsource "drivers/Kconfig"
+rsource "emul/Kconfig"
+
+module = CMDZ5_APP
+module-str = CMD-Z5 application
+source "subsys/logging/Kconfig.template.log_config"
+
+source "Kconfig.zephyr"
