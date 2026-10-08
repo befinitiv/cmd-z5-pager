@@ -13,6 +13,7 @@
 #include "config.h"
 #include "hw.h"
 #include "i18n.h"
+#include "textin.h"
 #include "power.h"
 #include "screens/screens.h"
 
@@ -145,6 +146,9 @@ int main(void)
 	}
 	config_init();
 	i18n_set(app_config.language);
+	if (textin_init() != 0) {
+		LOG_ERR("predictive text not available");
+	}
 	clock_init();
 	gfx_init(&gfx);
 	ui_init(statusbar_draw);
@@ -164,6 +168,7 @@ int main(void)
 			}
 		}
 		power_update();
+		ui_poll();
 		render();
 	}
 	return 0;

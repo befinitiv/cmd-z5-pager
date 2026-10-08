@@ -15,7 +15,9 @@ struct app_config {
 	uint8_t volume;              /* percent */
 	bool key_click;
 	bool vibrate;
-	uint8_t language;            /* enum lang */
+	uint8_t language;            /* enum lang, menu */
+	uint8_t input_lang;          /* enum lang, predictive text */
+	bool learn_words;
 };
 
 extern struct app_config app_config;

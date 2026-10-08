@@ -13,7 +13,7 @@ LOG_MODULE_REGISTER(config, CONFIG_CMDZ5_APP_LOG_LEVEL);
  * Stored as one blob under "cfg/<CONFIG_VERSION>". Bump the version when the
  * layout changes; older blobs are then ignored and the defaults apply.
  */
-#define CONFIG_VERSION "v2"
+#define CONFIG_VERSION "v3"
 #define CONFIG_KEY     "cfg/" CONFIG_VERSION
 
 static const struct app_config defaults = {
@@ -25,6 +25,8 @@ static const struct app_config defaults = {
 	.key_click = false,
 	.vibrate = true,
 	.language = LANG_EN,
+	.input_lang = LANG_DE,
+	.learn_words = true,
 };
 
 struct app_config app_config;

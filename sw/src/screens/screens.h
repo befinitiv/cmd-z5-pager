@@ -13,6 +13,8 @@ extern struct ui_screen home_screen;
 extern struct ui_menu main_menu;
 extern struct ui_menu settings_menu;
 extern struct ui_menu hwtest_menu;
+extern struct ui_menu messages_menu;
+extern struct ui_screen compose_screen;
 
 void about_show(void);
 

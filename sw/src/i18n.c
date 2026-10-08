@@ -44,8 +44,15 @@ static const struct translation de[] = {
 	{"on", "an"},
 	{"off", "aus"},
 	{"never", "nie"},
-	{"Language and predictive text settings follow in phase 2.",
-	 "Einstellungen für Eingabesprachen und Worterkennung folgen in Phase 2."},
+	{"Learn words", "Wörter lernen"},
+	{"Delete learned", "Gelerntes löschen"},
+	{"Learned words deleted.", "Gelernte Wörter gelöscht."},
+
+	/* Messages */
+	{"New message", "Neue Nachricht"},
+	{"Inbox", "Posteingang"},
+	{"CALL = send", "CALL = senden"},
+	{"Sending messages follows in phase 3.", "Das Senden folgt in Phase 3."},
 
 	/* Widgets */
 	{"push = ok   C = cancel", "Drücken = OK  C = Abbr."},

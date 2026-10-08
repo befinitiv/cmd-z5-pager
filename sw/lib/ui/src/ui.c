@@ -4,6 +4,8 @@ static struct ui_screen *stack[UI_STACK_DEPTH];
 static int depth;
 static bool dirty = true;
 static void (*draw_statusbar)(struct gfx *g);
+/* Screen that received the press of each key. */
+static struct ui_screen *press_screen[UI_KEY_COUNT];
 static const char *(*translator)(const char *s);
 
 void ui_set_translator(const char *(*tr)(const char *s))
@@ -24,6 +26,15 @@ void ui_init(void (*statusbar)(struct gfx *g))
 	dirty = true;
 }
 
+static void leaving(void)
+{
+	struct ui_screen *s = ui_top();
+
+	if (s && s->leave) {
+		s->leave(s);
+	}
+}
+
 static void entered(void)
 {
 	struct ui_screen *s = ui_top();
@@ -36,6 +47,7 @@ static void entered(void)
 
 void ui_set_root(struct ui_screen *s)
 {
+	leaving();
 	stack[0] = s;
 	depth = 1;
 	entered();
@@ -43,6 +55,7 @@ void ui_set_root(struct ui_screen *s)
 
 void ui_push(struct ui_screen *s)
 {
+	leaving();
 	if (depth == UI_STACK_DEPTH) {
 		/* Drop the oldest non-root screen rather than failing. */
 		for (int i = 1; i < depth - 1; i++) {
@@ -57,6 +70,7 @@ void ui_push(struct ui_screen *s)
 void ui_pop(void)
 {
 	if (depth > 1) {
+		leaving();
 		depth--;
 		entered();
 	}
@@ -65,6 +79,7 @@ void ui_pop(void)
 void ui_home(void)
 {
 	if (depth > 1) {
+		leaving();
 		depth = 1;
 		entered();
 	}
@@ -85,6 +100,18 @@ void ui_dispatch(const struct ui_event *ev)
 	if (ev->type == UI_EV_TICK && s->tick_redraw) {
 		dirty = true;
 	}
+	/*
+	 * A long press or release belongs to the screen that saw the press: a
+	 * key that opened a screen must not act on the new screen too.
+	 */
+	if (ev->key < UI_KEY_COUNT) {
+		if (ev->type == UI_EV_KEY_PRESS) {
+			press_screen[ev->key] = s;
+		} else if ((ev->type == UI_EV_KEY_LONG || ev->type == UI_EV_KEY_RELEASE) &&
+			   press_screen[ev->key] != s) {
+			return;
+		}
+	}
 	if (s->event && s->event(s, ev)) {
 		return;
 	}
@@ -92,6 +119,15 @@ void ui_dispatch(const struct ui_event *ev)
 		ui_pop();
 	} else if (ui_ev_home(ev)) {
 		ui_home();
+	}
+}
+
+void ui_poll(void)
+{
+	struct ui_screen *s = ui_top();
+
+	if (s && s->poll) {
+		s->poll(s);
 	}
 }
 

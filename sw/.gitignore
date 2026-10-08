@@ -2,3 +2,4 @@ build*/
 *.bmp
 flash.bin
 __pycache__/
+build-tests/

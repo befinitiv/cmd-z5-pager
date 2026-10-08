@@ -27,8 +27,15 @@ static void about_action(struct ui_menu *m, int idx)
 	about_show();
 }
 
+static const struct ui_menu_item messages_items[] = {
+	{"New message", &compose_screen, NULL},
+	{"Inbox", NULL, not_yet},
+};
+
+struct ui_menu messages_menu = UI_MENU("Messages", messages_items, NULL);
+
 static const struct ui_menu_item main_items[] = {
-	{"Messages", NULL, not_yet},
+	{"Messages", &messages_menu.screen, NULL},
 	{"Nodes", NULL, not_yet},
 	{"GPS", NULL, not_yet},
 	{"LoRaWAN", NULL, not_yet},

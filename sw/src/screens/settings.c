@@ -9,6 +9,7 @@
 #include "../config.h"
 #include "../hw.h"
 #include "../i18n.h"
+#include "../textin.h"
 #include "../power.h"
 #include "screens.h"
 
@@ -218,12 +219,53 @@ static struct ui_menu sound_menu = UI_MENU("Sound", sound_items, sound_value);
 
 /* Top level ---------------------------------------------------------------- */
 
-static void input_not_yet(struct ui_menu *m, int idx)
+/* Text input --------------------------------------------------------------- */
+
+static void input_action(struct ui_menu *m, int idx)
 {
 	ARG_UNUSED(m);
-	ARG_UNUSED(idx);
-	ui_message("Text input", "Language and predictive text settings follow in phase 2.");
+
+	switch (idx) {
+	case 0:
+		textin_next_lang();
+		break;
+	case 1:
+		app_config.learn_words = !app_config.learn_words;
+		saved();
+		break;
+	case 2:
+		textin_reset_learned();
+		ui_message("Text input", "Learned words deleted.");
+		break;
+	default:
+		break;
+	}
+	ui_invalidate();
 }
+
+static const char *input_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	ARG_UNUSED(m);
+	ARG_UNUSED(buf);
+	ARG_UNUSED(len);
+
+	switch (idx) {
+	case 0:
+		return i18n_name(textin_lang());
+	case 1:
+		return tr(app_config.learn_words ? "on" : "off");
+	default:
+		return NULL;
+	}
+}
+
+static const struct ui_menu_item input_items[] = {
+	{"Language", NULL, input_action},
+	{"Learn words", NULL, input_action},
+	{"Delete learned", NULL, input_action},
+};
+
+static struct ui_menu input_menu = UI_MENU("Text input", input_items, input_value);
 
 static void language_next(struct ui_menu *m, int idx)
 {
@@ -245,7 +287,7 @@ static const char *settings_value(struct ui_menu *m, int idx, char *buf, size_t 
 static const struct ui_menu_item settings_items[] = {
 	{"Display", &display_menu.screen, NULL},
 	{"Sound", &sound_menu.screen, NULL},
-	{"Text input", NULL, input_not_yet},
+	{"Text input", &input_menu.screen, NULL},
 	{"Language", NULL, language_next},
 };
 

@@ -103,12 +103,16 @@ struct ui_screen {
 	const char *title;
 	/* Called when the screen becomes the top of the stack (push or uncover). */
 	void (*enter)(struct ui_screen *s);
+	/* Called when the screen stops being the top (covered or removed). */
+	void (*leave)(struct ui_screen *s);
 	/* Return true if the event was consumed. */
 	bool (*event)(struct ui_screen *s, const struct ui_event *ev);
 	/* Draw the content area (below the status bar). */
 	void (*draw)(struct ui_screen *s, struct gfx *g);
 	/* No status bar; draw() gets the whole display. */
 	bool fullscreen;
+	/* Optional: called on every pass of the main loop (a few times a second). */
+	void (*poll)(struct ui_screen *s);
 	/* Redraw on every tick (e.g. clocks). */
 	bool tick_redraw;
 };
@@ -145,6 +149,9 @@ struct ui_screen *ui_top(void);
  * the screen, (long) returns to the root screen.
  */
 void ui_dispatch(const struct ui_event *ev);
+
+/* Call the top screen's poll hook. */
+void ui_poll(void);
 
 void ui_invalidate(void);
 bool ui_needs_render(void);

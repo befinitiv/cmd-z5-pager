@@ -1,6 +1,6 @@
 This document proposes the software architecture for the CMD-Z5 replacement board described in `../board/README.md`. The firmware turns the phone into a standalone Meshtastic and LoRaWAN (TTN) messenger with its own UI and predictive text input. The same code also builds for the PC, where an emulator window stands in for the phone hardware.
 
-Status: phase 1 is implemented (board definition, emulator, graphics, UI toolkit, menus and hardware test). See [Build and run](#build-and-run) and [Development plan](#development-plan).
+Status: phases 1 and 2 are implemented (board definition, emulator, graphics, UI toolkit, menus, hardware test; predictive text with language models for German and English). See [Build and run](#build-and-run) and [Development plan](#development-plan).
 
 # Decisions
 
@@ -81,7 +81,7 @@ sw/
 ├── lib/
 │   ├── gfx/                         # 2bpp framebuffer, primitives, fonts, icons, dirty-row tracking
 │   ├── ui/                          # screen stack, events, menu, slider, text view
-│   ├── textinput/                   # (later) input methods, LM reader, candidate ranking, user model
+│   ├── textinput/                   # model reader, prediction engine, user model, editor
 │   └── meshtastic/                  # (later) nanopb protos, channel crypto, PKI, packet codec, router, nodedb
 ├── src/
 │   ├── main.c                       # UI thread and event loop
@@ -89,15 +89,16 @@ sw/
 │   ├── hw.c                         # display, backlight, vibration, tones and melodies
 │   ├── power.c                      # backlight and display timeouts, lid, power key
 │   ├── i18n.c                       # menu language (English, German)
+│   ├── textin.c                     # models, engines and user models per language
 │   ├── clock.c  config.c  statusbar.c
 │   ├── services/                    # (later) radio_arbiter, mesh_svc, lorawan_svc, gps_svc, notify_svc, msgstore
-│   └── screens/                     # home, menu, settings, hardware test, power off; (later) inbox, chat, compose, nodes
-├── lm/                              # (later) built language models (de.lm, en.lm)
+│   └── screens/                     # home, menu, settings, hardware test, power off, compose; (later) inbox, chat, compose, nodes
+├── lm/                              # language models de.lm, en.lm (+ sources and licences)
 ├── tools/
 │   ├── fontconv/                    # BDF → C font headers (X11 misc-misc fonts, public domain)
-│   ├── lmbuild/                     # (later) corpus → n-gram → prune/quantise → .lm, plus evaluation
+│   ├── lmbuild/                     # corpus → n-grams → prune/quantise → .lm; evaluation
 │   └── lcd_replay/                  # (later) replays ../display .dsl captures through lcd_ctrl_model
-└── tests/emul/smoke.txt             # emulator smoke test script; (later) ztest and host unit tests
+└── tests/                           # emul/smoke.txt (emulator script), textinput/ (host tests: run.sh)
 ```
 
 # Hardware abstraction
@@ -250,17 +251,20 @@ A small retained-mode toolkit: a screen stack with `on_enter`, `on_event`, `rend
 
 | Key | Navigation | Text entry |
 |---|---|---|
-| Wheel rotate | move selection, scroll | move through candidates; scroll text when the bar is empty |
-| Wheel push | select / open | accept candidate |
+| Wheel rotate | move selection, scroll | move through the candidates (also into the next-word predictions) |
+| Wheel push | select / open | accept the selected candidate, with a space |
 | Wheel bend up | back (long: home screen), same as C | back; the draft is kept |
 | Wheel bend down | page down | still open |
-| CALL | send / confirm | send message |
-| C | back (long: home screen) | delete (short), clear word (long), back when the field is empty |
-| Memo | context menu | symbols and smileys menu |
-| `#` | – | input mode: T9 → Abc multitap → 123 (long press: language) |
-| `*` | – | next candidate (classic T9), long press: case Abc / abc / ABC |
-| `0` | – | space and accept (long press: 0) |
-| `1` | – | punctuation `. , ? ! ' - :` with sentence-aware ranking |
+| CALL | send / confirm | send message (phase 3) |
+| C | back (long: home screen) | delete a key or character (long: the last word); back when the text is empty |
+| Memo | context menu | symbol and smiley picker |
+| `2`–`9` | select menu entry | add a key to the word (long: the digit) |
+| `#` | – | input mode: T9 → multitap → 123 (long: input language) |
+| `*` | – | next candidate, long: case Abc / abc / ABC |
+| `0` | – | accept the word and add a space (long: `0`) |
+| `1` | – | punctuation `. , ? ! ' - : ; ( ) @ /`, press again for the next one; replaces the space after an accepted word |
+
+In text entry the keys act when released, so that a long press can do something else.
 
 ## Menu language
 
@@ -272,49 +276,64 @@ Home (clock, battery, unread count, last message) · Inbox (channels, DMs, TTN) 
 
 # Predictive text (`lib/textinput`)
 
+Implemented in phase 2. `lib/textinput` is plain C without Zephyr or dynamic memory; the same code runs on the board, in the emulator, in the host tests and, through ctypes, in the Python evaluation.
+
 ## Input methods
 
-* **Multitap (Abc):** classic letter cycling with timeout, including `ä ö ü ß` and accents on the matching keys.
-* **Predictive (T9):** one key press per letter; the engine finds every word whose key sequence matches. German letters map to their base key (ä→2, ö→6, ü→8, ß→7).
-* **Numeric (123)** and **symbol picker** (Memo key, chosen with the wheel).
+* **Predictive (T9):** one key press per letter. The candidate bar shows the exact matches and completions (longer words) ranked by context; the word being typed shows the first candidate, with the not yet typed part of a completion in gray. German letters map to their base key (ä→2, ö→6, ü→8, ß→7).
+* **Next-word prediction:** after a space the bar shows the likely next words. Turning the wheel selects one, push accepts it.
+* **Multitap (abc):** classic letter cycling with a 1 s timeout, including ä ö ü ß on the German keys. Words spelled this way are learned and offered in predictive mode from then on.
+* **Numeric (123)**, **punctuation** on key 1 and a **symbol picker** (Memo) with accented letters and smileys.
+* **Case:** Abc (capital at the start of a sentence), abc (as typed or as in the lexicon, so German nouns keep their capital), ABC.
 
 ## Engine
 
-For each key press the engine produces a ranked candidate list:
+For each key press `ti_predict()` collects candidates and ranks them:
 
-```
-key sequence ─► lexicon lookup ─► candidates ─► score with context ─► top N ─► candidate bar
- "488"           exact matches      gut, Hut, hut   P(w | w-2, w-1)
-                 + completions       guten, Hütte…   + user model
-                                                     + conversation cache
-```
-
-1. **Lexicon lookup:** a trie over key sequences (digits), with child sets and word lists stored succinctly in flash. It returns the words with exactly this key sequence and, for completion, the most likely words that start with it.
-2. **Context scoring:** an n-gram language model (word trigrams with backoff) gives `log P(w | w-2, w-1)`. This is where the previous words come in: the key sequence `488` matches "gut", "Hut" and "hut". After "Mir geht es" the engine offers "gut" first, and after "Ich trage einen" it offers "Hut", instead of always ranking by overall word frequency.
-3. **Next-word prediction:** after a space and before the next key, the candidate bar shows the most likely next words for the context (e.g. "bis" → "gleich", "morgen", "später"). Accepting one costs a single wheel press.
-4. **User model:** unigram and bigram counts of words the user sends, with exponential decay, stored in LittleFS. New words typed in multitap are added to a user lexicon and are then available in T9.
-5. **Conversation cache:** words from the message being replied to get a short-term boost. Names, places and unusual words from the conversation then rank high.
-6. **Interpolation:** `score = λ1·log P_LM + λ2·log P_user + λ3·log P_cache`. The weights are tuned offline on held-out chat text.
-
-Capitalisation: the lexicon keeps the usual case of each word (German nouns), and the engine adds sentence-start capitalisation and the `*` case modes. The scorer is behind a small interface (`ti_scorer`), so a neural re-ranker can be added later without touching the input methods.
+1. **Lexicon lookup:** the key sequence gives an id range: exact matches first, then all completions.
+2. **Context:** cost `-log2 P(w | w-2, w-1)` from the trigram model with backoff to bigrams and unigrams (absolute discounting with backoff weights). This is where the previous words come in: after "Mir geht es" the keys `488` give "gut", after "Ich trage einen" they give "Hut".
+3. **Candidates for completions:** the successors of the context that fall into the key range, plus the 24 most frequent words of the range.
+4. **User model:** counts of the words and word pairs the user typed (64 words, 128 pairs, about 3.6 KB per language, stored in the settings when the compose screen is left). Unknown words are stored with their spelling.
+5. **Conversation cache:** the last 48 words of the conversation get a boost.
+6. **Mixture:** `P = 0.82 P_lm + 0.08 P_user(w | w-1) + 0.05 P_user(w) + 0.05 P_cache(w)`. Completions get a penalty of 5 bits against exact matches (tuned so that the first shown word is almost as often right as with exact matches only).
 
 ## Model format and size
 
-The model is built offline per language, by `tools/lmbuild`:
+Built offline per language by `tools/lmbuild` (`build_models.sh` downloads the corpora and rebuilds both models; `build.py` and `evaluate.py` can also be run on their own):
 
-1. Corpus: conversational text is best for a messenger, e.g. OpenSubtitles from OPUS and the Leipzig Corpora web/news sets. Check the licences before redistributing models.
-2. Normalise and tokenise, keep the vocabulary of the 25–30k most frequent words.
-3. Train a modified Kneser-Ney trigram model (KenLM `lmplz`), apply entropy pruning to the size budget.
-4. Quantise log-probabilities to 8 bits (unigrams) and 4–6 bits (bigrams/trigrams), sort word IDs by frequency, delta-code the successor lists, and write a `.lm` file with a header (language, version, sizes, CRC).
-5. Evaluate on held-out text: keystrokes per character, top-1 and top-3 accuracy, and the share of words typed with next-word prediction. The PC emulator and the Python extension use the same C code as the firmware, so the numbers are what the device delivers.
+1. Corpus: Tatoeba (short conversational sentences) and the Leipzig web corpus, see `lm/README.md` for sources and licences. Tatoeba's example names Tom, Mary and Maria appear in up to 23 % of its sentences and are downsampled.
+2. Tokenise; numbers and unusable tokens break the context, commas are transparent. Sentence-initial words are truecased; case variants are separate words if each is common (German "Sie" and "sie").
+3. Vocabulary: the 20 000 most frequent words (web junk and single letters other than "a"/"I" removed).
+4. Count unigrams, bigrams and trigrams (numpy), estimate with absolute discounting, prune by count-weighted change of log probability until the byte budget is reached (30 % of the n-gram budget for trigrams).
+5. Encode (format in `tools/lmbuild/lmformat.py`, reader in `lib/textinput/src/model.c`):
+   * lexicon sorted by key sequence, front-coded in blocks of 32 words with canonical Huffman codes for the shared prefix length, the letters and the case: 24–26 bits per word;
+   * unigrams as 6-bit costs;
+   * bigram and trigram tables with Rice-coded id gaps, 4-bit quantised costs and backoff weights (Lloyd codebooks), anchors every 16 contexts; a trigram context is the index of its bigram: 20 and 25 bits per entry.
 
-| Part (per language) | Target size |
-|---|---|
-| Lexicon trie (about 28k words, with case) | 70–90 KB |
-| Unigrams | about 28 KB |
-| Bigrams (about 60k after pruning) | 70–90 KB |
-| Trigrams (frequent contexts only) | 0–30 KB |
-| **Total** | **about 170–200 KB** |
+| Part (per language) | German | English |
+|---|---|---|
+| Lexicon (20 000 words) | 64 KB | 60 KB |
+| Unigrams | 15 KB | 15 KB |
+| Bigrams | 70 KB (28 483) | 73 KB (29 838) |
+| Trigrams | 30 KB (9 763) | 31 KB (10 086) |
+| **Total** | **176 KB** | **176 KB** |
+
+## Evaluation
+
+`evaluate.py` simulates typing 2 000 held-out sentences with the C engine. Keystrokes per character (KSPC; each word's space counts as a character and a key):
+
+| Method | German | English |
+|---|---|---|
+| Multitap | 1.97 | 1.93 |
+| Classic T9 (frequency only) | 1.02 | 1.01 |
+| T9 with context | 1.01 | 1.01 |
+| **Full: context + completions + next-word prediction** | **0.68** | **0.69** |
+| First exact match correct, frequency only | 90.5 % | 94.8 % |
+| First exact match correct, with context | 93.6 % | 97.0 % |
+| Words picked before pressing a key | 21.7 % | 25.9 % |
+| Words not in the lexicon (OOV) | 5.0 % | 1.1 % |
+
+"Full" assumes the user picks a word from the first three candidates as soon as it appears there. Context removes about a third (German) to 40 % (English) of the wrong first guesses of classic T9. The user model cannot be measured this way (the held-out text is not one person's writing); it helps with names and the user's own phrases.
 
 ## Flash budget (1 MB internal)
 
@@ -323,10 +342,10 @@ The model is built offline per language, by `tools/lmbuild`:
 | MCUboot (single slot, USB serial recovery) | 48 KB |
 | Application: Zephyr, drivers, LoRaWAN, Meshtastic + crypto, UI, fonts, text engine | 380–450 KB |
 | Settings + LittleFS | 128 KB |
-| Language models, German + English | about 360 KB |
+| Language models, German + English | 352 KB (2 × 176 KB) |
 | Reserve (BLE stack for the PhoneAPI needs about 120 KB) | rest |
 
-The budget is tight. `lmbuild` takes the partition size as a target and prunes until the model fits. The `lm` partition can be updated separately from the application over USB (mcumgr). With an external SPI NOR flash in rev 2, the models move there and can be 5–10 times larger (bigger vocabulary, full trigrams, optionally a small neural re-ranker).
+Currently the models are still linked into the application image (479 KB of the 544 KB code partition in phase 2); they have to move into the `lm` partition before the radio stacks are added. The budget is tight. `lmbuild` takes the partition size as a target and prunes until the model fits. The `lm` partition can be updated separately from the application over USB (mcumgr). With an external SPI NOR flash in rev 2, the models move there and can be 5–10 times larger (bigger vocabulary, full trigrams, optionally a small neural re-ranker).
 
 # Build and run
 
@@ -364,12 +383,14 @@ On the board the log goes to SEGGER RTT, because the only UART belongs to the GP
 
 Fonts are generated with `tools/fontconv/gen_fonts.sh`; the generated headers are committed.
 
+The language models are rebuilt with `tools/lmbuild/build_models.sh` (needs numpy; downloads about 170 MB of corpora once); the built `lm/*.lm` files are committed. Host tests of the text input library: `tests/textinput/run.sh`.
+
 # Development plan
 
 | Phase | Content | Needs hardware |
 |---|---|---|
 | 1 ✅ | Board definition, `native_sim` front panel (display model, keys, wheel, LEDs, audio), `gfx` + `ui`, home, menu, settings and hardware test screens | no |
-| 2 | Multitap, `lmbuild` pipeline, T9 with n-gram ranking and next-word prediction, user model, evaluation | no |
+| 2 ✅ | Multitap, `lmbuild` pipeline, T9 with n-gram ranking and next-word prediction, user model, evaluation, compose screen | no |
 | 3 | Meshtastic codec, crypto with test vectors, router, nodedb, inbox/chat/compose screens, UDP ether between two emulators | no |
 | 4 | Board bring-up: nPM1300 charger and rails, LCD bit-bang driver, keypad, QDEC, LEDs, vibration, PWM audio | yes |
 | 5 | SX1262 on the board, over-the-air test against a stock Meshtastic node | yes |
@@ -387,6 +408,8 @@ Phases 1–3 can run before the boards arrive.
 * **Firmware update** over BLE (MCUboot dual slot needs the external flash).
 
 # Open points
+
+* Move the language models from the application image into the `lm` flash partition (and update them separately).
 
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
 * Meshtastic protocol changes between releases: pin a protobuf release and update deliberately.
