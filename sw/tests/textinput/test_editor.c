@@ -247,13 +247,30 @@ static void test_cursor(void)
 	CHECK_TEXT(&ed, "Aea");
 }
 
+/* No language model (lm partition not flashed): multitap and 123 still work. */
+static void test_no_model(void)
+{
+	ti_editor_init(&ed, NULL, "de");
+	CHECK(ed.mode == TI_MODE_ABC, "mode %d", ed.mode);
+	type("44_");
+	CHECK_TEXT(&ed, "H");
+	type("##"); /* abc -> 123 -> abc, T9 is skipped */
+	CHECK(ed.mode == TI_MODE_ABC, "mode %d after ##", ed.mode);
+	type("0C");
+	CHECK_TEXT(&ed, "H");
+}
+
+static void *pack;
+static size_t pack_size;
+
 static void test_english(void)
 {
 	static struct ti_model en;
+	const uint8_t *data;
 	size_t size;
-	void *data = load("lm/en.lm", &size);
 	int typed;
 
+	CHECK(ti_pack_find(pack, pack_size, "en", &data, &size) == 0, "en not in the pack");
 	CHECK(ti_model_open(&en, data, size) == 0, "open en");
 	ti_user_init(&user);
 	ti_engine_init(&eng, &en, &user);
@@ -269,10 +286,13 @@ static void test_english(void)
 
 int main(void)
 {
+	const uint8_t *data;
 	size_t size;
-	void *data = load("lm/de.lm", &size);
 
-	if (ti_model_open(&model, data, size) != 0) {
+	/* The models as stored in the lm flash partition (packed by run.sh). */
+	pack = load("build-tests/lm.bin", &pack_size);
+	if (ti_pack_find(pack, pack_size, "de", &data, &size) != 0 ||
+	    ti_model_open(&model, data, size) != 0) {
 		printf("cannot open model\n");
 		return 2;
 	}
@@ -282,6 +302,7 @@ int main(void)
 	test_multitap_and_learning();
 	test_long_press_and_123();
 	test_cursor();
+	test_no_model();
 	test_english();
 	printf("%s (%d failure%s)\n", failures ? "FAILED" : "OK", failures,
 	       failures == 1 ? "" : "s");

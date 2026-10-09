@@ -95,6 +95,7 @@ sw/
 │   ├── services/                    # (later) radio_arbiter, lorawan_svc, gps_svc, notify_svc
 │   └── screens/                     # home, menu, settings, hardware test, power off, compose, conversations, chat, nodes; (later) inbox, chat, compose, nodes
 ├── lm/                              # language models de.lm, en.lm (+ sources and licences)
+├── modules/lm_image/                # Zephyr module: model pack for the lm partition, merged.hex
 ├── tools/
 │   ├── fontconv/                    # BDF → C font headers (X11 misc-misc fonts, public domain)
 │   ├── lmbuild/                     # corpus → n-grams → prune/quantise → .lm; evaluation
@@ -364,7 +365,7 @@ Built offline per language by `tools/lmbuild` (`build_models.sh` downloads the c
 | Language models, German + English | 352 KB (2 × 176 KB) |
 | Reserve (BLE stack for the PhoneAPI needs about 120 KB) | rest |
 
-Currently the models are still linked into the application image (479 KB of the 544 KB code partition in phase 2); they have to move into the `lm` partition before the radio stacks are added. The budget is tight. `lmbuild` takes the partition size as a target and prunes until the model fits. The `lm` partition can be updated separately from the application over USB (mcumgr). With an external SPI NOR flash in rev 2, the models move there and can be 5–10 times larger (bigger vocabulary, full trigrams, optionally a small neural re-ranker).
+On the board the models live in the `lm` partition as a pack (`tools/lmbuild/pack.py`: a small directory of language, offset and size, then the models), read in place from the memory-mapped flash; the application itself is 143 KB after phase 3. The two models fill the 352 KB partition up to 868 bytes. The emulator links the models into the program. The budget is tight. `lmbuild` takes the partition size as a target and prunes until the model fits. The `lm` partition can be updated separately from the application over USB (mcumgr). With an external SPI NOR flash in rev 2, the models move there and can be 5–10 times larger (bigger vocabulary, full trigrams, optionally a small neural re-ranker).
 
 # Build and run
 
@@ -395,8 +396,10 @@ west build -b native_sim/native/64 --no-sysbuild -d build-sim .     # emulator
 ./build-sim/zephyr/zephyr.exe
 
 west build -b cmdz5/nrf52840 --no-sysbuild -d build-board .        # board
-west flash -d build-board                                           # SWD (J-Link)
+west flash -d build-board                                           # SWD (J-Link): application + language models
 ```
+
+`west flash` writes `merged.hex`: the application and the language model pack for the `lm` partition (built by `modules/lm_image`, a small Zephyr module, because the flash runner is configured before the application's own CMake code runs). Without the models the device still works; text input then offers multitap and 123 only.
 
 On the board the log goes to SEGGER RTT, because the only UART belongs to the GPS. USB CDC ACM follows later.
 
@@ -428,7 +431,7 @@ Phases 1–3 can run before the boards arrive.
 
 # Open points
 
-* Move the language models from the application image into the `lm` flash partition (and update them separately).
+* Update the language models separately from the application (mcumgr image upload to the `lm` partition).
 
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
 * Meshtastic protocol changes between releases: the implementation follows firmware 2.7; check new releases (e.g. next-hop routing, signed packets).

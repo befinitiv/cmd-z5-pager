@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <zephyr/devicetree.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
@@ -11,15 +12,22 @@
 LOG_MODULE_REGISTER(textin, CONFIG_CMDZ5_APP_LOG_LEVEL);
 
 /*
- * The models are linked into the application for now. Later they move to the
- * lm flash partition, so they can be updated separately.
+ * The board keeps the models in the lm flash partition (memory-mapped), as a
+ * pack written by tools/lmbuild/pack.py and flashed together with the
+ * application (merged.hex). The emulator links them into the program.
  */
+#define LM_NODE DT_NODELABEL(lm_partition)
+#if DT_NODE_EXISTS(LM_NODE)
+#define LM_PACK      ((const uint8_t *)(DT_REG_ADDR(DT_CHOSEN(zephyr_flash)) + DT_REG_ADDR(LM_NODE)))
+#define LM_PACK_SIZE DT_REG_SIZE(LM_NODE)
+#else
 static const uint8_t model_de[] = {
 #include "lm/de.lm.inc"
 };
 static const uint8_t model_en[] = {
 #include "lm/en.lm.inc"
 };
+#endif
 
 struct language {
 	const char *code;
@@ -32,8 +40,13 @@ struct language {
 };
 
 static struct language langs[LANG_COUNT] = {
+#ifdef LM_PACK
+	[LANG_EN] = {.code = "en"},
+	[LANG_DE] = {.code = "de"},
+#else
 	[LANG_EN] = {.code = "en", .data = model_en, .size = sizeof(model_en)},
 	[LANG_DE] = {.code = "de", .data = model_de, .size = sizeof(model_de)},
+#endif
 };
 
 static struct ti_editor editor;
@@ -69,6 +82,13 @@ int textin_init(void)
 		struct language *l = &langs[i];
 
 		ti_user_init(&l->user);
+#ifdef LM_PACK
+		if (ti_pack_find(LM_PACK, LM_PACK_SIZE, l->code, &l->data, &l->size) != 0) {
+			LOG_ERR("language model %s not in the lm partition (flash merged.hex)",
+				l->code);
+			continue;
+		}
+#endif
 		l->ok = ti_model_open(&l->model, l->data, l->size) == 0;
 		if (!l->ok) {
 			LOG_ERR("language model %s is invalid", l->code);
@@ -83,12 +103,14 @@ int textin_init(void)
 
 	current = app_config.input_lang < LANG_COUNT ? app_config.input_lang : LANG_DE;
 	if (!langs[current].ok) {
-		return -EINVAL;
+		current = langs[LANG_DE].ok ? LANG_DE : LANG_EN;
 	}
-	ti_editor_init(&editor, &langs[current].engine, langs[current].code);
+	/* Without any model the editor still offers multitap. */
+	ti_editor_init(&editor, langs[current].ok ? &langs[current].engine : NULL,
+		       langs[current].code);
 	editor.lang_cb = lang_switch;
 	editor.learn = app_config.learn_words;
-	return 0;
+	return langs[current].ok ? 0 : -ENOENT;
 }
 
 struct ti_editor *textin_editor(void)

@@ -151,6 +151,10 @@ static int word_before(const struct ti_editor *ed, int pos, char *buf, size_t si
 /* Context (two previous words) of a word that starts at pos. */
 static void context_at(const struct ti_editor *ed, int pos, int32_t *p2, int32_t *p1)
 {
+	if (!ed->eng) {
+		*p1 = *p2 = TI_NONE;
+		return;
+	}
 	int32_t bos = ed->eng->m->V;
 	int32_t ctx[2] = {TI_NONE, TI_NONE};
 	char word[TI_WORD_BYTES];
@@ -187,7 +191,7 @@ static void learn_last_word(struct ti_editor *ed)
 	int start = word_before(ed, ed->cursor, word, sizeof(word));
 	int32_t p2, p1, id;
 
-	if (start < 0) {
+	if (start < 0 || !ed->eng) {
 		return;
 	}
 	context_at(ed, start, &p2, &p1);
@@ -216,7 +220,7 @@ static void refresh(struct ti_editor *ed)
 	context_at(ed, ed->cursor, &ed->p2, &ed->p1);
 	ed->ncands = 0;
 	ed->sel = -1;
-	if (ed->mode != TI_MODE_T9 || ed->pend_len || ed->symbols) {
+	if (ed->mode != TI_MODE_T9 || ed->pend_len || ed->symbols || !ed->eng) {
 		return;
 	}
 	ed->keys[ed->nkeys] = '\0';
@@ -340,6 +344,9 @@ void ti_editor_set_engine(struct ti_editor *ed, struct ti_engine *eng, const cha
 {
 	ed->eng = eng;
 	ed->multitap = ti_multitap_table(lang);
+	if (!eng && ed->mode == TI_MODE_T9) {
+		ed->mode = TI_MODE_ABC;
+	}
 	ed->nkeys = 0;
 	finish_pending(ed);
 	refresh(ed);
@@ -354,7 +361,9 @@ void ti_editor_clear(struct ti_editor *ed)
 	ed->symbols = false;
 	ed->cursor_mode = false;
 	finish_pending(ed);
-	ti_engine_cache_clear(ed->eng);
+	if (ed->eng) {
+		ti_engine_cache_clear(ed->eng);
+	}
 	refresh(ed);
 }
 
@@ -451,6 +460,9 @@ bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint
 		} else {
 			finish_word(ed);
 			ed->mode = (ed->mode + 1) % 3;
+			if (ed->mode == TI_MODE_T9 && !ed->eng) {
+				ed->mode = TI_MODE_ABC; /* no language model: no T9 */
+			}
 		}
 		refresh(ed);
 		return true;

@@ -1,0 +1,5 @@
+# Packs the language models for the lm flash partition and makes `west flash`
+# write them together with the application (merged.hex).
+name: cmdz5_lm_image
+build:
+  cmake: .

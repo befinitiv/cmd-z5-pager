@@ -94,6 +94,7 @@ struct ti_editor {
 /* Multitap tables for a language code ("de", "en"). */
 const char *const *ti_multitap_table(const char *lang);
 
+/* eng may be NULL (no language model): multitap and 123 only. */
 void ti_editor_init(struct ti_editor *ed, struct ti_engine *eng, const char *lang);
 /* Switch the language (engine with another model); keeps the text. */
 void ti_editor_set_engine(struct ti_editor *ed, struct ti_engine *eng, const char *lang);

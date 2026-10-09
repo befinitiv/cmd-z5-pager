@@ -83,6 +83,13 @@ struct ti_list {
 	int16_t costs[TI_LIST_MAX];
 };
 
+/*
+ * Find a language in a model pack (tools/lmbuild/pack.py, stored in the lm
+ * flash partition). Returns 0 and sets data/size, or a negative error.
+ */
+int ti_pack_find(const void *pack, size_t pack_size, const char *lang, const uint8_t **data,
+		 size_t *size);
+
 /* Returns 0 or a negative error if the data is not a valid model. */
 int ti_model_open(struct ti_model *m, const void *data, size_t size);
 

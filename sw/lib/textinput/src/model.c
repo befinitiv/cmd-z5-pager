@@ -120,6 +120,32 @@ char ti_key_of_char(uint32_t cp)
 	return 0;
 }
 
+/* Model pack ---------------------------------------------------------------- */
+
+int ti_pack_find(const void *pack, size_t pack_size, const char *lang, const uint8_t **data,
+		 size_t *size)
+{
+	const uint8_t *p = pack;
+
+	if (pack_size < 12 || memcmp(p, "LMPK", 4) != 0 || ti_get_u32(p + 4) != 1) {
+		return -ENOENT;
+	}
+	uint32_t count = ti_get_u32(p + 8);
+
+	for (uint32_t i = 0; i < count && 12 + 12 * (i + 1) <= pack_size; i++) {
+		const uint8_t *e = p + 12 + 12 * i;
+		uint32_t off = ti_get_u32(e + 4);
+		uint32_t len = ti_get_u32(e + 8);
+
+		if (strncmp((const char *)e, lang, 4) == 0 && off + len <= pack_size) {
+			*data = p + off;
+			*size = len;
+			return 0;
+		}
+	}
+	return -ENOENT;
+}
+
 /* Header ------------------------------------------------------------------ */
 
 static void huff_init(struct ti_huff *h, const uint8_t *lengths, int nsym)
