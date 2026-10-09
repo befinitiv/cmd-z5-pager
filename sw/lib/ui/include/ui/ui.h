@@ -152,6 +152,15 @@ struct ui_screen *ui_top(void);
  */
 void ui_dispatch(const struct ui_event *ev);
 
+/*
+ * Pop-up box over the bottom of the screen (e.g. a new message). It does not
+ * change the screen stack. While it is shown, any key or the wheel closes it
+ * without reaching the screen; wheel push also calls on_select(arg).
+ */
+void ui_toast(const char *title, const char *text, void (*on_select)(void *arg), void *arg);
+void ui_toast_hide(void);
+bool ui_toast_visible(void);
+
 /* Call the top screen's poll hook. */
 void ui_poll(void);
 

@@ -210,6 +210,7 @@ The mesh service (`src/mesh/mesh.c`) runs the router in its own thread:
 * **NodeInfo:** broadcast 5–15 s after the start and every 3 hours; answered when requested; a node that sends something without being known gets our NodeInfo with a request for its own (rate-limited), so keys are exchanged quickly.
 * **Messages** (`msgstore.c`): the primary channel and one conversation per node, the newest 40 messages, delivery status queued → sent → delivered / no relay / failed. They are stored in LittleFS (`msglog.c`, `/lfs/msgs.log`): new messages, status changes and read marks are appended as small records and replayed at startup; above 24 KB the log is rewritten with the current messages only. Messages that were still queued when the device stopped are shown as failed.
 * **Nodes** with user info and position are stored in the settings and survive a restart.
+* **New messages:** sound, vibration and the display wakes up. The home screen shows a preview; on other screens a pop-up (`ui_toast()`) shows the sender and the start of the text for 8 s, unless that conversation is open. Push opens the conversation; any other key only closes the pop-up.
 
 Tested on the host (`tests/meshtastic/run.sh`): crypto against FIPS-197 and RFC 7748 vectors and against vectors generated with Python `cryptography`; the LongFast channel hash (8) and the US LongFast frequency (906.875 MHz) as seen on real meshes; router scenarios in a simulated network (two-hop flooding, implicit ACK, encrypted DM over two hops with ACK, fallback to the channel key, retries until failed, lost ACK, relay cancelled in a triangle, foreign channel relayed but not delivered). In the emulator, `tests/emul/run_mesh.sh` lets two instances exchange a channel message and an encrypted direct message. A test against a stock Meshtastic node needs the board (phase 5).
 
@@ -291,7 +292,7 @@ The menus are in English or German (Settings → Language, stored with the other
 
 ## Screens
 
-Home (clock, battery, unread count, last message) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power · About).
+Home (clock, battery; with unread messages a preview: sender, count and the start of the newest text) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power · About).
 
 # Predictive text (`lib/textinput`)
 

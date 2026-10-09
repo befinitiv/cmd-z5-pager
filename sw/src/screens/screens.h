@@ -25,6 +25,8 @@ void compose_open_edit(const char *title, const char *text, size_t max_len,
 		       void (*done)(const char *text));
 /* Conversation with a node, or the channel (CONV_CHANNEL). */
 void chat_open(uint32_t conv);
+/* True if the chat of this conversation is the current screen. */
+bool chat_showing(uint32_t conv);
 void node_detail_open(uint32_t num);
 
 void about_show(void);

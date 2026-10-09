@@ -49,28 +49,47 @@ static void home_draw(struct ui_screen *s, struct gfx *g)
 	gfx_hline(g, 8, 46, GFX_WIDTH - 16, GFX_LIGHT);
 
 	int unread, nodes;
+	static struct msg newest;
+	bool have_newest = false;
 
 	msgstore_lock();
 	unread = msgstore_unread(0);
+	if (msgstore_newest_unread()) {
+		newest = *msgstore_newest_unread();
+		have_newest = true;
+	}
 	msgstore_unlock();
 	mesh_lock();
 	nodes = mesh_nodes()->count;
 	mesh_unlock();
-	if (!mesh_available()) {
-		snprintf(buf, sizeof(buf), "%s", tr("Mesh off"));
-	} else if (unread) {
-		snprintf(buf, sizeof(buf), tr(unread == 1 ? "%d new message" : "%d new messages"),
-			 unread);
-	} else {
-		snprintf(buf, sizeof(buf), tr(nodes == 1 ? "%d node" : "%d nodes"), nodes);
-	}
-	gfx_text_aligned(g, gfx_font_text, 0, 49, GFX_WIDTH, GFX_ALIGN_CENTER, buf,
-			 unread ? GFX_BLACK : GFX_DARK);
 
-	/* Soft key hint. */
-	gfx_fill_rect(g, 0, GFX_HEIGHT - 8, GFX_WIDTH, 8, GFX_LIGHT);
-	gfx_text_aligned(g, gfx_font_small, 0, GFX_HEIGHT - 7, GFX_WIDTH, GFX_ALIGN_CENTER,
-			 tr("push: Menu"), GFX_BLACK);
+	if (have_newest) {
+		/* Preview: sender and count, then the start of the newest unread text. */
+		char who[24], count[16];
+
+		mesh_node_name(newest.from, who, sizeof(who));
+		snprintf(count, sizeof(count), tr("%d new"), unread);
+		int cw = gfx_text_width(gfx_font_small, count, -1);
+
+		gfx_text_fit(g, gfx_font_small, 2, 48, GFX_WIDTH - cw - 6, who, GFX_BLACK);
+		gfx_text(g, gfx_font_small, GFX_WIDTH - 2 - cw, 48, count, GFX_BLACK);
+		gfx_text_fit(g, gfx_font_text, 2, 55, GFX_WIDTH - 4, newest.text, GFX_BLACK);
+	} else {
+		if (!mesh_available()) {
+			snprintf(buf, sizeof(buf), "%s", tr("Mesh off"));
+		} else {
+			snprintf(buf, sizeof(buf), tr(nodes == 1 ? "%d node" : "%d nodes"), nodes);
+		}
+		gfx_text_aligned(g, gfx_font_text, 0, 49, GFX_WIDTH, GFX_ALIGN_CENTER, buf,
+				 GFX_DARK);
+	}
+
+	/* Soft key hint, unless the message preview needs the space. */
+	if (!have_newest) {
+		gfx_fill_rect(g, 0, GFX_HEIGHT - 8, GFX_WIDTH, 8, GFX_LIGHT);
+		gfx_text_aligned(g, gfx_font_small, 0, GFX_HEIGHT - 7, GFX_WIDTH,
+				 GFX_ALIGN_CENTER, tr("push: Menu"), GFX_BLACK);
+	}
 }
 
 static bool home_event(struct ui_screen *s, const struct ui_event *ev)

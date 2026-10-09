@@ -59,5 +59,7 @@ int msgstore_unread(uint32_t conv); /* conv = 0: all conversations */
 void msgstore_mark_read(uint32_t conv);
 /* Conversations, the channel first, then by the newest message. */
 int msgstore_conversations(uint32_t *convs, int max);
+/* Newest unread message of all conversations, or NULL. */
+struct msg *msgstore_newest_unread(void);
 /* Newest message of a conversation, or NULL. */
 struct msg *msgstore_last(uint32_t conv);

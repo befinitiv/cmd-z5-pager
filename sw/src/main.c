@@ -5,6 +5,8 @@
  * services) pass events through app_post().
  */
 
+#include <stdio.h>
+
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
@@ -14,6 +16,8 @@
 #include "hw.h"
 #include "i18n.h"
 #include "mesh/mesh.h"
+#include "mesh/msgstore.h"
+#include "meshtastic/packet.h"
 #include "textin.h"
 #include "power.h"
 #include "screens/screens.h"
@@ -86,6 +90,41 @@ static bool is_user_input(const struct ui_event *ev)
 	       ev->type == UI_EV_KEY_RELEASE || ev->type == UI_EV_WHEEL;
 }
 
+#define TOAST_MS 8000
+
+static int64_t toast_until;
+
+static void open_conversation(void *arg)
+{
+	chat_open((uint32_t)(uintptr_t)arg);
+}
+
+/* New message: a pop-up, unless the home screen or that chat shows it anyway. */
+static void show_message_toast(void)
+{
+	static struct msg m;
+	char who[24], title[40];
+	bool have = false;
+
+	msgstore_lock();
+	if (msgstore_newest_unread()) {
+		m = *msgstore_newest_unread();
+		have = true;
+	}
+	msgstore_unlock();
+	if (!have || ui_top() == &home_screen || chat_showing(m.conv)) {
+		return;
+	}
+	mesh_node_name(m.from, who, sizeof(who));
+	if (m.conv == CONV_CHANNEL) {
+		snprintf(title, sizeof(title), "%s #%s", who, mesh_channel_name());
+	} else {
+		snprintf(title, sizeof(title), "%s", who);
+	}
+	ui_toast(title, m.text, open_conversation, (void *)(uintptr_t)m.conv);
+	toast_until = k_uptime_get() + TOAST_MS;
+}
+
 static const struct hw_note message_tune[] = {
 	{1568, 80}, {2093, 120},
 };
@@ -104,6 +143,7 @@ static void handle(const struct ui_event *ev)
 			if (app_config.vibrate) {
 				hw_vibrate(300);
 			}
+			show_message_toast();
 		}
 		ui_invalidate();
 		return;
@@ -186,6 +226,10 @@ int main(void)
 			}
 		}
 		power_update();
+		if (toast_until && k_uptime_get() >= toast_until) {
+			toast_until = 0;
+			ui_toast_hide();
+		}
 		ui_poll();
 		render();
 	}

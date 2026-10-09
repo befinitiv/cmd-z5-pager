@@ -48,6 +48,11 @@ void chat_open(uint32_t c)
 	ui_push(&chat_screen);
 }
 
+bool chat_showing(uint32_t c)
+{
+	return ui_top() == &chat_screen && conv == c;
+}
+
 static void load(void)
 {
 	int idx[SHOWN];

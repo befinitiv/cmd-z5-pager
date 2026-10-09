@@ -110,6 +110,7 @@ static const struct translation de[] = {
 	{"%d new message", "%d neue Nachricht"},
 	{"%d new messages", "%d neue Nachrichten"},
 	{"%d node", "%d Knoten"},
+	{"%d new", "%d neu"},
 	{"%d nodes", "%d Knoten"},
 	{"The radio is not available.", "Der Funk ist nicht verfügbar."},
 

@@ -145,6 +145,18 @@ void msgstore_mark_read(uint32_t conv)
 	}
 }
 
+struct msg *msgstore_newest_unread(void)
+{
+	for (int i = count - 1; i >= 0; i--) {
+		struct msg *m = msgstore_get(i);
+
+		if (!m->read && !m->outgoing) {
+			return m;
+		}
+	}
+	return NULL;
+}
+
 struct msg *msgstore_last(uint32_t conv)
 {
 	for (int i = count - 1; i >= 0; i--) {
