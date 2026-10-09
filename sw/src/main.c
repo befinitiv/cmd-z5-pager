@@ -30,8 +30,12 @@ K_MSGQ_DEFINE(ui_queue, sizeof(struct ui_event), 32, 4);
 
 static struct gfx gfx;
 
+/* Startup: the first 7 notes of the Super Mario Bros. theme (E E - E - C E - G - - - G). */
+#define SMB_16TH 110 /* ms */
 static const struct hw_note startup_tune[] = {
-	{1047, 90}, {1319, 90}, {1568, 90}, {2093, 160},
+	{1319, SMB_16TH},     {1319, SMB_16TH}, {0, SMB_16TH},     {1319, SMB_16TH},
+	{0, SMB_16TH},        {1047, SMB_16TH}, {1319, 2 * SMB_16TH}, {1568, 2 * SMB_16TH},
+	{0, 2 * SMB_16TH},    {784, 2 * SMB_16TH},
 };
 
 void app_post(const struct ui_event *ev)
