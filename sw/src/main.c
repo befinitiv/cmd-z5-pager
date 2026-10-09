@@ -189,8 +189,13 @@ static void handle(const struct ui_event *ev)
 		return;
 	}
 
-	if (ev->type == UI_EV_KEY_PRESS && app_config.key_click) {
-		hw_tone(HW_SPEAKER, 2500, 6, app_config.volume / 2);
+	if (app_config.key_click) {
+		if (ev->type == UI_EV_KEY_PRESS) {
+			hw_tone(HW_SPEAKER, 2500, 6, app_config.volume / 2);
+		} else if (ev->type == UI_EV_WHEEL) {
+			/* Subtler than a key: shorter, higher and quieter. */
+			hw_tone(HW_SPEAKER, 4000, 3, app_config.volume / 5);
+		}
 	}
 	ui_dispatch(ev);
 }
