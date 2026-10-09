@@ -52,6 +52,7 @@ static const struct translation de[] = {
 	{"New message", "Neue Nachricht"},
 	{"Inbox", "Posteingang"},
 	{"CALL = send", "CALL = senden"},
+	{"wheel: move  *: done", "Rad: bewegen *: fertig"},
 	{"Sending messages follows in phase 3.", "Das Senden folgt in Phase 3."},
 
 	/* Widgets */

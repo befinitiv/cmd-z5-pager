@@ -79,7 +79,7 @@ static uint32_t char_before(const char *text, int pos)
 
 static bool at_sentence_start(const struct ti_editor *ed)
 {
-	int pos = ed->len;
+	int pos = ed->cursor;
 
 	while (pos > 0 && ed->text[pos - 1] == ' ') {
 		pos--;
@@ -94,15 +94,22 @@ static bool append(struct ti_editor *ed, const char *s)
 	if (ed->len + n > TI_TEXT_MAX) {
 		return false;
 	}
-	memcpy(ed->text + ed->len, s, n + 1);
+	memmove(ed->text + ed->cursor + n, ed->text + ed->cursor, ed->len - ed->cursor + 1);
+	memcpy(ed->text + ed->cursor, s, n);
 	ed->len += n;
+	ed->cursor += n;
 	return true;
 }
 
-static void truncate_to(struct ti_editor *ed, int len)
+/* Remove n bytes before the cursor. */
+static void delete_before(struct ti_editor *ed, int n)
 {
-	ed->len = len;
-	ed->text[len] = '\0';
+	if (n > ed->cursor) {
+		n = ed->cursor;
+	}
+	memmove(ed->text + ed->cursor - n, ed->text + ed->cursor, ed->len - ed->cursor + 1);
+	ed->cursor -= n;
+	ed->len -= n;
 }
 
 /* Apply the case mode to a word (UTF-8). */
@@ -173,11 +180,11 @@ static void context_at(const struct ti_editor *ed, int pos, int32_t *p2, int32_t
 	*p2 = ctx[0] == bos ? TI_NONE : ctx[1];
 }
 
-/* Learn the word that ends at the end of the text, if any. */
+/* Learn the word that ends at the cursor, if any. */
 static void learn_last_word(struct ti_editor *ed)
 {
 	char word[TI_WORD_BYTES];
-	int start = word_before(ed, ed->len, word, sizeof(word));
+	int start = word_before(ed, ed->cursor, word, sizeof(word));
 	int32_t p2, p1, id;
 
 	if (start < 0) {
@@ -206,7 +213,7 @@ static void refresh(struct ti_editor *ed)
 	char raw[TI_WORD_BYTES];
 	bool start = at_sentence_start(ed);
 
-	context_at(ed, ed->len, &ed->p2, &ed->p1);
+	context_at(ed, ed->cursor, &ed->p2, &ed->p1);
 	ed->ncands = 0;
 	ed->sel = -1;
 	if (ed->mode != TI_MODE_T9 || ed->pend_len || ed->symbols) {
@@ -230,7 +237,7 @@ static bool commit_candidate(struct ti_editor *ed, bool space)
 		return false;
 	}
 	/* A predicted word right after a word or punctuation gets a space first. */
-	if (ed->len && !ed->nkeys && !is_transparent(char_before(ed->text, ed->len))) {
+	if (ed->cursor && !ed->nkeys && !is_transparent(char_before(ed->text, ed->cursor))) {
 		append_sep(ed, " ");
 	}
 	if (!append(ed, ed->cand_text[ed->sel])) {
@@ -287,7 +294,7 @@ static void multitap(struct ti_editor *ed, char key, uint32_t now)
 	char buf[5];
 
 	if (ed->pend_len && ed->pend_key == key && now - ed->pend_time < TI_MULTITAP_MS) {
-		truncate_to(ed, ed->len - ed->pend_len);
+		delete_before(ed, ed->pend_len);
 		ed->pend_idx++;
 	} else {
 		finish_pending(ed);
@@ -308,8 +315,8 @@ static void multitap(struct ti_editor *ed, char key, uint32_t now)
 	bool fresh = ed->pend_len == 0;
 
 	/* Punctuation goes right after the word: drop the space added after it. */
-	if (fresh && key == '1' && ed->len && ed->text[ed->len - 1] == ' ') {
-		truncate_to(ed, ed->len - 1);
+	if (fresh && key == '1' && ed->cursor && ed->text[ed->cursor - 1] == ' ') {
+		delete_before(ed, 1);
 	}
 	bool ok = fresh && !is_word_char(cp) ? append_sep(ed, buf) : append(ed, buf);
 
@@ -340,9 +347,12 @@ void ti_editor_set_engine(struct ti_editor *ed, struct ti_engine *eng, const cha
 
 void ti_editor_clear(struct ti_editor *ed)
 {
-	truncate_to(ed, 0);
+	ed->len = 0;
+	ed->cursor = 0;
+	ed->text[0] = '\0';
 	ed->nkeys = 0;
 	ed->symbols = false;
+	ed->cursor_mode = false;
 	finish_pending(ed);
 	ti_engine_cache_clear(ed->eng);
 	refresh(ed);
@@ -350,17 +360,17 @@ void ti_editor_clear(struct ti_editor *ed)
 
 static void delete_char(struct ti_editor *ed)
 {
-	if (ed->len) {
-		truncate_to(ed, char_start(ed->text, ed->len));
+	if (ed->cursor) {
+		delete_before(ed, ed->cursor - char_start(ed->text, ed->cursor));
 	}
 }
 
 static void delete_word(struct ti_editor *ed)
 {
-	while (ed->len && ed->text[ed->len - 1] == ' ') {
+	while (ed->cursor && ed->text[ed->cursor - 1] == ' ') {
 		delete_char(ed);
 	}
-	while (ed->len && ed->text[ed->len - 1] != ' ') {
+	while (ed->cursor && ed->text[ed->cursor - 1] != ' ') {
 		delete_char(ed);
 	}
 }
@@ -379,15 +389,15 @@ static bool key_clear(struct ti_editor *ed, bool long_press)
 	} else if (ed->nkeys) {
 		ed->nkeys--;
 	} else if (ed->pend_len) {
-		truncate_to(ed, ed->len - ed->pend_len);
+		delete_before(ed, ed->pend_len);
 		finish_pending(ed);
-	} else if (ed->sel >= 0 && !ed->nkeys) {
+	} else if (ed->sel >= 0 && !ed->nkeys && !ed->cursor_mode) {
 		ed->sel = -1; /* only deselect the prediction */
 		return true;
-	} else if (ed->len) {
+	} else if (ed->cursor) {
 		delete_char(ed);
-	} else {
-		return false;
+	} else if (!ed->len) {
+		return false; /* empty text: the screen may go back */
 	}
 	refresh(ed);
 	return true;
@@ -425,17 +435,16 @@ bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint
 	if (key == TI_EK_STAR) {
 		if (long_press) {
 			ed->shift = (ed->shift + 1) % 3;
-		} else if (ed->mode == TI_MODE_123) {
-			insert_literal(ed, "*");
-		} else if (ed->ncands && ed->sel >= 0) {
-			ed->sel = (ed->sel + 1) % ed->ncands;
-			return true;
 		} else {
+			ti_editor_cursor_mode(ed, !ed->cursor_mode);
 			return true;
 		}
 		refresh(ed);
 		return true;
 	}
+
+	/* Typing ends cursor placement; the cursor stays where it is. */
+	ed->cursor_mode = false;
 
 	/* Digits. */
 	if (long_press || ed->mode == TI_MODE_123) {
@@ -482,8 +491,38 @@ bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint
 	return true;
 }
 
+void ti_editor_cursor_mode(struct ti_editor *ed, bool on)
+{
+	if (on) {
+		finish_word(ed);
+		ed->symbols = false;
+	}
+	ed->cursor_mode = on;
+	refresh(ed);
+}
+
+/* Move the cursor by whole characters; negative = towards the start. */
+static void move_cursor(struct ti_editor *ed, int chars)
+{
+	for (; chars < 0 && ed->cursor > 0; chars++) {
+		ed->cursor = char_start(ed->text, ed->cursor);
+	}
+	for (; chars > 0 && ed->cursor < ed->len; chars--) {
+		const char *p = ed->text + ed->cursor;
+
+		ti_utf8_next(&p);
+		ed->cursor = p - ed->text;
+	}
+}
+
 bool ti_editor_wheel(struct ti_editor *ed, int delta)
 {
+	if (ed->cursor_mode) {
+		/* Wheel up moves the cursor back in the text. */
+		move_cursor(ed, -delta);
+		refresh(ed);
+		return true;
+	}
 	if (ed->symbols) {
 		int n = NSYMBOLS;
 
@@ -507,6 +546,10 @@ bool ti_editor_wheel(struct ti_editor *ed, int delta)
 
 bool ti_editor_select(struct ti_editor *ed)
 {
+	if (ed->cursor_mode) {
+		ti_editor_cursor_mode(ed, false);
+		return true;
+	}
 	if (ed->symbols) {
 		ed->symbols = false;
 		insert_literal(ed, symbols[ed->sym_sel]);
@@ -544,6 +587,11 @@ bool ti_editor_tick(struct ti_editor *ed, uint32_t now_ms)
 const char *ti_editor_text(const struct ti_editor *ed)
 {
 	return ed->text;
+}
+
+int ti_editor_cursor(const struct ti_editor *ed)
+{
+	return ed->cursor;
 }
 
 const char *ti_editor_composing(const struct ti_editor *ed, int *typed)

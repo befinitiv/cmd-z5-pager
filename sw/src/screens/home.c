@@ -70,4 +70,5 @@ struct ui_screen home_screen = {
 	.event = home_event,
 	.draw = home_draw,
 	.tick_redraw = true,
+	.statusbar = true,
 };

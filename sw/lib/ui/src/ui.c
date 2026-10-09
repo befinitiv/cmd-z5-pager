@@ -122,6 +122,13 @@ void ui_dispatch(const struct ui_event *ev)
 	}
 }
 
+int ui_content_y(void)
+{
+	struct ui_screen *s = ui_top();
+
+	return s && s->statusbar && draw_statusbar ? UI_STATUS_H + 1 : 0;
+}
+
 void ui_poll(void)
 {
 	struct ui_screen *s = ui_top();
@@ -151,7 +158,7 @@ void ui_render(struct gfx *g)
 	if (!s) {
 		return;
 	}
-	if (!s->fullscreen && draw_statusbar) {
+	if (s->statusbar && draw_statusbar) {
 		gfx_set_clip(g, 0, 0, GFX_WIDTH, UI_STATUS_H);
 		draw_statusbar(g);
 		gfx_reset_clip(g);

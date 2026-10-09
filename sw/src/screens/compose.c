@@ -3,8 +3,9 @@
  *
  * Layout: mode and length on the first line, the wrapped text with the word
  * being composed (the completion part in gray, underlined) and a cursor, and
- * the candidate bar at the bottom. Memo opens the symbol picker. The text is
- * kept as a draft when leaving the screen.
+ * the candidate bar at the bottom. Memo opens the symbol picker; '*' switches
+ * the wheel between the candidates and moving the (then blinking) cursor.
+ * The text is kept as a draft when leaving the screen.
  */
 
 #include <stdio.h>
@@ -22,7 +23,8 @@
 #define BAR_Y     (GFX_HEIGHT - BAR_H)
 #define LINE_H    8
 #define TEXT_W    (GFX_WIDTH - 2)
-#define MAX_LINES 16
+#define MAX_LINES 40
+#define BLINK_MS  400
 
 static const enum ti_ekey digit_keys[] = {
 	[UI_KEY_0] = TI_EK_0,     [UI_KEY_1] = TI_EK_0 + 1, [UI_KEY_2] = TI_EK_0 + 2,
@@ -30,6 +32,9 @@ static const enum ti_ekey digit_keys[] = {
 	[UI_KEY_6] = TI_EK_0 + 6, [UI_KEY_7] = TI_EK_0 + 7, [UI_KEY_8] = TI_EK_0 + 8,
 	[UI_KEY_9] = TI_EK_0 + 9,
 };
+
+static bool blink_on = true;
+static uint32_t blink_time;
 
 static bool editor_key(enum ui_key k, enum ti_ekey *out)
 {
@@ -97,9 +102,19 @@ static bool compose_event(struct ui_screen *s, const struct ui_event *ev)
 
 static void compose_poll(struct ui_screen *s)
 {
+	struct ti_editor *ed = textin_editor();
+	uint32_t now = k_uptime_get_32();
+
 	ARG_UNUSED(s);
-	if (ti_editor_tick(textin_editor(), k_uptime_get_32())) {
+	if (ti_editor_tick(ed, now)) {
 		ui_invalidate();
+	}
+	if (ed->cursor_mode && now - blink_time >= BLINK_MS) {
+		blink_on = !blink_on;
+		blink_time = now;
+		ui_invalidate();
+	} else if (!ed->cursor_mode) {
+		blink_on = true;
 	}
 }
 
@@ -110,73 +125,92 @@ static void compose_leave(struct ui_screen *s)
 	textin_save();
 }
 
-/* Draw the text with the composing word; returns nothing, scrolls to the end. */
+/* Draw the text with the composing word at the cursor; scrolls to the cursor. */
 static void draw_text(struct gfx *g, struct ti_editor *ed)
 {
 	static char buf[TI_TEXT_MAX + TI_WORD_BYTES + 1];
+	static int first; /* first visible line, kept between redraws */
+	const char *text = ti_editor_text(ed);
+	int cursor = ti_editor_cursor(ed);
 	int typed;
 	const char *comp = ti_editor_composing(ed, &typed);
-	int text_len = strlen(ti_editor_text(ed));
-	int comp_typed_end = text_len;
-	const char *p;
+	int comp_len = strlen(comp);
+	const char *p = comp;
 
-	snprintf(buf, sizeof(buf), "%s%s", ti_editor_text(ed), comp);
-	/* Byte offset where the typed part of the composing word ends. */
-	p = comp;
+	/* text before the cursor + composing word + text after the cursor */
+	snprintf(buf, sizeof(buf), "%.*s%s%s", cursor, text, comp, text + cursor);
 	for (int i = 0; i < typed && *p; i++) {
 		ti_utf8_next(&p);
 	}
-	comp_typed_end += p - comp;
+	int comp_typed_end = cursor + (p - comp);
+	int comp_end = cursor + comp_len;
 	int total = strlen(buf);
 
-	/* Wrap into lines (start offsets). */
+	/* Wrap into lines (start offsets); find the cursor's line. */
 	int starts[MAX_LINES + 1];
-	int nlines = 0;
+	int nlines = 0, cursor_line = 0;
 	const char *line = buf;
 
 	do {
 		const char *next;
 
 		gfx_wrap(gfx_font_text, line, TEXT_W - 2, &next);
-		if (nlines == MAX_LINES) {
-			memmove(starts, starts + 1, (MAX_LINES - 1) * sizeof(int));
-			nlines--;
+		starts[nlines] = line - buf;
+		if (comp_end >= starts[nlines]) {
+			cursor_line = nlines;
 		}
-		starts[nlines++] = line - buf;
+		nlines++;
 		line = next;
-	} while (*line);
-	/* A text ending in a space continues on the same line. */
+	} while (*line && nlines < MAX_LINES);
 	starts[nlines] = total;
 
 	int visible = (BAR_Y - TEXT_Y) / LINE_H;
-	int first = nlines > visible ? nlines - visible : 0;
+
+	if (cursor_line < first) {
+		first = cursor_line;
+	} else if (cursor_line >= first + visible) {
+		first = cursor_line - visible + 1;
+	}
+	if (first > nlines - visible) {
+		first = nlines > visible ? nlines - visible : 0;
+	}
+
 	int cx = 1, cy = TEXT_Y;
 
-	for (int l = first; l < nlines; l++) {
+	for (int l = first; l < nlines && l < first + visible; l++) {
 		int y = TEXT_Y + (l - first) * LINE_H;
 		int x = 1;
 		const char *q = buf + starts[l];
 		const char *end = buf + starts[l + 1];
 
+		if (l == cursor_line && comp_end == starts[l]) {
+			cx = x;
+			cy = y;
+		}
 		while (q < end && *q) {
 			int off = q - buf;
 			uint32_t cp = gfx_utf8_next(&q);
-			enum gfx_color c = off >= comp_typed_end ? GFX_DARK : GFX_BLACK;
+			bool in_comp = off >= cursor && off < comp_end;
 			int x0 = x;
 
-			if (cp == '\n') {
-				continue;
-			}
-			x = gfx_char(g, gfx_font_text, x, y, cp, c);
-			if (off >= text_len) {
+			x = gfx_char(g, gfx_font_text, x, y, cp,
+				     in_comp && off >= comp_typed_end ? GFX_DARK : GFX_BLACK);
+			if (in_comp) {
 				gfx_hline(g, x0, y + 7, x - x0, GFX_DARK); /* underline the word */
 			}
+			if (q - buf == comp_end && l == cursor_line) {
+				cx = x;
+				cy = y;
+			}
 		}
-		cx = x;
-		cy = y;
 	}
-	/* Cursor; a blinking one would need a timer, a solid bar is clear enough. */
-	gfx_vline(g, cx, cy, 7, GFX_BLACK);
+	/*
+	 * Solid cursor; it blinks while the wheel moves it. Drawn in the spacing
+	 * column of the previous glyph, so it does not cover the next letter.
+	 */
+	if (!ed->cursor_mode || blink_on) {
+		gfx_vline(g, cx > 1 ? cx - 1 : cx, cy, 7, GFX_BLACK);
+	}
 	ui_draw_scrollbar(g, TEXT_Y, BAR_Y - TEXT_Y, first, visible, nlines);
 }
 
@@ -186,6 +220,11 @@ static void draw_bar(struct gfx *g, struct ti_editor *ed)
 	int n, sel;
 
 	gfx_fill_rect(g, 0, BAR_Y, GFX_WIDTH, BAR_H, GFX_LIGHT);
+	if (ed->cursor_mode) {
+		gfx_text_aligned(g, gfx_font_small, 0, BAR_Y + 2, GFX_WIDTH, GFX_ALIGN_CENTER,
+				 tr("wheel: move  *: done"), GFX_BLACK);
+		return;
+	}
 	if (ed->symbols) {
 		n = ti_editor_symbol_count();
 		for (int i = 0; i < n; i++) {

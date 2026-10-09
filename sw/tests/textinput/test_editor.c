@@ -105,9 +105,10 @@ static void test_t9(void)
 	CHECK(strcmp(ti_editor_composing(&ed, &typed), "gut") == 0, "after 'Mir geht es': '%s'",
 	      ti_editor_composing(&ed, &typed));
 
-	/* '*' moves to the next candidate. */
+	/* The wheel moves to the next candidate. */
 	reset();
-	type("488*");
+	type("488");
+	ti_editor_wheel(&ed, -1);
 	CHECK(ed.sel == 1, "sel %d", ed.sel);
 
 	/* C removes keys, then characters. */
@@ -197,6 +198,55 @@ static void test_long_press_and_123(void)
 	CHECK_TEXT(&ed, "");
 }
 
+static void test_cursor(void)
+{
+	reset();
+	type("4240"); /* "Ich " */
+	type("2460"); /* "Ich bin " */
+	CHECK(ti_editor_cursor(&ed) == 8, "cursor %d", ti_editor_cursor(&ed));
+
+	/* '*' starts cursor mode; the wheel (up = back) moves it before "bin". */
+	type("*");
+	CHECK(ed.cursor_mode, "cursor mode off");
+	ti_editor_wheel(&ed, 4);
+	CHECK(ti_editor_cursor(&ed) == 4, "cursor %d", ti_editor_cursor(&ed));
+
+	/* Typing inserts at the cursor and ends cursor mode. */
+	type("4880"); /* "gut " */
+	CHECK(!ed.cursor_mode, "cursor mode still on");
+	CHECK_TEXT(&ed, "Ich gut bin ");
+	CHECK(ti_editor_cursor(&ed) == 8, "cursor %d", ti_editor_cursor(&ed));
+
+	/* C deletes before the cursor and stays in cursor mode. */
+	type("*");
+	ti_editor_wheel(&ed, 1);
+	type("C");
+	CHECK(ed.cursor_mode, "cursor mode left by C");
+	CHECK_TEXT(&ed, "Ich gu bin ");
+	CHECK(ti_editor_cursor(&ed) == 6, "cursor %d", ti_editor_cursor(&ed));
+
+	/* The cursor stops at both ends; umlauts count as one character. */
+	ti_editor_wheel(&ed, -100);
+	CHECK(ti_editor_cursor(&ed) == (int)strlen(ed.text), "cursor %d", ti_editor_cursor(&ed));
+	ti_editor_wheel(&ed, 100);
+	CHECK(ti_editor_cursor(&ed) == 0, "cursor %d", ti_editor_cursor(&ed));
+
+	/* At the start the context is the sentence start: capital letter. */
+	type("*42556");
+	CHECK(strcmp(ed.cand_text[0], "Hallo") == 0, "'%s'", ed.cand_text[0]);
+	type("0");
+	CHECK_TEXT(&ed, "Hallo Ich gu bin ");
+
+	/* Multitap in the middle of the text. */
+	reset();
+	type("#2_2_");
+	type("*");
+	ti_editor_wheel(&ed, 1);
+	type("*");
+	type("33");
+	CHECK_TEXT(&ed, "Aea");
+}
+
 static void test_english(void)
 {
 	static struct ti_model en;
@@ -231,6 +281,7 @@ int main(void)
 	test_punctuation();
 	test_multitap_and_learning();
 	test_long_press_and_123();
+	test_cursor();
 	test_english();
 	printf("%s (%d failure%s)\n", failures ? "FAILED" : "OK", failures,
 	       failures == 1 ? "" : "s");

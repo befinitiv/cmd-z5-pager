@@ -230,16 +230,16 @@ LVGL was considered and rejected: it costs 100+ KB of flash and does not fit thi
 
 ## Layout
 
+The status bar (battery, mesh/LoRaWAN state, GPS, unread messages, time; 7 px) is shown only on the home screen. All other screens use the whole display, so menus show 7 rows and the compose screen 7 lines of text.
+
 ```
-┌────────────────────────────┐  y 0–6    status bar: battery, mesh/LoRaWAN state, GPS, unread, time
-│▮▮▯ M L ⌖ ✉2         12:34 │
+┌────────────────────────────┐  compose screen
+│T9 Abc DE             17/200│  y 0–6    input mode, language, length
+│Ich gut bin Mate|           │  y 7–62   text (7 lines at 8 px), word being typed
+│                            │           underlined, completion part in gray
+│                            │
 ├────────────────────────────┤
-│ Anna: Bin gleich da.       │  y 8–55   content (6 lines at 8 px)
-│ Ich: Super, bis gleich!    │
-│ …                          │
-├────────────────────────────┤
-│ Hallo wie geht│      [T9de]│  compose line with cursor and input mode
-│ «es» dir Ihnen euch        │  y 64–71  candidate bar (wheel scrolls, push accepts)
+│[gut] Hut gute guten        │  y 63–71  candidate bar (wheel selects, push accepts)
 └────────────────────────────┘
 ```
 
@@ -251,16 +251,16 @@ A small retained-mode toolkit: a screen stack with `on_enter`, `on_event`, `rend
 
 | Key | Navigation | Text entry |
 |---|---|---|
-| Wheel rotate | move selection, scroll | move through the candidates (also into the next-word predictions) |
+| Wheel rotate | move selection, scroll | move through the candidates (also into the next-word predictions); in cursor mode: move the cursor (up = back) |
 | Wheel push | select / open | accept the selected candidate, with a space |
 | Wheel bend up | back (long: home screen), same as C | back; the draft is kept |
 | Wheel bend down | page down | still open |
 | CALL | send / confirm | send message (phase 3) |
-| C | back (long: home screen) | delete a key or character (long: the last word); back when the text is empty |
+| C | back (long: home screen) | delete a key or the character before the cursor (long: the word before it); back when the text is empty |
 | Memo | context menu | symbol and smiley picker |
 | `2`–`9` | select menu entry | add a key to the word (long: the digit) |
 | `#` | – | input mode: T9 → multitap → 123 (long: input language) |
-| `*` | – | next candidate, long: case Abc / abc / ABC |
+| `*` | – | cursor mode on/off: the cursor blinks and the wheel moves it (typing or push ends it); long: case Abc / abc / ABC |
 | `0` | – | accept the word and add a space (long: `0`) |
 | `1` | – | punctuation `. , ? ! ' - : ; ( ) @ /`, press again for the next one; replaces the space after an accepted word |
 
@@ -285,6 +285,7 @@ Implemented in phase 2. `lib/textinput` is plain C without Zephyr or dynamic mem
 * **Multitap (abc):** classic letter cycling with a 1 s timeout, including ä ö ü ß on the German keys. Words spelled this way are learned and offered in predictive mode from then on.
 * **Numeric (123)**, **punctuation** on key 1 and a **symbol picker** (Memo) with accented letters and smileys.
 * **Case:** Abc (capital at the start of a sentence), abc (as typed or as in the lexicon, so German nouns keep their capital), ABC.
+* **Cursor:** `*` switches the wheel from the candidates to moving the cursor through the text (the cursor blinks). Text is inserted and deleted at the cursor; predictions use the words before it.
 
 ## Engine
 

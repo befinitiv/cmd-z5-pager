@@ -109,8 +109,8 @@ struct ui_screen {
 	bool (*event)(struct ui_screen *s, const struct ui_event *ev);
 	/* Draw the content area (below the status bar). */
 	void (*draw)(struct ui_screen *s, struct gfx *g);
-	/* No status bar; draw() gets the whole display. */
-	bool fullscreen;
+	/* Show the status bar above the content (only the home screen does). */
+	bool statusbar;
 	/* Optional: called on every pass of the main loop (a few times a second). */
 	void (*poll)(struct ui_screen *s);
 	/* Redraw on every tick (e.g. clocks). */
@@ -119,7 +119,8 @@ struct ui_screen {
 
 /* Layout. */
 #define UI_STATUS_H   7
-#define UI_CONTENT_Y  (UI_STATUS_H + 1)
+/* Top of the content area: below the status bar if the top screen shows it. */
+#define UI_CONTENT_Y  (ui_content_y())
 #define UI_CONTENT_H  (GFX_HEIGHT - UI_CONTENT_Y)
 #define UI_TITLE_H    9
 #define UI_ROW_H      9
@@ -127,6 +128,7 @@ struct ui_screen {
 #define UI_STACK_DEPTH 8
 
 void ui_init(void (*statusbar)(struct gfx *g));
+int ui_content_y(void);
 
 /*
  * Translation hook. Screen titles, menu labels and the widgets' own texts are

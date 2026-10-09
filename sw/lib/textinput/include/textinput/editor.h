@@ -3,18 +3,21 @@
  * completions and next-word prediction), multitap and numeric input, a
  * symbol picker, case modes and learning of typed words.
  *
- * The editor only appends at the end of the text (no cursor movement).
- * Keys are given as short or long presses (short = released before the long
- * press time). Plain C, no Zephyr dependency.
+ * Text is inserted and deleted at the cursor. In cursor mode ('*') the wheel
+ * moves the cursor instead of selecting candidates. Keys are given as short
+ * or long presses (short = released before the long press time). Plain C,
+ * no Zephyr dependency.
  *
  * Keys in predictive mode:
  *   2-9    add a key to the word        long: the digit
  *   1      ends the word; punctuation, press again for the next one
  *   0      accept the word and add a space   long: '0'
- *   *      next candidate               long: case mode Abc / abc / ABC
+ *   *      cursor mode on/off: the wheel moves the cursor   long: case Abc / abc / ABC
  *   #      mode T9 -> abc -> 123        long: language (callback)
- *   C      delete key/char              long: delete the last word
+ *   C      delete key/char before the cursor   long: delete the word before it
  *   wheel  move through the candidates; push accepts (with a space)
+ *
+ * Typing ends cursor mode; the cursor stays where it was placed.
  */
 
 #pragma once
@@ -60,6 +63,8 @@ struct ti_editor {
 
 	char text[TI_TEXT_MAX + 1];
 	uint16_t len;
+	uint16_t cursor; /* byte offset; text is inserted here */
+	bool cursor_mode; /* the wheel moves the cursor */
 	enum ti_mode mode;
 	enum ti_shift shift;
 
@@ -98,6 +103,8 @@ void ti_editor_clear(struct ti_editor *ed);
 bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint32_t now_ms);
 bool ti_editor_wheel(struct ti_editor *ed, int delta);
 bool ti_editor_select(struct ti_editor *ed);
+/* Switch cursor mode (the wheel moves the cursor) on or off. */
+void ti_editor_cursor_mode(struct ti_editor *ed, bool on);
 /* Open or close the symbol picker. */
 void ti_editor_symbols(struct ti_editor *ed, bool open);
 /* Finish a multitap character after its timeout. Returns true on change. */
@@ -105,6 +112,8 @@ bool ti_editor_tick(struct ti_editor *ed, uint32_t now_ms);
 
 /* Committed text (without the word being composed). */
 const char *ti_editor_text(const struct ti_editor *ed);
+/* Cursor position in the committed text (byte offset). */
+int ti_editor_cursor(const struct ti_editor *ed);
 /*
  * Word being composed (predictive mode), "" if none. *typed is set to the
  * number of characters covered by the typed keys; the rest is a completion.

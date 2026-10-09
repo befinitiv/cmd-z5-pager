@@ -157,7 +157,6 @@ static struct ui_screen disptest = {
 	.title = "Display test",
 	.event = disptest_event,
 	.draw = disptest_draw,
-	.fullscreen = true,
 };
 
 /* Menu --------------------------------------------------------------------- */
