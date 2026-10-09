@@ -441,11 +441,7 @@ static void handle_send(uint16_t local_id)
 	id = mt_router_send(&router, to, 0, MT_PORT_TEXT, copy.text, strlen(copy.text), true, false,
 			    0);
 	msgstore_lock();
-	m = msgstore_find_local(local_id);
-	if (m) {
-		m->packet_id = id;
-		m->status = id ? MSG_QUEUED : MSG_FAILED;
-	}
+	msgstore_set_sent(local_id, id, id ? MSG_QUEUED : MSG_FAILED);
 	msgstore_unlock();
 	notify(MESH_EV_STATUS);
 }
@@ -500,6 +496,7 @@ static struct k_thread mesh_tid;
 
 int mesh_init(void)
 {
+	msgstore_init();
 	mt_nodedb_init(&nodedb);
 	settings_load_subtree("mesh");
 	init_identity();

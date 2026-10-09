@@ -1,7 +1,7 @@
 /*
  * Text messages of all conversations (the primary channel and one per node
- * for direct messages), oldest replaced first. Kept in RAM for now; storage in
- * LittleFS follows with the power phase.
+ * for direct messages), oldest replaced first. Changes are stored in LittleFS
+ * (msglog.c) and restored at startup.
  *
  * Shared between the mesh thread and the UI: lock around any access.
  */
@@ -40,14 +40,20 @@ struct msg {
 void msgstore_lock(void);
 void msgstore_unlock(void);
 
-/* Add a message (copied); returns its local id. */
+/* Load the stored messages (at startup). */
+void msgstore_init(void);
+/* Add a message (copied) and store it; returns its local id. */
 uint16_t msgstore_add(const struct msg *m);
+/* Add a message read from storage, keeping its local id. */
+void msgstore_restore(const struct msg *m);
 int msgstore_count(void);
 /* i = 0 is the oldest message. */
 struct msg *msgstore_get(int i);
 struct msg *msgstore_find_local(uint16_t local_id);
 /* Update the status of an outgoing message by packet id; false if unknown. */
 bool msgstore_set_status(uint32_t packet_id, enum msg_status status);
+/* Set packet id and status of an outgoing message by its local id. */
+void msgstore_set_sent(uint16_t local_id, uint32_t packet_id, enum msg_status status);
 
 int msgstore_unread(uint32_t conv); /* conv = 0: all conversations */
 void msgstore_mark_read(uint32_t conv);

@@ -12,6 +12,18 @@
 	status = "disabled";
 };
 
+/* The same lfs partition size as on the board, in place of an unused one. */
+/delete-node/ &scratch_partition;
+
+&flash0 {
+	partitions {
+		lfs_partition: partition@de000 {
+			label = "lfs";
+			reg = <0x000de000 0x00018000>;
+		};
+	};
+};
+
 / {
 	frontpanel: frontpanel {
 		compatible = "cmdz5,frontpanel";
@@ -50,5 +62,22 @@
 
 	mesh_radio: mesh-radio {
 		compatible = "cmdz5,radio-emul";
+	};
+
+	/* Messages (and later more): LittleFS in the lfs partition. */
+	fstab {
+		compatible = "zephyr,fstab";
+
+		lfs: lfs {
+			compatible = "zephyr,fstab,littlefs";
+			mount-point = "/lfs";
+			partition = <&lfs_partition>;
+			automount;
+			read-size = <16>;
+			prog-size = <16>;
+			cache-size = <64>;
+			lookahead-size = <32>;
+			block-cycles = <512>;
+		};
 	};
 };

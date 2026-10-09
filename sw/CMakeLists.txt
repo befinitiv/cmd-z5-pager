@@ -30,6 +30,7 @@ target_sources(app PRIVATE
   src/statusbar.c
   src/textin.c
   src/mesh/mesh.c
+  src/mesh/msglog.c
   src/mesh/msgstore.c
   src/screens/chat.c
   src/screens/compose.c
