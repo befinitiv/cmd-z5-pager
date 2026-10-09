@@ -89,7 +89,8 @@ void power_update(void)
 {
 	int64_t idle = k_uptime_get() - last_activity;
 
-	if (state == POWER_ACTIVE && idle >= app_config.backlight_timeout_s * 1000LL) {
+	if (state == POWER_ACTIVE && app_config.backlight_timeout_s &&
+	    idle >= app_config.backlight_timeout_s * 1000LL) {
 		enter(POWER_DIM);
 	}
 	if (state != POWER_OFF && app_config.screen_timeout_s &&

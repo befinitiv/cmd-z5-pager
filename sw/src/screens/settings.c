@@ -16,7 +16,8 @@
 #include "../power.h"
 #include "screens.h"
 
-static const uint8_t backlight_timeouts[] = {5, 10, 20, 30, 60};
+/* 0 = never */
+static const uint8_t backlight_timeouts[] = {5, 10, 20, 30, 60, 0};
 static const uint16_t screen_timeouts[] = {30, 60, 120, 300, 0};
 
 static void saved(void)
@@ -129,6 +130,9 @@ static const char *display_value(struct ui_menu *m, int idx, char *buf, size_t l
 		snprintf(buf, len, "%d%%", app_config.backlight_level);
 		return buf;
 	case 2:
+		if (app_config.backlight_timeout_s == 0) {
+			return tr("never");
+		}
 		snprintf(buf, len, "%ds", app_config.backlight_timeout_s);
 		return buf;
 	case 3:

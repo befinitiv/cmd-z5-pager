@@ -10,7 +10,7 @@
 struct app_config {
 	uint8_t contrast;            /* display register 0x23/0x24 */
 	uint8_t backlight_level;     /* percent */
-	uint8_t backlight_timeout_s;
+	uint8_t backlight_timeout_s; /* 0 = never */
 	uint16_t screen_timeout_s;   /* 0 = never */
 	uint8_t volume;              /* percent */
 	bool key_click;

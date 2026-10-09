@@ -224,8 +224,8 @@ Uses the Zephyr LoRaWAN subsystem (OTAA, EU868, class A). DevEUI, JoinEUI and Ap
 | State | Display | Backlight | LoRa | GPS | Typical entry |
 |---|---|---|---|---|---|
 | Active | on | on | RX | per setting | key press, lid opened |
-| Dim | on | off | RX | per setting | 10 s without input, lid closed (also returns to the home screen) |
-| Screen off | off (LDSW1 off) | off | RX | per setting | power key, 60 s without input |
+| Dim | on | off | RX | per setting | light timeout (default 10 s, can be "never"), lid closed (also returns to the home screen) |
+| Screen off | off (LDSW1 off) | off | RX | per setting | power key, screen timeout (default never) |
 | Low power | off | off | off (BUCK1 off) | off | user choice, or low battery |
 | Off (ship mode) | – | – | – | – | power key held 1.5 s and released; critical battery (later). Hold the power key about 1 s to switch on again (`ship-to-active-time-ms`). With USB connected the PMIC stays awake and the firmware restarts instead |
 
