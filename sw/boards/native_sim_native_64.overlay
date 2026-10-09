@@ -47,4 +47,8 @@
 		compatible = "cmdz5,audio-emul";
 		sink = "earpiece";
 	};
+
+	mesh_radio: mesh-radio {
+		compatible = "cmdz5,radio-emul";
+	};
 };

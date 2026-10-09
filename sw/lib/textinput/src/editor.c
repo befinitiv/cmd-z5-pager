@@ -358,6 +358,30 @@ void ti_editor_clear(struct ti_editor *ed)
 	refresh(ed);
 }
 
+void ti_editor_commit(struct ti_editor *ed)
+{
+	finish_word(ed);
+	refresh(ed);
+}
+
+void ti_editor_set_text(struct ti_editor *ed, const char *text)
+{
+	size_t n = strlen(text);
+
+	if (n > TI_TEXT_MAX) {
+		n = TI_TEXT_MAX;
+	}
+	memcpy(ed->text, text, n);
+	ed->text[n] = '\0';
+	ed->len = n;
+	ed->cursor = n;
+	ed->nkeys = 0;
+	ed->symbols = false;
+	ed->cursor_mode = false;
+	finish_pending(ed);
+	refresh(ed);
+}
+
 static void delete_char(struct ti_editor *ed)
 {
 	if (ed->cursor) {

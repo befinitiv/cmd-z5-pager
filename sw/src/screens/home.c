@@ -7,6 +7,8 @@
 
 #include "../clock.h"
 #include "../i18n.h"
+#include "../mesh/mesh.h"
+#include "../mesh/msgstore.h"
 #include "screens.h"
 
 static const char *const weekdays[LANG_COUNT][7] = {
@@ -45,8 +47,25 @@ static void home_draw(struct ui_screen *s, struct gfx *g)
 	}
 
 	gfx_hline(g, 8, 46, GFX_WIDTH - 16, GFX_LIGHT);
-	gfx_text_aligned(g, gfx_font_text, 0, 49, GFX_WIDTH, GFX_ALIGN_CENTER, tr("Mesh off"),
-			 GFX_DARK);
+
+	int unread, nodes;
+
+	msgstore_lock();
+	unread = msgstore_unread(0);
+	msgstore_unlock();
+	mesh_lock();
+	nodes = mesh_nodes()->count;
+	mesh_unlock();
+	if (!mesh_available()) {
+		snprintf(buf, sizeof(buf), "%s", tr("Mesh off"));
+	} else if (unread) {
+		snprintf(buf, sizeof(buf), tr(unread == 1 ? "%d new message" : "%d new messages"),
+			 unread);
+	} else {
+		snprintf(buf, sizeof(buf), tr(nodes == 1 ? "%d node" : "%d nodes"), nodes);
+	}
+	gfx_text_aligned(g, gfx_font_text, 0, 49, GFX_WIDTH, GFX_ALIGN_CENTER, buf,
+			 unread ? GFX_BLACK : GFX_DARK);
 
 	/* Soft key hint. */
 	gfx_fill_rect(g, 0, GFX_HEIGHT - 8, GFX_WIDTH, 8, GFX_LIGHT);
@@ -57,9 +76,13 @@ static void home_draw(struct ui_screen *s, struct gfx *g)
 static bool home_event(struct ui_screen *s, const struct ui_event *ev)
 {
 	(void)s;
-	if (ui_ev_press(ev, UI_KEY_SELECT) || ui_ev_press(ev, UI_KEY_CALL) ||
-	    ui_ev_press(ev, UI_KEY_MEMO)) {
+	if (ui_ev_press(ev, UI_KEY_SELECT) || ui_ev_press(ev, UI_KEY_MEMO)) {
 		ui_push(&main_menu.screen);
+		return true;
+	}
+	/* CALL: straight to the messages. */
+	if (ui_ev_press(ev, UI_KEY_CALL)) {
+		ui_push(&inbox_screen);
 		return true;
 	}
 	return false;

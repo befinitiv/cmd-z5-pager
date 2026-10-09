@@ -1,12 +1,13 @@
 /*
  * Status bar: battery, radio state and unread messages on the left, time on
- * the right. Battery and radio are placeholders until the PMIC and radio
- * services exist.
+ * the right. The battery is a placeholder until the PMIC service exists.
  */
 
 #include <stdio.h>
 
 #include "clock.h"
+#include "mesh/mesh.h"
+#include "mesh/msgstore.h"
 #include "gfx/icons.h"
 #include "screens/screens.h"
 
@@ -36,7 +37,17 @@ void statusbar_draw(struct gfx *g)
 
 	draw_battery(g, 0, 0);
 	/* Mesh radio: drawn light gray while it is not running. */
-	gfx_draw_icon(g, 16, 0, &gfx_icon_antenna, GFX_LIGHT);
+	gfx_draw_icon(g, 16, 0, &gfx_icon_antenna, mesh_available() ? GFX_BLACK : GFX_LIGHT);
+
+	msgstore_lock();
+	int unread = msgstore_unread(0);
+
+	msgstore_unlock();
+	if (unread) {
+		gfx_draw_icon(g, 25, 0, &gfx_icon_envelope, GFX_BLACK);
+		snprintf(buf, sizeof(buf), "%d", unread);
+		gfx_text(g, gfx_font_small, 34, 0, buf, GFX_BLACK);
+	}
 
 	if (clock_now(&tm)) {
 		snprintf(buf, sizeof(buf), "%02d:%02d", tm.hour, tm.min);

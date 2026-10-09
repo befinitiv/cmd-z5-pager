@@ -1,0 +1,29 @@
+# Two-instance mesh test, node B: receives the channel message, opens the
+# node list and A's details, then sends A a direct message (T9 "Gut").
+wait 7000
+shot b1.bmp
+key call
+wait 300
+key push
+wait 300
+shot b2.bmp
+key up
+key up
+key push
+key 2
+wait 300
+shot b3.bmp
+key push
+wait 300
+shot b4.bmp
+key push
+key push
+wait 300
+key 4
+key 8
+key 8
+key call
+wait 12000
+shot b5.bmp
+wait 3000
+quit

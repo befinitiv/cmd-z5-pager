@@ -8,7 +8,7 @@ wait 200
 shot smoke-02-menu.bmp
 key 5
 wait 200
-key 1
+key 2
 wait 200
 shot smoke-03-display-settings.bmp
 key push

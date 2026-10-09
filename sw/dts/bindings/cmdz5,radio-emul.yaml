@@ -1,0 +1,7 @@
+description: |
+  Emulated LoRa radio for native_sim: UDP multicast between emulator
+  instances, see emul/radio_emul.c.
+
+compatible: "cmdz5,radio-emul"
+
+include: base.yaml

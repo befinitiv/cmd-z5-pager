@@ -14,7 +14,9 @@
 #include <zephyr/kernel.h>
 
 #include "../i18n.h"
+#include "../mesh/mesh.h"
 #include "../textin.h"
+#include "meshtastic/packet.h"
 #include "screens.h"
 
 #define HEADER_Y  UI_CONTENT_Y
@@ -33,7 +35,88 @@ static const enum ti_ekey digit_keys[] = {
 	[UI_KEY_9] = TI_EK_0 + 9,
 };
 
+/* What the text is for: a message, or editing a setting (e.g. the node name). */
+static struct {
+	bool edit;
+	uint32_t to;
+	char title[24];
+	size_t max_len;
+	void (*done)(const char *text);
+	/* The message draft, kept while a setting is edited. */
+	char draft[TI_TEXT_MAX + 1];
+} ctx = {.to = MT_BROADCAST};
+
 static bool blink_on = true;
+
+void compose_open_message(uint32_t to)
+{
+	ctx.edit = false;
+	ctx.to = to;
+	ui_push(&compose_screen);
+}
+
+void compose_open_edit(const char *title, const char *text, size_t max_len,
+		       void (*done)(const char *text))
+{
+	struct ti_editor *ed = textin_editor();
+
+	if (!ctx.edit) {
+		strcpy(ctx.draft, ti_editor_text(ed));
+	}
+	ctx.edit = true;
+	snprintf(ctx.title, sizeof(ctx.title), "%s", title);
+	ctx.max_len = max_len;
+	ctx.done = done;
+	ti_editor_set_text(ed, text);
+	ui_push(&compose_screen);
+}
+
+/* Text without trailing spaces, cut to max bytes at a character boundary. */
+static void final_text(struct ti_editor *ed, char *out, size_t max)
+{
+	const char *t = ti_editor_text(ed);
+	size_t n = strlen(t);
+
+	while (n && t[n - 1] == ' ') {
+		n--;
+	}
+	if (n > max) {
+		n = max;
+		while (n && ((uint8_t)t[n] & 0xc0) == 0x80) {
+			n--;
+		}
+	}
+	memcpy(out, t, n);
+	out[n] = '\0';
+}
+
+/* CALL: send the message, or save the edited setting. */
+static void finish(void)
+{
+	struct ti_editor *ed = textin_editor();
+	char text[TI_TEXT_MAX + 1];
+
+	ti_editor_commit(ed);
+	final_text(ed, text, ctx.edit ? ctx.max_len : TI_TEXT_MAX);
+	if (ctx.edit) {
+		void (*done)(const char *) = ctx.done;
+
+		ui_pop(); /* restores the draft */
+		if (done) {
+			done(text);
+		}
+		return;
+	}
+	if (!text[0]) {
+		return;
+	}
+	if (mesh_send_text(ctx.to, text) != 0) {
+		ui_message("New message", "The radio is not available.");
+		return;
+	}
+	ti_editor_clear(ed);
+	ui_pop();
+}
 static uint32_t blink_time;
 
 static bool editor_key(enum ui_key k, enum ti_ekey *out)
@@ -82,7 +165,7 @@ static bool compose_event(struct ui_screen *s, const struct ui_event *ev)
 		} else if (ev->key == UI_KEY_SELECT) {
 			used = ti_editor_select(ed);
 		} else if (ev->key == UI_KEY_CALL) {
-			ui_message("New message", "Sending messages follows in phase 3.");
+			finish();
 			used = true;
 		} else if (editor_key(ev->key, &key)) {
 			used = true; /* handled on release */
@@ -123,6 +206,11 @@ static void compose_leave(struct ui_screen *s)
 	ARG_UNUSED(s);
 	/* Store the learned words (not after every word, to spare the flash). */
 	textin_save();
+	if (ctx.edit) {
+		/* Saved or cancelled: back to the message draft. */
+		ctx.edit = false;
+		ti_editor_set_text(textin_editor(), ctx.draft);
+	}
 }
 
 /* Draw the text with the composing word at the cursor; scrolls to the cursor. */
@@ -240,7 +328,7 @@ static void draw_bar(struct gfx *g, struct ti_editor *ed)
 	}
 	if (n == 0) {
 		gfx_text_aligned(g, gfx_font_small, 0, BAR_Y + 2, GFX_WIDTH, GFX_ALIGN_CENTER,
-				 tr("CALL = send"), GFX_DARK);
+				 tr(ctx.edit ? "CALL = save" : "CALL = send"), GFX_DARK);
 		return;
 	}
 
@@ -283,7 +371,15 @@ static void compose_draw(struct ui_screen *s, struct gfx *g)
 	snprintf(buf, sizeof(buf), "%s %s", ti_editor_mode_label(ed),
 		 textin_lang() == LANG_DE ? "DE" : "EN");
 	gfx_text(g, gfx_font_small, 1, HEADER_Y, buf, GFX_DARK);
-	snprintf(buf, sizeof(buf), "%u/%u", (unsigned)strlen(ti_editor_text(ed)), TI_TEXT_MAX);
+	if (ctx.edit) {
+		snprintf(buf, sizeof(buf), "%s", tr(ctx.title));
+	} else if (ctx.to != MT_BROADCAST) {
+		char name[16];
+
+		snprintf(buf, sizeof(buf), "> %s", mesh_node_name(ctx.to, name, sizeof(name)));
+	} else {
+		snprintf(buf, sizeof(buf), "%u/%u", (unsigned)strlen(ti_editor_text(ed)), TI_TEXT_MAX);
+	}
 	gfx_text_aligned(g, gfx_font_small, 0, HEADER_Y, GFX_WIDTH - 1, GFX_ALIGN_RIGHT, buf,
 			 GFX_DARK);
 	draw_text(g, ed);

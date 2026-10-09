@@ -1,0 +1,31 @@
+# Two-instance mesh test, node A: sends "Hallo" on the channel, then opens
+# the direct message from B. Run with tests/emul/run_mesh.sh.
+wait 2000
+key call
+wait 300
+key push
+wait 300
+key push
+wait 300
+key 4
+key 2
+key 5
+key 5
+key 6
+key call
+wait 12000
+shot a1.bmp
+wait 8000
+key up
+key up
+key up
+wait 500
+shot a2.bmp
+key call
+wait 300
+shot a3.bmp
+wheel -1
+key push
+wait 500
+shot a4.bmp
+quit

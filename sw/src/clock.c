@@ -52,6 +52,11 @@ void clock_from_unix(int64_t t, struct clock_tm *tm)
 	tm->year = (int)(yoe + era * 400 + (tm->month <= 2));
 }
 
+void clock_local(int64_t t, struct clock_tm *tm)
+{
+	clock_from_unix(t + utc_offset, tm);
+}
+
 bool clock_now(struct clock_tm *tm)
 {
 	if (!valid) {

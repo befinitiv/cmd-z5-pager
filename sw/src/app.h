@@ -8,7 +8,8 @@
 
 /* Event types handled by the main loop itself, outside the UI's range. */
 enum app_event_type {
-	APP_EV_LID = 0x40, /* value 1 = lid closed */
+	APP_EV_LID = 0x40,  /* value 1 = lid closed */
+	APP_EV_MESH = 0x41, /* value: enum mesh_event */
 };
 
 /* Queue an event for the UI thread. Safe to call from any thread. */

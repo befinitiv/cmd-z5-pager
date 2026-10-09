@@ -13,6 +13,7 @@
 #include "config.h"
 #include "hw.h"
 #include "i18n.h"
+#include "mesh/mesh.h"
 #include "textin.h"
 #include "power.h"
 #include "screens/screens.h"
@@ -85,10 +86,26 @@ static bool is_user_input(const struct ui_event *ev)
 	       ev->type == UI_EV_KEY_RELEASE || ev->type == UI_EV_WHEEL;
 }
 
+static const struct hw_note message_tune[] = {
+	{1568, 80}, {2093, 120},
+};
+
 static void handle(const struct ui_event *ev)
 {
 	if (ev->type == APP_EV_LID) {
 		power_lid(ev->value);
+		return;
+	}
+	if (ev->type == APP_EV_MESH) {
+		if (ev->value == MESH_EV_MESSAGE) {
+			power_user_activity(false);
+			hw_melody(HW_SPEAKER, message_tune, ARRAY_SIZE(message_tune),
+				  app_config.volume);
+			if (app_config.vibrate) {
+				hw_vibrate(300);
+			}
+		}
+		ui_invalidate();
 		return;
 	}
 	if (ev->type == UI_EV_TICK) {
@@ -149,6 +166,7 @@ int main(void)
 	if (textin_init() != 0) {
 		LOG_ERR("predictive text not available");
 	}
+	mesh_init();
 	clock_init();
 	gfx_init(&gfx);
 	ui_init(statusbar_draw);

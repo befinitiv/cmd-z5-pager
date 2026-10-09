@@ -9,7 +9,9 @@
 #include "../config.h"
 #include "../hw.h"
 #include "../i18n.h"
+#include "../mesh/mesh.h"
 #include "../textin.h"
+#include "meshtastic/channel.h"
 #include "../power.h"
 #include "screens.h"
 
@@ -217,6 +219,110 @@ static const struct ui_menu_item sound_items[] = {
 
 static struct ui_menu sound_menu = UI_MENU("Sound", sound_items, sound_value);
 
+/* Mesh ---------------------------------------------------------------------- */
+
+static const uint8_t regions[] = {MT_REGION_EU_868, MT_REGION_US, MT_REGION_EU_433};
+static const uint8_t presets[] = {
+	MT_PRESET_LONG_FAST,  MT_PRESET_LONG_MODERATE, MT_PRESET_LONG_SLOW,
+	MT_PRESET_MEDIUM_FAST, MT_PRESET_MEDIUM_SLOW,  MT_PRESET_SHORT_FAST,
+	MT_PRESET_SHORT_SLOW,  MT_PRESET_SHORT_TURBO,  MT_PRESET_LONG_TURBO,
+};
+
+static int next_in(const uint8_t *arr, int n, uint8_t v)
+{
+	for (int i = 0; i < n; i++) {
+		if (arr[i] == v) {
+			return arr[(i + 1) % n];
+		}
+	}
+	return arr[0];
+}
+
+static void name_done(const char *text)
+{
+	struct mesh_config c;
+
+	if (!text[0]) {
+		return;
+	}
+	mesh_get_config(&c);
+	snprintf(c.long_name, sizeof(c.long_name), "%s", text);
+	mesh_set_config(&c);
+}
+
+static void short_done(const char *text)
+{
+	struct mesh_config c;
+
+	if (!text[0]) {
+		return;
+	}
+	mesh_get_config(&c);
+	snprintf(c.short_name, sizeof(c.short_name), "%s", text);
+	mesh_set_config(&c);
+}
+
+static void mesh_action(struct ui_menu *m, int idx)
+{
+	struct mesh_config c;
+
+	ARG_UNUSED(m);
+	mesh_get_config(&c);
+	switch (idx) {
+	case 0:
+		compose_open_edit("Name", c.long_name, sizeof(c.long_name) - 1, name_done);
+		return;
+	case 1:
+		compose_open_edit("Short name", c.short_name, sizeof(c.short_name) - 1, short_done);
+		return;
+	case 2:
+		c.region = next_in(regions, ARRAY_SIZE(regions), c.region);
+		break;
+	case 3:
+		c.preset = next_in(presets, ARRAY_SIZE(presets), c.preset);
+		break;
+	default:
+		return;
+	}
+	mesh_set_config(&c);
+	ui_invalidate();
+}
+
+static const char *mesh_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	struct mesh_config c;
+
+	ARG_UNUSED(m);
+	mesh_get_config(&c);
+	switch (idx) {
+	case 0:
+		snprintf(buf, len, "%s", c.long_name);
+		return buf;
+	case 1:
+		snprintf(buf, len, "%s", c.short_name);
+		return buf;
+	case 2:
+		return mt_region_name(c.region);
+	case 3:
+		return mt_preset_name(c.preset);
+	case 4:
+		snprintf(buf, len, "!%08x", mesh_my_num());
+		return buf;
+	default:
+		return NULL;
+	}
+}
+
+static const struct ui_menu_item mesh_items[] = {
+	{"Name", NULL, mesh_action},
+	{"Short name", NULL, mesh_action},
+	{"Region", NULL, mesh_action},
+	{"Preset", NULL, mesh_action},
+	{"Node", NULL, mesh_action},
+};
+
+struct ui_menu mesh_menu = UI_MENU("Mesh", mesh_items, mesh_value);
+
 /* Top level ---------------------------------------------------------------- */
 
 /* Text input --------------------------------------------------------------- */
@@ -281,10 +387,11 @@ static const char *settings_value(struct ui_menu *m, int idx, char *buf, size_t 
 	ARG_UNUSED(m);
 	ARG_UNUSED(buf);
 	ARG_UNUSED(len);
-	return idx == 3 ? i18n_name(app_config.language) : NULL;
+	return idx == 4 ? i18n_name(app_config.language) : NULL;
 }
 
 static const struct ui_menu_item settings_items[] = {
+	{"Mesh", &mesh_menu.screen, NULL},
 	{"Display", &display_menu.screen, NULL},
 	{"Sound", &sound_menu.screen, NULL},
 	{"Text input", &input_menu.screen, NULL},

@@ -11,6 +11,7 @@ zephyr_include_directories(include)
 add_subdirectory(lib/gfx)
 add_subdirectory(lib/ui)
 add_subdirectory(lib/textinput)
+add_subdirectory(lib/meshtastic)
 add_subdirectory(drivers)
 if(CONFIG_CMDZ5_EMUL)
   add_subdirectory(emul)
@@ -26,10 +27,15 @@ target_sources(app PRIVATE
   src/power.c
   src/statusbar.c
   src/textin.c
+  src/mesh/mesh.c
+  src/mesh/msgstore.c
+  src/screens/chat.c
   src/screens/compose.c
   src/screens/home.c
   src/screens/hwtest.c
+  src/screens/inbox.c
   src/screens/menu.c
+  src/screens/nodes.c
   src/screens/poweroff.c
   src/screens/settings.c
 )

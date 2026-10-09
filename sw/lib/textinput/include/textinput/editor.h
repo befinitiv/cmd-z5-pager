@@ -98,6 +98,10 @@ void ti_editor_init(struct ti_editor *ed, struct ti_engine *eng, const char *lan
 /* Switch the language (engine with another model); keeps the text. */
 void ti_editor_set_engine(struct ti_editor *ed, struct ti_engine *eng, const char *lang);
 void ti_editor_clear(struct ti_editor *ed);
+/* Accept the word being composed (no space) and a pending multitap character. */
+void ti_editor_commit(struct ti_editor *ed);
+/* Replace the text (cursor at the end). */
+void ti_editor_set_text(struct ti_editor *ed, const char *text);
 
 /* Input. Each returns true if the editor used the input. */
 bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint32_t now_ms);

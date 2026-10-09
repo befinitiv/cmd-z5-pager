@@ -23,3 +23,5 @@ int64_t clock_unix(void);
 /* Local time; returns false if the clock was never set. */
 bool clock_now(struct clock_tm *tm);
 void clock_from_unix(int64_t t, struct clock_tm *tm);
+/* Local time of a unix timestamp (with the clock's time zone offset). */
+void clock_local(int64_t t, struct clock_tm *tm);

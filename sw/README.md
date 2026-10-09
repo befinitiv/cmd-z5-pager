@@ -1,6 +1,6 @@
 This document proposes the software architecture for the CMD-Z5 replacement board described in `../board/README.md`. The firmware turns the phone into a standalone Meshtastic and LoRaWAN (TTN) messenger with its own UI and predictive text input. The same code also builds for the PC, where an emulator window stands in for the phone hardware.
 
-Status: phases 1 and 2 are implemented (board definition, emulator, graphics, UI toolkit, menus, hardware test; predictive text with language models for German and English). See [Build and run](#build-and-run) and [Development plan](#development-plan).
+Status: phases 1 to 3 are implemented (board definition, emulator, graphics, UI toolkit, menus, hardware test; predictive text with language models for German and English; Meshtastic messaging, tested in the emulator). See [Build and run](#build-and-run) and [Development plan](#development-plan).
 
 # Decisions
 
@@ -75,14 +75,14 @@ sw/
 │   ├── lcd_ctrl_model.c             # model of the display controller: registers 03/04/0B → 96×72 2bpp FB
 │   ├── led_emul.c  audio_emul.c     # backlight/vibration and speaker/earpiece
 │   ├── script.c                     # --script: scripted keys, wheel, lid and screenshots
-│   ├── lora_emul.c                  # (later) lora API stub, optionally a UDP "ether" between instances
+│   ├── radio_emul.c                 # mesh radio over UDP multicast between emulator instances
 │   ├── gnss_emul.c                  # (later) fixed position or NMEA file replay
 │   └── pmic_emul.c                  # (later) battery level and USB state from the front panel
 ├── lib/
 │   ├── gfx/                         # 2bpp framebuffer, primitives, fonts, icons, dirty-row tracking
 │   ├── ui/                          # screen stack, events, menu, slider, text view
 │   ├── textinput/                   # model reader, prediction engine, user model, editor
-│   └── meshtastic/                  # (later) nanopb protos, channel crypto, PKI, packet codec, router, nodedb
+│   └── meshtastic/                  # packet codec, crypto (AES, CCM, SHA-256, X25519), channels, router, nodedb
 ├── src/
 │   ├── main.c                       # UI thread and event loop
 │   ├── input.c                      # Zephyr input events → UI events, long press
@@ -91,14 +91,15 @@ sw/
 │   ├── i18n.c                       # menu language (English, German)
 │   ├── textin.c                     # models, engines and user models per language
 │   ├── clock.c  config.c  statusbar.c
-│   ├── services/                    # (later) radio_arbiter, mesh_svc, lorawan_svc, gps_svc, notify_svc, msgstore
-│   └── screens/                     # home, menu, settings, hardware test, power off, compose; (later) inbox, chat, compose, nodes
+│   ├── mesh/                        # mesh service (router thread, identity, nodes) and message store
+│   ├── services/                    # (later) radio_arbiter, lorawan_svc, gps_svc, notify_svc
+│   └── screens/                     # home, menu, settings, hardware test, power off, compose, conversations, chat, nodes; (later) inbox, chat, compose, nodes
 ├── lm/                              # language models de.lm, en.lm (+ sources and licences)
 ├── tools/
 │   ├── fontconv/                    # BDF → C font headers (X11 misc-misc fonts, public domain)
 │   ├── lmbuild/                     # corpus → n-grams → prune/quantise → .lm; evaluation
 │   └── lcd_replay/                  # (later) replays ../display .dsl captures through lcd_ctrl_model
-└── tests/                           # emul/smoke.txt (emulator script), textinput/ (host tests: run.sh)
+└── tests/                           # emul/ (smoke.txt, run_mesh.sh), textinput/ and meshtastic/ (host tests: run.sh)
 ```
 
 # Hardware abstraction
@@ -155,7 +156,15 @@ After a restart (switching on again) the emulator starts with the same arguments
 
 `--script=<file>` runs front panel commands (`wait`, `key`, `press`, `release`, `wheel`, `lid`, `shot`, `quit`, see `emul/script.c`) for UI tests and screenshots. With `SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy` it runs without a window and sound, e.g. in CI. `tests/emul/smoke.txt` walks through all current screens.
 
-Planned options: `--node-id`, `--gps lat,lon` and `--ether udp://239.0.0.1:4403`. With the UDP ether, two emulator instances can exchange real Meshtastic packets with each other. This is optional; a plain stub is enough to start.
+**Emulated radio** (`emul/radio_emul.c`): packets travel as UDP multicast on the loopback interface, so emulator instances on the same machine form a mesh. Each packet carries the radio settings (frequency, bandwidth, spreading factor, sync word); only instances with the same settings receive it. Sending takes the packet's time on air, and the radio is half-duplex. Options: `--node-num=<hex>`, `--radio-port=<n>` (default 4403), `--radio-off`. Run each instance in its own directory, because the settings (and so the node identity) are stored in `flash.bin` in the working directory:
+
+```
+mkdir -p /tmp/a /tmp/b
+(cd /tmp/a && ~/repos/cmd-z5/sw/build-sim/zephyr/zephyr.exe --node-num=aaaa0001) &
+(cd /tmp/b && ~/repos/cmd-z5/sw/build-sim/zephyr/zephyr.exe --node-num=bbbb0002) &
+```
+
+Planned option: `--gps lat,lon`.
 
 # Concurrency and services
 
@@ -182,19 +191,28 @@ The SX1262 can only listen on one frequency and sync word at a time. Meshtastic 
 * **Duty cycle:** the arbiter keeps one airtime budget per EU868 sub-band for both protocols (1 % for 868.0–868.6 MHz, 10 % for 869.4–869.65 MHz).
 * **Risk:** the Zephyr LoRaWAN subsystem (LoRaMac-node) assumes it owns the radio. Prototype switching between raw `lora` RX and `lorawan_send()` early, on real hardware. If it fails, the fallback is a time-sliced mode with LoRaWAN uplinks only at fixed intervals and the LoRaMac stack paused in between.
 
-## Meshtastic (`lib/meshtastic`)
+## Meshtastic (`lib/meshtastic`, `src/mesh`)
+
+Implemented in phase 3: the over-the-air protocol of current Meshtastic firmware (2.6/2.7). The protocol details were taken from the Meshtastic sources (header layout, nonces, channel hash, frequency slot, presets, flooding rules); no Meshtastic code or generated protobuf code is used, so their GPL licence does not apply to this firmware.
 
 | Module | Content |
 |---|---|
-| `proto/` | nanopb code for a pinned subset of meshtastic/protobufs: `mesh`, `portnums`, `channel`, `config`, `telemetry`. Options files keep string and array sizes small |
-| `packet` | 16-byte over-the-air header (dest, from, id, flags with hop limit and hop start, channel hash, next hop, relay node) |
-| `crypto` | channel encryption AES-CTR with the PSK (default key expansion, nonce from packet ID and sender), PKI direct messages with X25519 + AES-CCM. Uses the nRF52840 CC310 through PSA crypto, and mbedTLS on the PC |
-| `router` | managed flooding: duplicate cache, SNR-weighted rebroadcast delay, hop limit, implicit ACKs, retries for `want_ack`, next-hop routing for DMs |
-| `nodedb` | known nodes (name, keys, position, SNR, last heard) with LRU eviction, stored in LittleFS |
-| `modules` | TEXT_MESSAGE, NODEINFO, POSITION, TELEMETRY (device metrics), ROUTING (ACK/NAK), TRACEROUTE |
-| `channels` | channel list with PSK, frequency slot from the hash of the primary channel name, modem presets (LongFast etc.) |
+| `packet` | 16-byte header (to, from, id, flags with hop limit, want-ack and hop start, channel hash, next hop, relay node); a hand-written protobuf codec for Data, User (NodeInfo), Position and Routing |
+| `crypto` | AES-128/256, CTR, CCM, SHA-256, X25519 in plain C. Channel messages: AES-CTR with the channel key, nonce = packet id (64-bit LE) + sender. Direct messages ("PKI"): AES-256-CCM with SHA-256 of the X25519 secret, 8-byte tag + 4-byte extra nonce. Current Meshtastic firmware refuses to send direct messages to nodes without a public key, so PKI is needed to receive DMs |
+| `channel` | key expansion (one-byte PSK index → default key), channel hash (XOR of name and key), frequency slot (djb2 of the channel name), presets LongFast … ShortTurbo, regions EU_868, US, EU_433, slot time, time on air |
+| `router` | managed flooding: duplicate history, rebroadcast with hop_limit − 1 after an SNR-weighted delay (distant nodes first), cancelled when another node relays first; ACKs for `want_ack`, 3 retries, implicit ACK for broadcasts (hearing a relay), re-ACK of retries, NAK handling; PKI for direct text messages when the key is known, else the channel key |
+| `nodedb` | 48 nodes: user info and public key, position, last heard, SNR, RSSI, hops; least recently heard replaced |
 
-Compatibility is tested with test vectors taken from the Meshtastic firmware (encrypted packets, channel hashes, frequency slots) and later over the air against a stock Meshtastic node.
+The mesh service (`src/mesh/mesh.c`) runs the router in its own thread:
+
+* **Identity:** node number from the chip's device id (emulator: random or `--node-num`), X25519 key pair from the entropy source, default names "CMD-Z5 xxxx" / "xxxx"; all kept in the settings.
+* **NodeInfo:** broadcast 5–15 s after the start and every 3 hours; answered when requested; a node that sends something without being known gets our NodeInfo with a request for its own (rate-limited), so keys are exchanged quickly.
+* **Messages** (`msgstore.c`): the primary channel and one conversation per node, 40 messages in RAM, delivery status queued → sent → delivered / no relay / failed.
+* **Nodes** with user info and position are stored in the settings and survive a restart.
+
+Tested on the host (`tests/meshtastic/run.sh`): crypto against FIPS-197 and RFC 7748 vectors and against vectors generated with Python `cryptography`; the LongFast channel hash (8) and the US LongFast frequency (906.875 MHz) as seen on real meshes; router scenarios in a simulated network (two-hop flooding, implicit ACK, encrypted DM over two hops with ACK, fallback to the channel key, retries until failed, lost ACK, relay cancelled in a triangle, foreign channel relayed but not delivered). In the emulator, `tests/emul/run_mesh.sh` lets two instances exchange a channel message and an encrypted direct message. A test against a stock Meshtastic node needs the board (phase 5).
+
+Not yet: secondary channels, position broadcasts (no GPS yet), telemetry, traceroute, next-hop routing (packets are flooded), duty-cycle accounting, the PhoneAPI.
 
 ## LoRaWAN (`lorawan_svc`)
 
@@ -392,7 +410,7 @@ The language models are rebuilt with `tools/lmbuild/build_models.sh` (needs nump
 |---|---|---|
 | 1 ✅ | Board definition, `native_sim` front panel (display model, keys, wheel, LEDs, audio), `gfx` + `ui`, home, menu, settings and hardware test screens | no |
 | 2 ✅ | Multitap, `lmbuild` pipeline, T9 with n-gram ranking and next-word prediction, user model, evaluation, compose screen | no |
-| 3 | Meshtastic codec, crypto with test vectors, router, nodedb, inbox/chat/compose screens, UDP ether between two emulators | no |
+| 3 ✅ | Meshtastic codec, crypto with test vectors, router, nodedb, conversations/chat/nodes screens, mesh settings, UDP radio between emulators | no |
 | 4 | Board bring-up: nPM1300 charger and rails, LCD bit-bang driver, keypad, QDEC, LEDs, vibration, PWM audio | yes |
 | 5 | SX1262 on the board, over-the-air test against a stock Meshtastic node | yes |
 | 6 | LoRaWAN on TTN, radio arbiter, duty-cycle accounting | yes |
@@ -413,6 +431,8 @@ Phases 1–3 can run before the boards arrive.
 * Move the language models from the application image into the `lm` flash partition (and update them separately).
 
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
-* Meshtastic protocol changes between releases: pin a protobuf release and update deliberately.
+* Meshtastic protocol changes between releases: the implementation follows firmware 2.7; check new releases (e.g. next-hop routing, signed packets).
+* SX1262 driver for the board with the Meshtastic sync word 0x2b (the Zephyr lora API only offers 0x34/0x12), BUCK1 switching and TCXO; until then the board reports "Radio not available".
+* Messages are kept in RAM only; storage in LittleFS is open.
 * Radio sharing between Meshtastic and the Zephyr LoRaWAN stack (see [Radio arbiter](#radio-arbiter-meshtastic-and-lorawan-on-one-sx1262)).
-* Licences: meshtastic/protobufs is GPL-3.0, which affects the licence of this firmware. Corpus licences affect whether the language models can be published.
+* Licences: no Meshtastic code is used (protocol re-implemented). The language models are CC BY derived works of their corpora (see `lm/README.md`).
