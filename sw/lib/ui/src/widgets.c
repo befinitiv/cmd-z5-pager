@@ -262,3 +262,28 @@ void ui_message(const char *title, const char *text)
 
 	ui_textview_open(&tv, title, text);
 }
+
+static struct ui_textview confirm_tv;
+static void (*confirm_yes)(void);
+
+static bool confirm_event(struct ui_screen *s, const struct ui_event *ev)
+{
+	if (ui_ev_press(ev, UI_KEY_SELECT) || ui_ev_press(ev, UI_KEY_CALL)) {
+		void (*yes)(void) = confirm_yes;
+
+		ui_pop();
+		if (yes) {
+			yes();
+		}
+		return true;
+	}
+	/* Scrolling as in the text view; C and bend up go back (cancel). */
+	return ev->type == UI_EV_WHEEL || ui_ev_press(ev, UI_KEY_DOWN) ? tv_event(s, ev) : false;
+}
+
+void ui_confirm(const char *title, const char *text, void (*yes)(void))
+{
+	confirm_yes = yes;
+	ui_textview_open(&confirm_tv, title, text);
+	confirm_tv.screen.event = confirm_event;
+}

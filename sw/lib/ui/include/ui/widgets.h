@@ -88,6 +88,12 @@ void ui_textview_open(struct ui_textview *tv, const char *title, const char *tex
 /* Show a text in a shared text view (for short notices). */
 void ui_message(const char *title, const char *text);
 
+/*
+ * Ask for confirmation: CALL or wheel push calls yes() after closing the
+ * dialog, C or bend up cancels.
+ */
+void ui_confirm(const char *title, const char *text, void (*yes)(void));
+
 #ifdef __cplusplus
 }
 #endif

@@ -113,6 +113,14 @@ static const struct translation de[] = {
 	{"%d nodes", "%d Knoten"},
 	{"The radio is not available.", "Der Funk ist nicht verfügbar."},
 
+	/* Factory reset */
+	{"Factory reset", "Werkseinstellungen"},
+	{"All settings, messages, known nodes and learned words are deleted, "
+	 "and the device gets a new key. CALL = reset, C = cancel.",
+	 "Alle Einstellungen, Nachrichten, bekannten Knoten und gelernten Wörter werden "
+	 "gelöscht, und das Gerät erhält einen neuen Schlüssel. CALL = zurücksetzen, "
+	 "C = abbrechen."},
+
 	/* Power */
 	{"Power off", "Ausschalten"},
 	{"Release the key to switch off.", "Taste loslassen zum Ausschalten."},

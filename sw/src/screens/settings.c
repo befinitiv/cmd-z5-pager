@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 
 #include "../config.h"
+#include "../factory.h"
 #include "../hw.h"
 #include "../i18n.h"
 #include "../mesh/mesh.h"
@@ -390,12 +391,23 @@ static const char *settings_value(struct ui_menu *m, int idx, char *buf, size_t 
 	return idx == 4 ? i18n_name(app_config.language) : NULL;
 }
 
+static void reset_action(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+	ARG_UNUSED(idx);
+	ui_confirm("Factory reset",
+		   "All settings, messages, known nodes and learned words are deleted, "
+		   "and the device gets a new key. CALL = reset, C = cancel.",
+		   factory_reset);
+}
+
 static const struct ui_menu_item settings_items[] = {
 	{"Mesh", &mesh_menu.screen, NULL},
 	{"Display", &display_menu.screen, NULL},
 	{"Sound", &sound_menu.screen, NULL},
 	{"Text input", &input_menu.screen, NULL},
 	{"Language", NULL, language_next},
+	{"Factory reset", NULL, reset_action},
 };
 
 struct ui_menu settings_menu = UI_MENU("Settings", settings_items, settings_value);

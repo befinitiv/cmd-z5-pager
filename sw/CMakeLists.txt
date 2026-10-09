@@ -23,6 +23,7 @@ target_sources(app PRIVATE
   src/main.c
   src/clock.c
   src/config.c
+  src/factory.c
   src/hw.c
   src/i18n.c
   src/input.c

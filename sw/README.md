@@ -208,7 +208,7 @@ The mesh service (`src/mesh/mesh.c`) runs the router in its own thread:
 
 * **Identity:** node number from the chip's device id (emulator: random or `--node-num`), X25519 key pair from the entropy source, default names "CMD-Z5 xxxx" / "xxxx"; all kept in the settings.
 * **NodeInfo:** broadcast 5–15 s after the start and every 3 hours; answered when requested; a node that sends something without being known gets our NodeInfo with a request for its own (rate-limited), so keys are exchanged quickly.
-* **Messages** (`msgstore.c`): the primary channel and one conversation per node, 40 messages in RAM, delivery status queued → sent → delivered / no relay / failed.
+* **Messages** (`msgstore.c`): the primary channel and one conversation per node, the newest 40 messages, delivery status queued → sent → delivered / no relay / failed. They are stored in LittleFS (`msglog.c`, `/lfs/msgs.log`): new messages, status changes and read marks are appended as small records and replayed at startup; above 24 KB the log is rewritten with the current messages only. Messages that were still queued when the device stopped are shown as failed.
 * **Nodes** with user info and position are stored in the settings and survive a restart.
 
 Tested on the host (`tests/meshtastic/run.sh`): crypto against FIPS-197 and RFC 7748 vectors and against vectors generated with Python `cryptography`; the LongFast channel hash (8) and the US LongFast frequency (906.875 MHz) as seen on real meshes; router scenarios in a simulated network (two-hop flooding, implicit ACK, encrypted DM over two hops with ACK, fallback to the channel key, retries until failed, lost ACK, relay cancelled in a triangle, foreign channel relayed but not delivered). In the emulator, `tests/emul/run_mesh.sh` lets two instances exchange a channel message and an encrypted direct message. A test against a stock Meshtastic node needs the board (phase 5).
@@ -235,9 +235,9 @@ Uses the Zephyr LoRaWAN subsystem (OTAA, EU868, class A). DevEUI, JoinEUI and Ap
 
 | Data | Mechanism | Location |
 |---|---|---|
-| Configuration (node name, channels, LoRaWAN keys, UI options) | Zephyr settings on ZMS or NVS | `storage` partition |
-| Messages, node DB, user dictionary | LittleFS | `lfs` partition |
-| Language models | read-only blob, memory-mapped | `lm` partition (later on external flash) |
+| Settings, node identity and keys, known nodes, learned words | Zephyr settings on NVS | `storage` partition (32 KB) |
+| Messages | LittleFS, append-only log | `lfs` partition (96 KB) |
+| Language models | read-only pack, memory-mapped | `lm` partition (352 KB; later on external flash) |
 
 # User interface
 
@@ -291,7 +291,7 @@ The menus are in English or German (Settings → Language, stored with the other
 
 ## Screens
 
-Home (clock, battery, unread count, last message) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Settings (Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power · About).
+Home (clock, battery, unread count, last message) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power · About).
 
 # Predictive text (`lib/textinput`)
 
@@ -436,6 +436,5 @@ Phases 1–3 can run before the boards arrive.
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
 * Meshtastic protocol changes between releases: the implementation follows firmware 2.7; check new releases (e.g. next-hop routing, signed packets).
 * SX1262 driver for the board with the Meshtastic sync word 0x2b (the Zephyr lora API only offers 0x34/0x12), BUCK1 switching and TCXO; until then the board reports "Radio not available".
-* Messages are kept in RAM only; storage in LittleFS is open.
 * Radio sharing between Meshtastic and the Zephyr LoRaWAN stack (see [Radio arbiter](#radio-arbiter-meshtastic-and-lorawan-on-one-sx1262)).
 * Licences: no Meshtastic code is used (protocol re-implemented). The language models are CC BY derived works of their corpora (see `lm/README.md`).
