@@ -315,7 +315,7 @@ Implemented in phase 2. `lib/textinput` is plain C without Zephyr or dynamic mem
 * **Predictive (T9):** one key press per letter. The candidate bar shows the exact matches and completions (longer words) ranked by context; the word being typed shows the first candidate, with the not yet typed part of a completion in gray. German letters map to their base key (ä→2, ö→6, ü→8, ß→7).
 * **Next-word prediction:** after a space the bar shows the likely next words. Turning the wheel selects one, push accepts it.
 * **Multitap (abc):** classic letter cycling with a 1 s timeout, including ä ö ü ß on the German keys. Words spelled this way are learned and offered in predictive mode from then on.
-* **Numeric (123)**, **punctuation** on key 1 and a **symbol picker** (Memo) with accented letters and smileys.
+* **Numeric (123)**, **punctuation** on key 1 and a **symbol picker** (Memo) with accented letters and smileys. While a key 1 character is pending, the bar at the bottom lists all its choices with the current one highlighted, like the word suggestions; pressing 1 again or turning the wheel moves through them, push accepts.
 * **Case:** Abc (capital at the start of a sentence), abc (as typed or as in the lexicon, so German nouns keep their capital), ABC.
 * **Cursor:** `*` switches the wheel from the candidates to moving the cursor through the text (the cursor blinks). Text is inserted and deleted at the cursor; predictions use the words before it.
 

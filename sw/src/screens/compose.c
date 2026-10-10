@@ -3,8 +3,9 @@
  *
  * Layout: mode and length on the first line, the wrapped text with the word
  * being composed (the completion part in gray, underlined) and a cursor, and
- * the candidate bar at the bottom. Memo opens the symbol picker; '*' switches
- * the wheel between the candidates and moving the (then blinking) cursor.
+ * the candidate bar at the bottom (while key 1 is pending: its punctuation
+ * choices). Memo opens the symbol picker; '*' switches the wheel between the
+ * candidates and moving the (then blinking) cursor.
  * The text is kept as a draft when leaving the screen.
  */
 
@@ -172,7 +173,7 @@ static bool compose_event(struct ui_screen *s, const struct ui_event *ev)
 		}
 		break;
 	case UI_EV_WHEEL:
-		used = ti_editor_wheel(ed, ev->value);
+		used = ti_editor_wheel(ed, ev->value, now);
 		break;
 	default:
 		break;
@@ -305,6 +306,7 @@ static void draw_text(struct gfx *g, struct ti_editor *ed)
 static void draw_bar(struct gfx *g, struct ti_editor *ed)
 {
 	const char *items[TI_EDIT_CANDS > 40 ? TI_EDIT_CANDS : 40];
+	static char pending[40][5];
 	int n, sel;
 
 	gfx_fill_rect(g, 0, BAR_Y, GFX_WIDTH, BAR_H, GFX_LIGHT);
@@ -313,7 +315,13 @@ static void draw_bar(struct gfx *g, struct ti_editor *ed)
 				 tr("wheel: move  *: done"), GFX_BLACK);
 		return;
 	}
-	if (ed->symbols) {
+	n = ti_editor_pending_symbols(ed, pending, ARRAY_SIZE(pending), &sel);
+	if (n) {
+		/* Key 1: the punctuation choices, the pending one marked. */
+		for (int i = 0; i < n; i++) {
+			items[i] = pending[i];
+		}
+	} else if (ed->symbols) {
 		n = ti_editor_symbol_count();
 		for (int i = 0; i < n; i++) {
 			items[i] = ti_editor_symbol(i);

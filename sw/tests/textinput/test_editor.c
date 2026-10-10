@@ -108,7 +108,7 @@ static void test_t9(void)
 	/* The wheel moves to the next candidate. */
 	reset();
 	type("488");
-	ti_editor_wheel(&ed, -1);
+	ti_editor_wheel(&ed, -1, now);
 	CHECK(ed.sel == 1, "sel %d", ed.sel);
 
 	/* C removes keys, then characters. */
@@ -128,7 +128,7 @@ static void test_prediction(void)
 	type("4240");
 	CHECK(ed.ncands > 0 && ed.sel == -1, "predictions %d sel %d", ed.ncands, ed.sel);
 	/* Wheel down selects the first prediction, push accepts it. */
-	ti_editor_wheel(&ed, -1);
+	ti_editor_wheel(&ed, -1, now);
 	CHECK(ed.sel == 0, "sel %d", ed.sel);
 	char expect[80];
 
@@ -159,6 +159,40 @@ static void test_punctuation(void)
 	type("1_0");
 	type("9430");
 	CHECK_TEXT(&ed, "Hallo. Wie ");
+
+	/* While key 1 is pending the bar lists its choices, the current one selected. */
+	char syms[40][5];
+	int sel = -1;
+
+	reset();
+	type("42556");
+	CHECK(ti_editor_pending_symbols(&ed, syms, 40, &sel) == 0, "list without key 1");
+	type("11");
+	int n = ti_editor_pending_symbols(&ed, syms, 40, &sel);
+
+	CHECK(n == 13 && sel == 1 && strcmp(syms[0], ".") == 0 && strcmp(syms[1], ",") == 0,
+	      "list n %d sel %d", n, sel);
+	/* The wheel steps (down = next, up wraps to the end), push accepts. */
+	ti_editor_wheel(&ed, -2, now);
+	CHECK_TEXT(&ed, "Hallo!");
+	ti_editor_wheel(&ed, 4, now);
+	ti_editor_pending_symbols(&ed, syms, 40, &sel);
+	CHECK(sel == 12, "sel after wrap %d", sel);
+	CHECK_TEXT(&ed, "Hallo1");
+	ti_editor_wheel(&ed, 1, now);
+	ti_editor_select(&ed);
+	CHECK(ti_editor_pending_symbols(&ed, syms, 40, &sel) == 0, "still pending after push");
+	CHECK_TEXT(&ed, "Hallo/");
+	/* The wheel keeps the symbol open beyond the multitap timeout. */
+	reset();
+	type("42556");
+	type("1");
+	now += TI_MULTITAP_MS - 200;
+	ti_editor_wheel(&ed, -1, now);
+	now += TI_MULTITAP_MS - 200;
+	ti_editor_tick(&ed, now);
+	CHECK(ti_editor_pending_symbols(&ed, syms, 40, &sel) == 13, "timed out after the wheel");
+	CHECK_TEXT(&ed, "Hallo,");
 }
 
 static void test_multitap_and_learning(void)
@@ -208,7 +242,7 @@ static void test_cursor(void)
 	/* '*' starts cursor mode; the wheel (up = back) moves it before "bin". */
 	type("*");
 	CHECK(ed.cursor_mode, "cursor mode off");
-	ti_editor_wheel(&ed, 4);
+	ti_editor_wheel(&ed, 4, now);
 	CHECK(ti_editor_cursor(&ed) == 4, "cursor %d", ti_editor_cursor(&ed));
 
 	/* Typing inserts at the cursor and ends cursor mode. */
@@ -219,16 +253,16 @@ static void test_cursor(void)
 
 	/* C deletes before the cursor and stays in cursor mode. */
 	type("*");
-	ti_editor_wheel(&ed, 1);
+	ti_editor_wheel(&ed, 1, now);
 	type("C");
 	CHECK(ed.cursor_mode, "cursor mode left by C");
 	CHECK_TEXT(&ed, "Ich gu bin ");
 	CHECK(ti_editor_cursor(&ed) == 6, "cursor %d", ti_editor_cursor(&ed));
 
 	/* The cursor stops at both ends; umlauts count as one character. */
-	ti_editor_wheel(&ed, -100);
+	ti_editor_wheel(&ed, -100, now);
 	CHECK(ti_editor_cursor(&ed) == (int)strlen(ed.text), "cursor %d", ti_editor_cursor(&ed));
-	ti_editor_wheel(&ed, 100);
+	ti_editor_wheel(&ed, 100, now);
 	CHECK(ti_editor_cursor(&ed) == 0, "cursor %d", ti_editor_cursor(&ed));
 
 	/* At the start the context is the sentence start: capital letter. */
@@ -241,7 +275,7 @@ static void test_cursor(void)
 	reset();
 	type("#2_2_");
 	type("*");
-	ti_editor_wheel(&ed, 1);
+	ti_editor_wheel(&ed, 1, now);
 	type("*");
 	type("33");
 	CHECK_TEXT(&ed, "Aea");

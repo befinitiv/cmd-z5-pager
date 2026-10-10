@@ -331,6 +331,30 @@ static void multitap(struct ti_editor *ed, char key, uint32_t now)
 	}
 }
 
+/* A punctuation character of key 1 is pending: the bar lists the choices. */
+static bool symbol_pending(const struct ti_editor *ed)
+{
+	return ed->pend_len && ed->pend_key == '1';
+}
+
+/* Step the pending key 1 character through its list (wheel). */
+static void step_symbol(struct ti_editor *ed, int delta, uint32_t now)
+{
+	int count;
+	char buf[5];
+
+	nth_char(ed->multitap[1], 0, &count);
+	ed->pend_idx = ((ed->pend_idx + delta) % count + count) % count;
+	delete_before(ed, ed->pend_len);
+	buf[ti_utf8_put(buf, nth_char(ed->multitap[1], ed->pend_idx, &count))] = '\0';
+	if (append(ed, buf)) {
+		ed->pend_len = strlen(buf);
+	} else {
+		finish_pending(ed);
+	}
+	ed->pend_time = now;
+}
+
 /* Public API --------------------------------------------------------------- */
 
 void ti_editor_init(struct ti_editor *ed, struct ti_engine *eng, const char *lang)
@@ -551,7 +575,7 @@ static void move_cursor(struct ti_editor *ed, int chars)
 	}
 }
 
-bool ti_editor_wheel(struct ti_editor *ed, int delta)
+bool ti_editor_wheel(struct ti_editor *ed, int delta, uint32_t now_ms)
 {
 	if (ed->cursor_mode) {
 		/* Wheel up moves the cursor back in the text. */
@@ -563,6 +587,12 @@ bool ti_editor_wheel(struct ti_editor *ed, int delta)
 		int n = NSYMBOLS;
 
 		ed->sym_sel = ((ed->sym_sel - delta) % n + n) % n;
+		return true;
+	}
+	if (symbol_pending(ed)) {
+		/* Like the candidates: up = towards the start of the list. */
+		step_symbol(ed, -delta, now_ms);
+		refresh(ed);
 		return true;
 	}
 	if (!ed->ncands) {
@@ -592,6 +622,11 @@ bool ti_editor_select(struct ti_editor *ed)
 		refresh(ed);
 		return true;
 	}
+	if (symbol_pending(ed)) {
+		finish_pending(ed);
+		refresh(ed);
+		return true;
+	}
 	if (ed->sel < 0) {
 		return false;
 	}
@@ -618,6 +653,22 @@ bool ti_editor_tick(struct ti_editor *ed, uint32_t now_ms)
 		return true;
 	}
 	return false;
+}
+
+int ti_editor_pending_symbols(const struct ti_editor *ed, char out[][5], int max, int *sel)
+{
+	const char *s = ed->multitap[1];
+	int n = 0;
+
+	if (!symbol_pending(ed)) {
+		return 0;
+	}
+	while (*s && n < max) {
+		out[n][ti_utf8_put(out[n], ti_utf8_next(&s))] = '\0';
+		n++;
+	}
+	*sel = ed->pend_idx;
+	return n;
 }
 
 const char *ti_editor_text(const struct ti_editor *ed)

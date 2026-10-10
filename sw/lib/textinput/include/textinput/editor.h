@@ -11,6 +11,7 @@
  * Keys in predictive mode:
  *   2-9    add a key to the word        long: the digit
  *   1      ends the word; punctuation, press again for the next one
+ *          (the bar lists the choices; the wheel also steps, push accepts)
  *   0      accept the word and add a space   long: '0'
  *   *      cursor mode on/off: the wheel moves the cursor   long: case Abc / abc / ABC
  *   #      mode T9 -> abc -> 123        long: language (callback)
@@ -106,7 +107,8 @@ void ti_editor_set_text(struct ti_editor *ed, const char *text);
 
 /* Input. Each returns true if the editor used the input. */
 bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint32_t now_ms);
-bool ti_editor_wheel(struct ti_editor *ed, int delta);
+/* now_ms: a pending key 1 symbol changed by the wheel stays open TI_MULTITAP_MS longer. */
+bool ti_editor_wheel(struct ti_editor *ed, int delta, uint32_t now_ms);
 bool ti_editor_select(struct ti_editor *ed);
 /* Switch cursor mode (the wheel moves the cursor) on or off. */
 void ti_editor_cursor_mode(struct ti_editor *ed, bool on);
@@ -126,6 +128,14 @@ int ti_editor_cursor(const struct ti_editor *ed);
 const char *ti_editor_composing(const struct ti_editor *ed, int *typed);
 /* Short mode label: "T9 Abc", "abc", "123", ... */
 const char *ti_editor_mode_label(const struct ti_editor *ed);
+
+/*
+ * While a punctuation character of key 1 is pending: its choices (UTF-8,
+ * one character each) for the bar, *sel = the current one. Returns the
+ * number of choices, 0 if none is pending. The wheel steps through them,
+ * push accepts.
+ */
+int ti_editor_pending_symbols(const struct ti_editor *ed, char out[][5], int max, int *sel);
 
 /* Symbol picker contents. */
 int ti_editor_symbol_count(void);
