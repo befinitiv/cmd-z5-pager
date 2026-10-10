@@ -11,6 +11,7 @@
 #include <zephyr/logging/log.h>
 
 #include "app.h"
+#include "battery.h"
 #include "clock.h"
 #include "config.h"
 #include "hw.h"
@@ -74,6 +75,7 @@ static FUNC_NORETURN void switch_off(void)
 	poweroff_goodbye();
 	render();
 	hw_melody(HW_SPEAKER, goodbye_tune, ARRAY_SIZE(goodbye_tune), app_config.volume);
+	battery_save();
 	k_msleep(1000);
 	hw_power_off();
 }
@@ -216,6 +218,7 @@ int main(void)
 		LOG_ERR("predictive text not available");
 	}
 	mesh_init();
+	battery_init();
 	clock_init();
 	gfx_init(&gfx);
 	ui_init(statusbar_draw);

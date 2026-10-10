@@ -79,6 +79,16 @@ static void put_cfg(uint8_t *env, const struct mesh_radio_config *c, size_t len)
 	env[19] = len;
 }
 
+bool emul_radio_rx(void)
+{
+	return radio.open && radio.configured;
+}
+
+bool emul_radio_tx(void)
+{
+	return radio.sending;
+}
+
 static int radio_emul_configure(const struct device *dev, const struct mesh_radio_config *cfg)
 {
 	ARG_UNUSED(dev);

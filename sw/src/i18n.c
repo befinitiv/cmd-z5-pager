@@ -20,6 +20,7 @@ static const struct translation de[] = {
 	{"Nodes", "Knoten"},
 	{"Settings", "Einstellungen"},
 	{"Hardware test", "Hardware-Test"},
+	{"Diagnostics", "Diagnose"},
 	{"About", "Info"},
 	{"%s is not implemented yet. It follows in a later phase.",
 	 "%s ist noch nicht implementiert. Folgt in einer späteren Phase."},
@@ -57,6 +58,22 @@ static const struct translation de[] = {
 
 	/* Widgets */
 	{"push = ok   C = cancel", "Drücken = OK  C = Abbr."},
+
+	/* Diagnostics */
+	{"No battery data", "Keine Akkudaten"},
+	{"Charge", "Ladung"},
+	{"Voltage", "Spannung"},
+	{"Power", "Versorgung"},
+	{"Battery", "Akku"},
+	{"Charging", "lädt"},
+	{"Charged", "geladen"},
+	{"Charger error", "Ladefehler"},
+	{"Current", "Strom"},
+	{"Drawn", "Entnommen"},
+	{"Runtime", "Laufzeit"},
+	{"Full in", "Voll in"},
+	{"Temperature", "Temperatur"},
+	{"Uptime", "Betriebszeit"},
 
 	/* Hardware test */
 	{"Blink LEDs", "LEDs blinken"},

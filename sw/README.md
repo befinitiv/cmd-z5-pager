@@ -77,7 +77,7 @@ sw/
 │   ├── script.c                     # --script: scripted keys, wheel, lid and screenshots
 │   ├── radio_emul.c                 # mesh radio over UDP multicast between emulator instances
 │   ├── gnss_emul.c                  # (later) fixed position or NMEA file replay
-│   └── pmic_emul.c                  # (later) battery level and USB state from the front panel
+│   └── battery_emul.c               # simulated battery: current from the emulated outputs, USB from the front panel
 ├── lib/
 │   ├── gfx/                         # 2bpp framebuffer, primitives, fonts, icons, dirty-row tracking
 │   ├── ui/                          # screen stack, events, menu, slider, text view
@@ -88,6 +88,7 @@ sw/
 │   ├── input.c                      # Zephyr input events → UI events, long press
 │   ├── hw.c                         # display, backlight, vibration, tones and melodies
 │   ├── power.c                      # backlight and display timeouts, lid, power key
+│   ├── battery.c                    # battery sampling (1 s), current averages; backends battery_npm13xx.c / emul
 │   ├── i18n.c                       # menu language (English, German)
 │   ├── textin.c                     # models, engines and user models per language
 │   ├── clock.c  config.c  statusbar.c
@@ -118,7 +119,7 @@ sw/
 | Vibration | `led` API on PWM (P0.07) | display shakes, VIB indicator lit |
 | LoRa SX1262 | `lora` API (`semtech,sx1262`), power via nPM1300 BUCK1 | stub: TX logged and RX injectable; optional UDP multicast between instances |
 | GPS M10N | `gnss` API (u-blox M10 driver), 5 V boost EN on P1.03 | fixed position from config, or NMEA file replay |
-| PMIC nPM1300 | `regulator`, `charger`, `npm1300` GPIO, fuel gauge library | battery level, charging and USB-present controls on the front panel |
+| PMIC nPM1300 | `regulator`, `charger` sensor (voltage, current, die temperature, charge and VBUS state), nRF Fuel Gauge | simulated battery (`battery_emul.c`): current from the emulated outputs, USB power from the front panel |
 | Accelerometer | `sensor` API (`st,lis2dh`), motion trigger | key `A` sends a motion event |
 | Microphone | not used in the first version | – |
 
@@ -132,7 +133,7 @@ Three custom APIs are added because Zephyr has nothing suitable (Zephyr's `displ
 
 `native_sim` builds the firmware as a Linux executable. SDL calls must run on the host side of the native simulator, so the front panel is split into a Zephyr-side part (`frontpanel.c`) and a host-side part (`frontpanel_bottom.c`, built against SDL2). This is the same split that Zephyr's own `display_sdl` uses. The SDL event loop is Zephyr's (`boards/native/common/sdl`); the front panel hooks in with `SDL_AddEventWatch`.
 
-Front panel layout: the display at the top (scaled 5×, with the gray levels mixed into the panel colour, which turns green with the backlight), the keypad below it as clickable buttons whose labels glow green with the keypad LEDs, and on the right the wheel, LED/VIB/SPK/EAR indicators, lid switch and power key. Key mapping:
+Front panel layout: the display at the top (scaled 5×, with the gray levels mixed into the panel colour, which turns green with the backlight), the keypad below it as clickable buttons whose labels glow green with the keypad LEDs, and on the right the wheel, LED/VIB/SPK/EAR/USB indicators, lid switch and power key. Key mapping:
 
 | PC | Phone |
 |---|---|
@@ -146,6 +147,7 @@ Front panel layout: the display at the top (scaled 5×, with the gray levels mix
 | `Left` / `PgUp` | wheel bend up (back) |
 | `Right` / `PgDn` | wheel bend down |
 | `L` | toggle the lid |
+| `U`, click on the USB indicator | plug or unplug USB power (charges the simulated battery) |
 | `Esc` | power key: short = display on/off, hold 1.5 s = switch off; while off, hold 1 s = switch on (restarts the emulator) |
 | `F12` | save the display as `cmdz5-screen-NNN.bmp` |
 
@@ -155,7 +157,7 @@ Settings are stored in `flash.bin` in the working directory (Zephyr's flash simu
 
 After a restart (switching on again) the emulator starts with the same arguments, so a `--script` runs again.
 
-`--script=<file>` runs front panel commands (`wait`, `key`, `press`, `release`, `wheel`, `lid`, `shot`, `quit`, see `emul/script.c`) for UI tests and screenshots. With `SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy` it runs without a window and sound, e.g. in CI. `tests/emul/smoke.txt` walks through all current screens.
+`--script=<file>` runs front panel commands (`wait`, `key`, `press`, `release`, `wheel`, `lid`, `usb`, `shot`, `quit`, see `emul/script.c`) for UI tests and screenshots. With `SDL_VIDEODRIVER=offscreen SDL_AUDIODRIVER=dummy` it runs without a window and sound, e.g. in CI. `tests/emul/smoke.txt` walks through all current screens.
 
 **Emulated radio** (`emul/radio_emul.c`): packets travel as UDP multicast on the loopback interface, so emulator instances on the same machine form a mesh. Each packet carries the radio settings (frequency, bandwidth, spreading factor, sync word); only instances with the same settings receive it. Sending takes the packet's time on air, and the radio is half-duplex. Options: `--node-num=<hex>`, `--radio-port=<n>` (default 4403), `--radio-off`. Run each instance in its own directory, because the settings (and so the node identity) are stored in `flash.bin` in the working directory:
 
@@ -232,6 +234,16 @@ Uses the Zephyr LoRaWAN subsystem (OTAA, EU868, class A). DevEUI, JoinEUI and Ap
 
 `power_svc` enforces the rules from the board README: drive or float the signal lines of switched-off parts, rows on SENSE, columns low. Waking in low-power mode comes from keys, lid, power key, accelerometer or RTC (for scheduled LoRaWAN uplinks). Zephyr device runtime PM switches off the drivers; the nPM1300 regulators are switched through the `regulator` API. Charger setup (current, termination voltage, NTC disabled) happens early in boot, because the nPM1300 starts with charging disabled.
 
+### Battery and current measurement (`src/battery.c`)
+
+A thread samples the battery once a second. On the board the nPM1300 charger driver measures battery voltage, current and die temperature (the battery has no NTC, so the die temperature stands in for it), plus the charge and VBUS state. nRF Fuel Gauge turns these into the state of charge and the times to empty and full; its state is stored in the settings (`batt/fg`) every 6 hours and before switching off. The emulator simulates the battery instead (the library exists only for ARM): an assumed 1000 mAh cell whose current follows the emulated outputs with the estimates below (radio RX 4.5 mA, TX 110 mA, backlight 15 mA, vibration 80 mA, speaker 60 mA, earpiece 15 mA; the display is not counted), quantised like the nPM1300 ADC.
+
+The current resolution follows the discharge limit in the devicetree: full scale is 1.12 × the limit, 10 bits. With the 1 A limit one step is 1.1 mA, so single readings of the 4.5 mA receive current are coarse; the averages over a minute and an hour smooth this out. The 200 mA limit would give 0.22 mA steps, but the battery could then not supply transmit, loudspeaker, vibration and backlight at the same time. Currents in the µA range (low-power mode) are below the resolution and need an external meter such as the PPK2.
+
+**Diagnostics** (main menu) shows charge, voltage, supply (battery, USB charging, charged, charger error), the latest current, the averages over the last minute and hour, the charge drawn since the start, the time to empty or to full, the temperature and the uptime. The status bar shows the charge and a lightning bolt while USB power is present.
+
+**Battery model:** `src/battery_model.inc` is Nordic's example model from the NCS nPM1300 fuel gauge sample, not the cell in the phone. For a correct state of charge, profile the real cell with the nPM1300 EK and nPM PowerUP and replace the file.
+
 ## Storage
 
 | Data | Mechanism | Location |
@@ -292,7 +304,7 @@ The menus are in English or German (Settings → Language, stored with the other
 
 ## Screens
 
-Home (clock, battery; with unread messages a preview: sender, count and the start of the newest text) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power · About).
+Home (clock, battery; with unread messages a preview: sender, count and the start of the newest text) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Diagnostics (battery, current consumption) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power · About).
 
 # Predictive text (`lib/textinput`)
 
@@ -415,7 +427,7 @@ The language models are rebuilt with `tools/lmbuild/build_models.sh` (needs nump
 | 1 ✅ | Board definition, `native_sim` front panel (display model, keys, wheel, LEDs, audio), `gfx` + `ui`, home, menu, settings and hardware test screens | no |
 | 2 ✅ | Multitap, `lmbuild` pipeline, T9 with n-gram ranking and next-word prediction, user model, evaluation, compose screen | no |
 | 3 ✅ | Meshtastic codec, crypto with test vectors, router, nodedb, conversations/chat/nodes screens, mesh settings, UDP radio between emulators | no |
-| 4 | Board bring-up: nPM1300 charger and rails, LCD bit-bang driver, keypad, QDEC, LEDs, vibration, PWM audio | yes |
+| 4 | Board bring-up: nPM1300 charger and rails, LCD bit-bang driver, keypad, QDEC, LEDs, vibration, PWM audio. Battery measurement, fuel gauge and diagnostics screen are written and run in the emulator | yes |
 | 5 | SX1262 on the board, over-the-air test against a stock Meshtastic node | yes |
 | 6 | LoRaWAN on TTN, radio arbiter, duty-cycle accounting | yes |
 | 7 | GPS, power states, measuring the <20 µA low-power current | yes |
@@ -437,5 +449,6 @@ Phases 1–3 can run before the boards arrive.
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
 * Meshtastic protocol changes between releases: the implementation follows firmware 2.7; check new releases (e.g. next-hop routing, signed packets).
 * SX1262 driver for the board with the Meshtastic sync word 0x2b (the Zephyr lora API only offers 0x34/0x12), BUCK1 switching and TCXO; until then the board reports "Radio not available".
+* Battery model for the real cell (see [Battery and current measurement](#battery-and-current-measurement-srcbatteryc)); the fuel gauge code is untested on hardware.
 * Radio sharing between Meshtastic and the Zephyr LoRaWAN stack (see [Radio arbiter](#radio-arbiter-meshtastic-and-lorawan-on-one-sx1262)).
 * Licences: no Meshtastic code is used (protocol re-implemented). The language models are CC BY derived works of their corpora (see `lm/README.md`).

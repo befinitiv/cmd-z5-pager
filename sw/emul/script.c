@@ -9,6 +9,7 @@
  *   release <name>          release
  *   wheel <detents>         rotate, positive = up
  *   lid open|closed
+ *   usb on|off              USB power for the simulated battery
  *   shot <file.bmp>         save the whole window after the next frame
  *   quit                    exit the emulator
  *
@@ -124,6 +125,8 @@ static void run_line(int lineno, char *line)
 		inject(FP_EV_WHEEL, 0, atoi(arg1));
 	} else if (strcmp(cmd, "lid") == 0 && arg1) {
 		inject(FP_EV_LID, 0, strcmp(arg1, "closed") == 0);
+	} else if (strcmp(cmd, "usb") == 0 && arg1) {
+		inject(FP_EV_USB, 0, strcmp(arg1, "on") == 0);
 	} else if (strcmp(cmd, "shot") == 0 && arg1) {
 		fp_bottom_request_shot(arg1);
 		while (fp_bottom_shot_pending()) {

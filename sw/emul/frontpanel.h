@@ -33,5 +33,18 @@ void frontpanel_audio_stop(void);
  */
 void frontpanel_power_off(void);
 
+/* State for the simulated battery. */
+struct frontpanel_load {
+	uint8_t backlight; /* 0..100 */
+	uint8_t vibration; /* 0..100 */
+	bool speaker;
+	bool earpiece;
+	bool lcd_on;
+};
+
+void frontpanel_get_load(struct frontpanel_load *out);
+/* USB power plugged in (U key, the USB indicator or "usb on" in a script). */
+bool frontpanel_usb(void);
+
 int64_t frontpanel_unix_time(void);
 int32_t frontpanel_utc_offset(void);

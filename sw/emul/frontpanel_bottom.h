@@ -41,6 +41,7 @@ enum fp_event_type {
 	FP_EV_BUTTON, /* button, value 1 = pressed, 0 = released */
 	FP_EV_WHEEL,  /* value = detents, positive = rotated up */
 	FP_EV_LID,    /* value 1 = closed */
+	FP_EV_USB,    /* value 1 = USB power plugged in */
 };
 
 struct fp_event {
@@ -64,6 +65,7 @@ struct fp_state {
 	bool speaker_active;
 	bool earpiece_active;
 	bool lid_closed;
+	bool usb;
 	uint32_t frame; /* increments with every render, drives animations */
 };
 

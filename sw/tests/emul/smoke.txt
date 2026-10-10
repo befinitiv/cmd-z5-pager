@@ -23,6 +23,15 @@ wait 200
 key push
 wait 200
 key 6
+wait 1500
+shot smoke-05a-diagnostics.bmp
+usb on
+wait 2500
+shot smoke-05b-diagnostics-usb.bmp
+usb off
+key clear
+wait 200
+key 7
 wait 200
 key 1
 key 2

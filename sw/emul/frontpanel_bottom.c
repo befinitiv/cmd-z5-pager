@@ -40,8 +40,13 @@ static struct button_def buttons[FP_BTN_COUNT];
 static bool pressed[FP_BTN_COUNT];
 static int mouse_button = -1;
 static bool lid_closed;
+static bool usb_plugged;
 static int wheel_pos;
-static SDL_Rect bezel_rect, lcd_rect, wheel_rect, lid_rect, ind_rect;
+static SDL_Rect bezel_rect, lcd_rect, wheel_rect, lid_rect, ind_rect, usb_rect;
+
+/* Indicator rows (LED, VIB, SPK, EAR, USB) in ind_rect. */
+#define IND_LINE (9 * 2 + 6)
+#define USB_ROW  4
 static int win_w, win_h;
 static volatile bool screenshot_requested;
 static int screenshot_count;
@@ -187,6 +192,7 @@ static void layout(void)
 	buttons[FP_BTN_WHEEL_DOWN].r = (SDL_Rect){x1, y, cw, kh};
 	y += kh + gap;
 	ind_rect = (SDL_Rect){x1, y, cw, pad_y + 3 * (kh + gap) - y - gap};
+	usb_rect = (SDL_Rect){x1, y + USB_ROW * IND_LINE, cw, IND_LINE};
 	lid_rect = (SDL_Rect){x1, pad_y + 3 * (kh + gap), cw, kh};
 	buttons[FP_BTN_POWER].r = (SDL_Rect){x1, pad_y + 4 * (kh + gap), cw, kh};
 
@@ -224,6 +230,12 @@ static void toggle_lid(void)
 	emit(FP_EV_LID, 0, lid_closed);
 }
 
+static void toggle_usb(void)
+{
+	usb_plugged = !usb_plugged;
+	emit(FP_EV_USB, 0, usb_plugged);
+}
+
 void fp_bottom_inject(const struct fp_event *ev)
 {
 	switch (ev->type) {
@@ -236,6 +248,11 @@ void fp_bottom_inject(const struct fp_event *ev)
 	case FP_EV_LID:
 		if (lid_closed != (ev->value != 0)) {
 			toggle_lid();
+		}
+		break;
+	case FP_EV_USB:
+		if (usb_plugged != (ev->value != 0)) {
+			toggle_usb();
 		}
 		break;
 	default:
@@ -319,6 +336,8 @@ static int event_watch(void *userdata, SDL_Event *e)
 			break;
 		} else if (down && k == SDLK_l) {
 			toggle_lid();
+		} else if (down && k == SDLK_u) {
+			toggle_usb();
 		} else if (down && k == SDLK_F12) {
 			screenshot_requested = true;
 		} else {
@@ -345,6 +364,10 @@ static int event_watch(void *userdata, SDL_Event *e)
 			break;
 		}
 		if (e->button.button != SDL_BUTTON_LEFT) {
+			break;
+		}
+		if (in_rect(&usb_rect, x, y)) {
+			toggle_usb();
 			break;
 		}
 		if (in_rect(&lid_rect, x, y)) {
@@ -422,7 +445,7 @@ int fp_bottom_init(int s, fp_event_cb_t cb)
 	printf("CMD-Z5 emulator keys: 0-9 * (+) # (\\), Enter = CALL, Backspace = C, M = Memo,\n"
 	       "  Up/Down or mouse wheel = rotate, Space or middle click = wheel push,\n"
 	       "  Left or PgUp = wheel bend up (back), Right or PgDn = wheel bend down,\n"
-	       "  L = lid, Esc = power,\n"
+	       "  L = lid, Esc = power, U = USB power,\n"
 	       "  F12 = screenshot of the display\n");
 	return 0;
 }
@@ -510,8 +533,7 @@ static void render_button(int b, rgb_t label_col)
 
 static void render_indicator(int row, const char *name, rgb_t on_col, float level)
 {
-	int line = 9 * 2 + 6;
-	SDL_Rect dot = {ind_rect.x + 4, ind_rect.y + 4 + row * line, 14, 14};
+	SDL_Rect dot = {ind_rect.x + 4, ind_rect.y + 4 + row * IND_LINE, 14, 14};
 
 	fill(&dot, mix((rgb_t){0x30, 0x32, 0x35}, on_col, level));
 	outline(&dot, col_bezel);
@@ -593,6 +615,8 @@ void fp_bottom_render(const struct fp_state *st)
 	render_indicator(1, "VIB", (rgb_t){0xff, 0xa0, 0x30}, st->vibration / 100.0f);
 	render_indicator(2, "SPK", (rgb_t){0x60, 0xb0, 0xff}, st->speaker_active);
 	render_indicator(3, "EAR", (rgb_t){0x60, 0xb0, 0xff}, st->earpiece_active);
+	/* USB power: click (or U) plugs or unplugs it for the simulated battery. */
+	render_indicator(USB_ROW, "USB", (rgb_t){0xff, 0xe0, 0x40}, st->usb);
 
 	fill(&lid_rect, lid_closed ? (rgb_t){0x90, 0x50, 0x30} : col_key);
 	outline(&lid_rect, col_bezel);

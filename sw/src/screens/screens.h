@@ -17,6 +17,7 @@ extern struct ui_screen compose_screen;
 extern struct ui_screen inbox_screen;
 extern struct ui_screen nodes_screen;
 extern struct ui_menu mesh_menu;
+extern struct ui_screen diag_screen;
 
 /* Write a message to a node, or to the channel (MT_BROADCAST). */
 void compose_open_message(uint32_t to);

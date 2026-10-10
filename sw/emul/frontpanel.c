@@ -105,9 +105,37 @@ static void on_event(const struct fp_event *ev)
 		k_mutex_unlock(&state_lock);
 		input_report_key(fp_dev, CMDZ5_KEY_LID, ev->value, true, K_FOREVER);
 		break;
+	case FP_EV_USB:
+		k_mutex_lock(&state_lock, K_FOREVER);
+		state.usb = ev->value;
+		k_mutex_unlock(&state_lock);
+		break;
 	default:
 		break;
 	}
+}
+
+void frontpanel_get_load(struct frontpanel_load *out)
+{
+	int64_t now = k_uptime_get();
+
+	k_mutex_lock(&state_lock, K_FOREVER);
+	out->backlight = state.backlight;
+	out->vibration = state.vibration;
+	out->speaker = now < speaker_until;
+	out->earpiece = now < earpiece_until;
+	out->lcd_on = state.lcd_on;
+	k_mutex_unlock(&state_lock);
+}
+
+bool frontpanel_usb(void)
+{
+	bool usb;
+
+	k_mutex_lock(&state_lock, K_FOREVER);
+	usb = state.usb;
+	k_mutex_unlock(&state_lock);
+	return usb;
 }
 
 void frontpanel_lcd_update(const uint8_t *fb, bool on, uint8_t contrast)

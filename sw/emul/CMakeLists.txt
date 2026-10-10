@@ -5,6 +5,7 @@ target_sources(app PRIVATE
   lcd_ctrl_model.c
   led_emul.c
   audio_emul.c
+  battery_emul.c
   script.c
   radio_emul.c
 )

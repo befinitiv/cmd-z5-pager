@@ -17,10 +17,13 @@ add_subdirectory(lib/meshtastic)
 add_subdirectory(drivers)
 if(CONFIG_CMDZ5_EMUL)
   add_subdirectory(emul)
+else()
+  target_sources(app PRIVATE src/battery_npm13xx.c)
 endif()
 
 target_sources(app PRIVATE
   src/main.c
+  src/battery.c
   src/clock.c
   src/config.c
   src/factory.c
@@ -35,6 +38,7 @@ target_sources(app PRIVATE
   src/mesh/msgstore.c
   src/screens/chat.c
   src/screens/compose.c
+  src/screens/diag.c
   src/screens/home.c
   src/screens/hwtest.c
   src/screens/inbox.c

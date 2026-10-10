@@ -33,6 +33,7 @@ static const struct ui_menu_item main_items[] = {
 	{"GPS", NULL, not_yet},
 	{"LoRaWAN", NULL, not_yet},
 	{"Settings", &settings_menu.screen, NULL},
+	{"Diagnostics", &diag_screen, NULL},
 	{"Hardware test", &hwtest_menu.screen, NULL},
 	{"About", NULL, about_action},
 };
