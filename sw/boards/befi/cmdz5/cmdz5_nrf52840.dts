@@ -119,14 +119,16 @@
 		};
 	};
 
+	/* PCM through PWM1/PWM2 with EasyDMA (drivers/audio/audio_pwm.c). */
 	speaker: speaker {
 		compatible = "cmdz5,audio-pwm";
-		pwms = <&pwm1 0 PWM_HZ(1000) PWM_POLARITY_NORMAL>;
+		pwm-peripheral = <&pwm1>;
+		dc-coupled;
 	};
 
 	earpiece: earpiece {
 		compatible = "cmdz5,audio-pwm";
-		pwms = <&pwm2 0 PWM_HZ(1000) PWM_POLARITY_NORMAL>;
+		pwm-peripheral = <&pwm2>;
 		amp-supply = <&amp_supply>;
 	};
 
@@ -286,15 +288,16 @@
 	pinctrl-names = "default", "sleep";
 };
 
+/* PWM1 and PWM2 belong to the audio driver, not to Zephyr's PWM driver. */
 &pwm1 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&pwm1_default>;
 	pinctrl-1 = <&pwm1_sleep>;
 	pinctrl-names = "default", "sleep";
 };
 
 &pwm2 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&pwm2_default>;
 	pinctrl-1 = <&pwm2_sleep>;
 	pinctrl-names = "default", "sleep";

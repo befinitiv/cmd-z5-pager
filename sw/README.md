@@ -67,13 +67,13 @@ sw/
 ├── drivers/
 │   ├── display/cmdz5_lcd.c          # controller driver (init sequence, row writes, contrast, power)
 │   ├── display/lcd_bus_gpio.c       # 8080 bus bit-bang, one masked port write per byte on P0.19–P0.26
-│   └── audio/audio_pwm.c            # tones on PWM; PCM via EasyDMA (later)
+│   └── audio/audio_pwm.c            # PCM on PWM1/PWM2 with EasyDMA (8-bit DAC, 62.5 kHz carrier)
 ├── emul/                            # native_sim only
 │   ├── frontpanel.c                 # Zephyr side: input device, state, render thread
 │   ├── frontpanel_bottom.c          # host side: SDL2 window, drawing, keyboard/mouse, audio
 │   ├── lcd_bus_emul.c               # implements lcd_bus, feeds lcd_ctrl_model
 │   ├── lcd_ctrl_model.c             # model of the display controller: registers 03/04/0B → 96×72 2bpp FB
-│   ├── led_emul.c  audio_emul.c     # backlight/vibration and speaker/earpiece
+│   ├── led_emul.c  audio_emul.c     # backlight/vibration; speaker/earpiece PCM mixed into SDL audio
 │   ├── script.c                     # --script: scripted keys, wheel, lid and screenshots
 │   ├── radio_emul.c                 # mesh radio over UDP multicast between emulator instances
 │   ├── gnss_emul.c                  # (later) fixed position or NMEA file replay
@@ -82,11 +82,12 @@ sw/
 │   ├── gfx/                         # 2bpp framebuffer, primitives, fonts, icons, dirty-row tracking
 │   ├── ui/                          # screen stack, events, menu, slider, text view
 │   ├── textinput/                   # model reader, prediction engine, user model, editor
-│   └── meshtastic/                  # packet codec, crypto (AES, CCM, SHA-256, X25519), channels, router, nodedb
+│   ├── meshtastic/                  # packet codec, crypto (AES, CCM, SHA-256, X25519), channels, router, nodedb
+│   └── synth/                       # software synthesiser: voices, waveforms, envelopes, melody sequencer
 ├── src/
 │   ├── main.c                       # UI thread and event loop
 │   ├── input.c                      # Zephyr input events → UI events, long press
-│   ├── hw.c                         # display, backlight, vibration, tones and melodies
+│   ├── hw.c                         # display, backlight, vibration, tones and melodies (lib/synth)
 │   ├── power.c                      # backlight and display timeouts, lid, power key
 │   ├── battery.c                    # battery sampling (1 s), current averages; backends battery_npm13xx.c / emul
 │   ├── i18n.c                       # menu language (English, German)
@@ -102,7 +103,7 @@ sw/
 │   ├── lmbuild/                     # corpus → n-grams → prune/quantise → .lm; evaluation
 │   ├── game/                        # level map generator for the jump and run game (1-1, 1-2)
 │   └── lcd_replay/                  # (later) replays ../display .dsl captures through lcd_ctrl_model
-└── tests/                           # emul/ (smoke.txt, run_mesh.sh), textinput/ and meshtastic/ (host tests: run.sh)
+└── tests/                           # emul/ (smoke.txt, run_mesh.sh), textinput/, meshtastic/ and synth/ (host tests: run.sh)
 ```
 
 # Hardware abstraction
@@ -115,8 +116,8 @@ sw/
 | Wheel push, bend up/down | keypad matrix row 4 | Space or middle click, Left/Right or PgUp/PgDn (and screen buttons) |
 | Lid, power key | `gpio-keys` → `CMDZ5_KEY_LID` (Zephyr has no switch events), `INPUT_KEY_POWER` | `L` key toggles lid (keypad drawn dimmed while closed), `Esc` is the power key |
 | Green LEDs (keypad and board) | `led` API on PWM (P0.08), so brightness and fade work | window and keypad area tinted green with the LED brightness |
-| Loudspeaker | `audio_out` → PWM EasyDMA on P0.27 (FET, square wave or PCM) | SDL audio, full volume |
-| Earpiece | `audio_out` → PWM EasyDMA on P0.06 → RC → PAM8302 (enabled by LDSW2) | SDL audio, quieter sine, EAR indicator lit |
+| Loudspeaker | `audio_out` → PCM through PWM1 EasyDMA on P0.27 (low-side FET) | SDL audio (8-bit like the board), SPK indicator lit |
+| Earpiece | `audio_out` → PCM through PWM2 EasyDMA on P0.06 → RC (1 kΩ/10 nF, 16 kHz) → PAM8302 (enabled by LDSW2) | SDL audio, quieter, EAR indicator lit |
 | Vibration | `led` API on PWM (P0.07) | display shakes, VIB indicator lit |
 | LoRa SX1262 | `lora` API (`semtech,sx1262`), power via nPM1300 BUCK1 | stub: TX logged and RX injectable; optional UDP multicast between instances |
 | GPS M10N | `gnss` API (u-blox M10 driver), 5 V boost EN on P1.03 | fixed position from config, or NMEA file replay |
@@ -128,7 +129,18 @@ Three custom APIs are added because Zephyr has nothing suitable (Zephyr's `displ
 
 * **`lcd`:** `write_rows(fb, first, count)`, `set_contrast()`, `set_power()`. The framebuffer is in the controller's native format, so rows go out without conversion. The application only sends rows that changed.
 * **`lcd_bus`:** `write(a0, buf, len)`, `reset()`, `enable()`. The controller driver (`cmdz5_lcd`) sits above it and is shared by target and emulator. The emulator therefore runs the real init sequence and row-addressing code against a model of the controller, which logs a warning for anything the reverse-engineered documentation does not cover. A bug in the driver shows up on the PC before the board exists. `tools/lcd_replay` (later) will feed the logic analyzer captures through the same model.
-* **`audio_out`:** `tone(freq, ms, volume)`, `stop()`, `busy()`, one device per output (`speaker`, `earpiece`). PCM playback through PWM EasyDMA follows later. A melody player sits above it in `src/hw.c`; an RTTTL sequencer for ringtones and notifications follows in `notify_svc`. Meshtastic uses RTTTL for its external notification module.
+* **`audio_out`:** a PCM stream per output (`speaker`, `earpiece`): `rate()`, `start(fill, user)`, `stop()`. The output pulls blocks of signed 16-bit samples from `fill()` in its own thread and switches itself off (PWM, amplifier) after a few silent blocks. `src/hw.c` keeps `hw_tone()` and `hw_melody()` and renders them with `lib/synth`; an RTTTL sequencer for ringtones and notifications follows in `notify_svc`. Meshtastic uses RTTTL for its external notification module.
+
+## Sound
+
+**Synthesiser (`lib/synth`):** 4 voices with a band-limited pulse wave (PolyBLEP, any duty cycle), triangle, sine (table) and Game Boy-style noise, attack/decay/sustain/release envelopes, and a melody sequencer with sample-accurate timing on voice 0. Single notes use the other voices, so a key click or a game effect mixes with a running melody instead of cutting it off. Timbres in `src/hw.c`: beeps are short square waves; the loudspeaker plays melodies as a plucked 25 % pulse wave, the earpiece everything as a softer triangle wave. Host tests: `tests/synth/run.sh` (also writes `build-tests/synth_demo.wav`).
+
+**PWM as a DAC (`drivers/audio/audio_pwm.c`):** PWM1 (loudspeaker) and PWM2 (earpiece) count from 16 MHz to 256: an 8-bit duty cycle at a 62.5 kHz carrier, above hearing. Each sample is held for 4 carrier periods, so the sample rate is 15625 Hz. Two EasyDMA sequences of 256 samples (16 ms) play in a loop; at the end of one, an interrupt wakes the audio thread, which renders the next block into it while the other plays. The PWM nodes are disabled for Zephyr's PWM driver; the audio driver uses nrfx and their pinctrl states.
+
+* **Loudspeaker:** a low-side FET switches it between VSYS and ground, so it only sees duty cycles ≥ 0, and a constant mid-level would drive a large DC current through it. Its offset therefore follows the signal peak (`dc-coupled`): the duty cycle swings between 0 and twice the peak, and silence is 0.
+* **Earpiece:** the PAM8302 input is AC-coupled (100 nF), so it gets a mid-level offset that ramps up and down in about 8 ms to avoid pops. The 1 kΩ/10 nF RC (16 kHz) in front of it removes most of the carrier.
+
+The HFCLK runs while sound plays; the outputs are switched off about 50 ms after the last sound. The emulator mixes both streams into SDL audio, reduced to 8 bits. Untested on the board: the loudness compared with the earlier square-wave tones, how cleanly the FET-driven loudspeaker plays the PCM, and carrier residue in the earpiece amplifier.
 
 ## Emulator details
 

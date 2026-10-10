@@ -163,12 +163,15 @@ int frontpanel_audio_rate(void)
 	return fp_bottom_audio_rate();
 }
 
-void frontpanel_audio_play(enum frontpanel_sink sink, const int16_t *samples, int count,
-			   uint32_t duration_ms)
+void frontpanel_audio_queue(const int16_t *samples, int count)
 {
-	int64_t until = k_uptime_get() + duration_ms;
-
 	fp_bottom_audio_queue(samples, count);
+}
+
+void frontpanel_audio_active(enum frontpanel_sink sink, uint32_t ms)
+{
+	int64_t until = k_uptime_get() + ms;
+
 	k_mutex_lock(&state_lock, K_FOREVER);
 	if (sink == FRONTPANEL_SPEAKER) {
 		speaker_until = MAX(speaker_until, until);
@@ -178,7 +181,7 @@ void frontpanel_audio_play(enum frontpanel_sink sink, const int16_t *samples, in
 	k_mutex_unlock(&state_lock);
 }
 
-void frontpanel_audio_stop(void)
+void frontpanel_audio_clear(void)
 {
 	fp_bottom_audio_clear();
 	k_mutex_lock(&state_lock, K_FOREVER);

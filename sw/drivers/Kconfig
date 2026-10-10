@@ -34,10 +34,11 @@ module-str = CMD-Z5 display
 source "subsys/logging/Kconfig.template.log_config"
 
 config CMDZ5_AUDIO_PWM
-	bool "Tone output on PWM"
+	bool "PCM output on an nRF PWM instance with EasyDMA"
 	default y
 	depends on DT_HAS_CMDZ5_AUDIO_PWM_ENABLED
-	select PWM
+	select NRFX_PWM
+	select PINCTRL
 
 config CMDZ5_AUDIO_INIT_PRIORITY
 	int "Audio output init priority"

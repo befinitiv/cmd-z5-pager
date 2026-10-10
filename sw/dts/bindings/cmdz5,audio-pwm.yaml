@@ -1,14 +1,25 @@
-description: Tone output on a PWM channel (loudspeaker or earpiece).
+description: |
+  PCM output on an nRF PWM instance used as an 8-bit DAC with EasyDMA
+  (loudspeaker or earpiece). The driver uses the PWM peripheral directly, so
+  its node must be disabled for Zephyr's PWM driver; its pinctrl states are
+  used for the output pin.
 
 compatible: "cmdz5,audio-pwm"
 
 include: base.yaml
 
 properties:
-  pwms:
-    type: phandle-array
+  pwm-peripheral:
+    type: phandle
     required: true
-    description: PWM channel. Use a separate PWM instance per output.
+    description: PWM instance (status "disabled", with pinctrl default/sleep states).
+
+  dc-coupled:
+    type: boolean
+    description: |
+      The load sees the duty cycle directly (loudspeaker on a low-side switch).
+      The offset then follows the signal peak, so silence draws no current.
+      Without it, the output idles at mid-level (AC-coupled amplifier input).
 
   amp-supply:
     type: phandle

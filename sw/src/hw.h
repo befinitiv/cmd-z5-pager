@@ -39,6 +39,10 @@ void hw_backlight_blink(int n);
 
 void hw_vibrate(uint32_t ms);
 
+/*
+ * Sound is synthesised (lib/synth) and played as PCM. A tone plays alongside
+ * a running melody; up to three tones sound at once.
+ */
 void hw_tone(enum hw_sink sink, uint32_t freq_hz, uint32_t ms, uint8_t volume);
 /* Play a note sequence in the background. Replaces a running melody. */
 void hw_melody(enum hw_sink sink, const struct hw_note *notes, size_t count, uint8_t volume);

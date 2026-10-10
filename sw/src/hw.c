@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <string.h>
 
 #include <zephyr/device.h>
@@ -12,6 +13,7 @@
 #include <cmdz5/drivers/lcd.h>
 
 #include "hw.h"
+#include "synth/synth.h"
 
 #ifdef CONFIG_CMDZ5_EMUL
 #include "../emul/frontpanel.h"
@@ -45,16 +47,33 @@ static int blink_steps;
 
 static struct k_work_delayable vibrate_work;
 
-static struct k_work_delayable melody_work;
-static const struct device *melody_dev;
-static const struct hw_note *melody_notes;
-static size_t melody_len, melody_pos;
-static uint8_t melody_volume;
+/*
+ * Sound: one synthesiser per output, rendered by the output's audio thread
+ * through fill(). Beeps (key clicks, test tones) are short square waves; the
+ * loudspeaker plays melodies as a plucked pulse wave, the earpiece softer as
+ * a triangle wave.
+ */
+struct audio {
+	const struct device *dev;
+	const struct synth_timbre *beep;
+	const struct synth_timbre *melody;
+	struct synth synth;
+	struct k_mutex lock;
+};
 
-static const struct device *sink_dev(enum hw_sink sink)
-{
-	return sink == HW_EARPIECE ? earpiece : speaker;
-}
+static const struct synth_timbre beep_square = {SYNTH_PULSE, 50, 1, 0, 100, 6};
+static const struct synth_timbre melody_pulse = {SYNTH_PULSE, 25, 2, 150, 65, 25};
+static const struct synth_timbre soft_triangle = {SYNTH_TRIANGLE, 0, 3, 150, 70, 30};
+
+static struct audio audio[] = {
+	[HW_SPEAKER] = {.beep = &beep_square, .melody = &melody_pulse},
+	[HW_EARPIECE] = {.beep = &soft_triangle, .melody = &soft_triangle},
+};
+
+BUILD_ASSERT(sizeof(struct hw_note) == sizeof(struct synth_note) &&
+		     offsetof(struct hw_note, freq) == offsetof(struct synth_note, freq) &&
+		     offsetof(struct hw_note, ms) == offsetof(struct synth_note, ms),
+	     "hw_note and synth_note must match");
 
 int hw_display_power(bool on)
 {
@@ -140,41 +159,45 @@ void hw_vibrate(uint32_t ms)
 	k_work_reschedule(&vibrate_work, K_MSEC(ms));
 }
 
-void hw_tone(enum hw_sink sink, uint32_t freq_hz, uint32_t ms, uint8_t volume)
+static bool audio_fill(int16_t *buf, size_t n, void *user)
 {
-	audio_out_tone(sink_dev(sink), freq_hz, ms, volume);
+	struct audio *a = user;
+	bool more;
+
+	k_mutex_lock(&a->lock, K_FOREVER);
+	more = synth_render(&a->synth, buf, n);
+	k_mutex_unlock(&a->lock);
+	return more;
 }
 
-static void melody_step(struct k_work *work)
+void hw_tone(enum hw_sink sink, uint32_t freq_hz, uint32_t ms, uint8_t volume)
 {
-	ARG_UNUSED(work);
+	struct audio *a = &audio[sink];
 
-	if (melody_pos >= melody_len) {
-		return;
-	}
-	const struct hw_note *n = &melody_notes[melody_pos++];
-
-	/* Short gap between notes so repeated notes stay distinct. */
-	audio_out_tone(melody_dev, n->freq, n->ms > 20 ? n->ms - 15 : n->ms, melody_volume);
-	k_work_schedule(&melody_work, K_MSEC(n->ms));
+	k_mutex_lock(&a->lock, K_FOREVER);
+	synth_note(&a->synth, a->beep, freq_hz, ms, volume);
+	k_mutex_unlock(&a->lock);
+	audio_out_start(a->dev, audio_fill, a);
 }
 
 void hw_melody(enum hw_sink sink, const struct hw_note *notes, size_t count, uint8_t volume)
 {
-	k_work_cancel_delayable(&melody_work);
-	melody_dev = sink_dev(sink);
-	melody_notes = notes;
-	melody_len = count;
-	melody_pos = 0;
-	melody_volume = volume;
-	k_work_schedule(&melody_work, K_NO_WAIT);
+	struct audio *a = &audio[sink];
+
+	k_mutex_lock(&a->lock, K_FOREVER);
+	synth_melody(&a->synth, a->melody, (const struct synth_note *)notes, count, volume);
+	k_mutex_unlock(&a->lock);
+	audio_out_start(a->dev, audio_fill, a);
 }
 
 void hw_audio_stop(void)
 {
-	k_work_cancel_delayable(&melody_work);
-	audio_out_stop(speaker);
-	audio_out_stop(earpiece);
+	for (size_t i = 0; i < ARRAY_SIZE(audio); i++) {
+		k_mutex_lock(&audio[i].lock, K_FOREVER);
+		synth_stop(&audio[i].synth);
+		k_mutex_unlock(&audio[i].lock);
+		audio_out_stop(audio[i].dev);
+	}
 }
 
 FUNC_NORETURN void hw_power_off(void)
@@ -214,6 +237,11 @@ int hw_init(void)
 	}
 	k_work_init_delayable(&blink_work, blink_handler);
 	k_work_init_delayable(&vibrate_work, vibrate_off);
-	k_work_init_delayable(&melody_work, melody_step);
+	audio[HW_SPEAKER].dev = speaker;
+	audio[HW_EARPIECE].dev = earpiece;
+	for (size_t i = 0; i < ARRAY_SIZE(audio); i++) {
+		k_mutex_init(&audio[i].lock);
+		synth_init(&audio[i].synth, audio_out_rate(audio[i].dev));
+	}
 	return 0;
 }

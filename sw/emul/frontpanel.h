@@ -22,10 +22,12 @@ void frontpanel_lcd_update(const uint8_t *fb, bool on, uint8_t contrast);
 void frontpanel_set_output(enum frontpanel_output out, uint8_t level);
 
 int frontpanel_audio_rate(void);
-/* Queue samples; the sink indicator stays lit for duration_ms. */
-void frontpanel_audio_play(enum frontpanel_sink sink, const int16_t *samples, int count,
-			   uint32_t duration_ms);
-void frontpanel_audio_stop(void);
+/* Queue mixed samples for the sound card. */
+void frontpanel_audio_queue(const int16_t *samples, int count);
+/* Drop the queued samples. */
+void frontpanel_audio_clear(void);
+/* Light the SPK or EAR indicator for ms. */
+void frontpanel_audio_active(enum frontpanel_sink sink, uint32_t ms);
 
 /*
  * Emulate "completely off": the panel stays blank and ignores all input
