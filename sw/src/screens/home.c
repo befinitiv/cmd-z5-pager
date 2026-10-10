@@ -1,6 +1,6 @@
 /*
- * Idle screen: clock, date and a summary line. Wheel push or CALL opens the
- * main menu.
+ * Idle screen: clock, date and a summary line. Wheel push opens the main
+ * menu, CALL the messages, the wheel bent down the jump and run game.
  */
 
 #include <stdio.h>
@@ -97,6 +97,11 @@ static bool home_event(struct ui_screen *s, const struct ui_event *ev)
 	(void)s;
 	if (ui_ev_press(ev, UI_KEY_SELECT) || ui_ev_press(ev, UI_KEY_MEMO)) {
 		ui_push(&main_menu.screen);
+		return true;
+	}
+	/* Wheel bent down: the jump and run game. */
+	if (ui_ev_press(ev, UI_KEY_DOWN)) {
+		game_open();
 		return true;
 	}
 	/* CALL: straight to the messages. */

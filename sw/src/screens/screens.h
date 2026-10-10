@@ -32,6 +32,9 @@ void node_detail_open(uint32_t num);
 
 void about_show(void);
 
+/* Jump and run game (wheel bent down on the home screen). */
+void game_open(void);
+
 /* Power key held: ask to release it; then the goodbye message. */
 void poweroff_show(void);
 void poweroff_goodbye(void);

@@ -27,6 +27,8 @@ LOG_MODULE_REGISTER(app, CONFIG_CMDZ5_APP_LOG_LEVEL);
 
 #define POLL_MS 200
 
+static int poll_ms = POLL_MS;
+
 K_MSGQ_DEFINE(ui_queue, sizeof(struct ui_event), 32, 4);
 
 static struct gfx gfx;
@@ -44,6 +46,11 @@ void app_post(const struct ui_event *ev)
 	if (k_msgq_put(&ui_queue, ev, K_NO_WAIT) != 0) {
 		LOG_WRN("UI queue full, event dropped");
 	}
+}
+
+void app_set_frame_ms(int ms)
+{
+	poll_ms = ms > 0 ? ms : POLL_MS;
 }
 
 static void tick(struct k_timer *timer)
@@ -230,7 +237,7 @@ int main(void)
 	k_timer_start(&tick_timer, K_SECONDS(1), K_SECONDS(1));
 
 	for (;;) {
-		if (k_msgq_get(&ui_queue, &ev, K_MSEC(POLL_MS)) == 0) {
+		if (k_msgq_get(&ui_queue, &ev, K_MSEC(poll_ms)) == 0) {
 			handle(&ev);
 			/* Drain queued events before drawing, so the wheel stays responsive. */
 			while (k_msgq_get(&ui_queue, &ev, K_NO_WAIT) == 0) {

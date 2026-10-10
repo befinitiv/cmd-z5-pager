@@ -39,6 +39,7 @@ target_sources(app PRIVATE
   src/screens/chat.c
   src/screens/compose.c
   src/screens/diag.c
+  src/screens/game.c
   src/screens/home.c
   src/screens/hwtest.c
   src/screens/inbox.c

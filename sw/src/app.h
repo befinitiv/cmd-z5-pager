@@ -15,5 +15,11 @@ enum app_event_type {
 /* Queue an event for the UI thread. Safe to call from any thread. */
 void app_post(const struct ui_event *ev);
 
+/*
+ * How often the main loop runs the poll hook and redraws when no events
+ * arrive, in ms (0 = the default of 200 ms). Games set their frame time.
+ */
+void app_set_frame_ms(int ms);
+
 /* Firmware version shown in the About screen. */
 #define APP_VERSION "0.1.0"
