@@ -98,8 +98,10 @@ sw/
 │   └── screens/                     # home, menu, settings, hardware test, power off, compose, conversations, chat, nodes; (later) inbox, chat, compose, nodes
 ├── lm/                              # language models de.lm, en.lm (+ sources and licences)
 ├── modules/lm_image/                # Zephyr module: model pack for the lm partition, merged.hex
+├── cmake/git_version.cmake          # git hash and git describe → app_generated/git_version.h, every build
 ├── tools/
 │   ├── fontconv/                    # BDF → C font headers (X11 misc-misc fonts, public domain)
+│   ├── qr/                          # QR code bitmap of the project address for the About screen
 │   ├── lmbuild/                     # corpus → n-grams → prune/quantise → .lm; evaluation
 │   ├── game/                        # level map generator for the jump and run game (1-1, 1-2)
 │   └── lcd_replay/                  # (later) replays ../display .dsl captures through lcd_ctrl_model
@@ -330,7 +332,7 @@ The menus are in English or German (Settings → Language, stored with the other
 
 ## Screens
 
-Home (clock, battery; with unread messages a preview: sender, count and the start of the newest text) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Diagnostics (battery, current consumption) · Z5 Jump (wheel bent down on the home screen) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power · About).
+Home (clock, battery; with unread messages a preview: sender, count and the start of the newest text) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Diagnostics (battery, current consumption) · Z5 Jump (wheel bent down on the home screen) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power) · About (git commit and version, Zephyr version, build date; push shows a QR code with the project address https://github.com/befinitiv/cmd-z5-pager).
 
 # Predictive text (`lib/textinput`)
 
@@ -442,7 +444,7 @@ west flash -d build-board                                           # SWD (J-Lin
 
 On the board the log goes to SEGGER RTT, because the only UART belongs to the GPS. USB CDC ACM follows later.
 
-Fonts are generated with `tools/fontconv/gen_fonts.sh`; the generated headers are committed.
+Fonts are generated with `tools/fontconv/gen_fonts.sh`; the generated headers are committed. The same holds for the About screen's QR code (`tools/qr/gen_qr.py`, needs the Python `qrcode` module). The git hash and version (`git describe --tags --always --dirty`, e.g. `R0-15-g783be4a`) are read on every build by `cmake/git_version.cmake`; the About screen marks a build with uncommitted changes with a `+` after the hash.
 
 The language models are rebuilt with `tools/lmbuild/build_models.sh` (needs numpy; downloads about 170 MB of corpora once); the built `lm/*.lm` files are committed. Host tests of the text input library: `tests/textinput/run.sh`.
 

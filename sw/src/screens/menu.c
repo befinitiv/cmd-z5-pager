@@ -1,13 +1,11 @@
 /*
- * Main menu and the About screen.
+ * Main menu (the About screen is in about.c).
  */
 
 #include <stdio.h>
 
 #include <zephyr/kernel.h>
-#include <zephyr/version.h>
 
-#include "../app.h"
 #include "../i18n.h"
 #include "screens.h"
 
@@ -39,14 +37,3 @@ static const struct ui_menu_item main_items[] = {
 };
 
 struct ui_menu main_menu = UI_MENU("Menu", main_items, NULL);
-
-void about_show(void)
-{
-	static char text[160];
-
-	snprintf(text, sizeof(text),
-		 tr("CMD-Z5 firmware %s\nZephyr %s\nBuilt %s\n\n"
-		    "Meshtastic and LoRaWAN messenger for the Sony CMD-Z5."),
-		 APP_VERSION, KERNEL_VERSION_STRING, __DATE__);
-	ui_message("About", text);
-}

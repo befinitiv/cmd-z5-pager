@@ -97,10 +97,9 @@ static const struct translation de[] = {
 	{"wheel", "Rad"},
 
 	/* About */
-	{"CMD-Z5 firmware %s\nZephyr %s\nBuilt %s\n\n"
-	 "Meshtastic and LoRaWAN messenger for the Sony CMD-Z5.",
-	 "CMD-Z5 Firmware %s\nZephyr %s\nErstellt %s\n\n"
-	 "Meshtastic- und LoRaWAN-Messenger für das Sony CMD-Z5."},
+	{"Commit", "Commit"},
+	{"Built", "Erstellt"},
+	{"push: QR code", "Drücken: QR-Code"},
 
 	/* Mesh */
 	{"Mesh", "Mesh"},

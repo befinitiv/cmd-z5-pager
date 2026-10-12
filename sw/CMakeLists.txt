@@ -10,6 +10,18 @@ project(cmdz5)
 
 zephyr_include_directories(include)
 
+# Git hash and version (git describe) for the About screen, refreshed on every
+# build: app_generated/git_version.h.
+set(git_version_dir ${CMAKE_CURRENT_BINARY_DIR}/app_generated)
+set(git_version_h ${git_version_dir}/git_version.h)
+add_custom_target(git_version
+  COMMAND ${CMAKE_COMMAND} -DSRC_DIR=${CMAKE_CURRENT_SOURCE_DIR} -DOUT=${git_version_h}
+          -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/git_version.cmake
+  BYPRODUCTS ${git_version_h}
+  COMMENT "Reading the git version")
+add_dependencies(app git_version)
+target_include_directories(app PRIVATE ${git_version_dir})
+
 add_subdirectory(lib/gfx)
 add_subdirectory(lib/ui)
 add_subdirectory(lib/textinput)
@@ -37,6 +49,7 @@ target_sources(app PRIVATE
   src/mesh/mesh.c
   src/mesh/msglog.c
   src/mesh/msgstore.c
+  src/screens/about.c
   src/screens/chat.c
   src/screens/compose.c
   src/screens/diag.c
