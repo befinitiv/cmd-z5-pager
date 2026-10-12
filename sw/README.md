@@ -301,7 +301,7 @@ A small retained-mode toolkit: a screen stack with `on_enter`, `on_event`, `rend
 | Wheel bend up | back (long: home screen), same as C | back; the draft is kept |
 | Wheel bend down | page down; on the home screen: the jump and run game | still open |
 | CALL | send / confirm | send message (phase 3) |
-| C | back (long: home screen) | delete a key or the character before the cursor (long: the word before it); back when the text is empty |
+| C | back (long: home screen) | delete a key or the character before the cursor (long: the word before it, and while held one more word every 350 ms); back when the text is empty |
 | Memo | context menu | symbol and smiley picker |
 | `2`–`9` | select menu entry | add a key to the word (long: the digit) |
 | `#` | – | input mode: T9 → multitap → 123 (long: input language) |

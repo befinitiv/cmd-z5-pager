@@ -28,6 +28,8 @@
 #define TEXT_W    (GFX_WIDTH - 2)
 #define MAX_LINES 40
 #define BLINK_MS  400
+/* C held after its long press: one more word every CLEAR_REPEAT_MS. */
+#define CLEAR_REPEAT_MS 350
 
 static const enum ti_ekey digit_keys[] = {
 	[UI_KEY_0] = TI_EK_0,     [UI_KEY_1] = TI_EK_0 + 1, [UI_KEY_2] = TI_EK_0 + 2,
@@ -119,6 +121,8 @@ static void finish(void)
 	ui_pop();
 }
 static uint32_t blink_time;
+static bool clear_repeat;
+static uint32_t clear_next;
 
 static bool editor_key(enum ui_key k, enum ti_ekey *out)
 {
@@ -147,6 +151,9 @@ static bool compose_event(struct ui_screen *s, const struct ui_event *ev)
 
 	switch (ev->type) {
 	case UI_EV_KEY_RELEASE:
+		if (ev->key == UI_KEY_CLEAR) {
+			clear_repeat = false;
+		}
 		/* Keys act on release, so a long press can mean something else. */
 		if (ev->value == 0 && editor_key(ev->key, &key)) {
 			used = ti_editor_key(ed, key, false, now);
@@ -157,6 +164,10 @@ static bool compose_event(struct ui_screen *s, const struct ui_event *ev)
 	case UI_EV_KEY_LONG:
 		if (editor_key(ev->key, &key)) {
 			used = ti_editor_key(ed, key, true, now);
+			if (used && key == TI_EK_CLEAR) {
+				clear_repeat = true;
+				clear_next = now + CLEAR_REPEAT_MS;
+			}
 		}
 		break;
 	case UI_EV_KEY_PRESS:
@@ -193,6 +204,12 @@ static void compose_poll(struct ui_screen *s)
 	if (ti_editor_tick(ed, now)) {
 		ui_invalidate();
 	}
+	if (clear_repeat && (int32_t)(now - clear_next) >= 0) {
+		/* Stops at the start of the text; holding C never leaves the screen. */
+		clear_repeat = ti_editor_key(ed, TI_EK_CLEAR, true, now);
+		clear_next += CLEAR_REPEAT_MS;
+		ui_invalidate();
+	}
 	if (ed->cursor_mode && now - blink_time >= BLINK_MS) {
 		blink_on = !blink_on;
 		blink_time = now;
@@ -205,6 +222,7 @@ static void compose_poll(struct ui_screen *s)
 static void compose_leave(struct ui_screen *s)
 {
 	ARG_UNUSED(s);
+	clear_repeat = false;
 	/* Store the learned words (not after every word, to spare the flash). */
 	textin_save();
 	if (ctx.edit) {
