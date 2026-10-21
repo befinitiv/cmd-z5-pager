@@ -56,6 +56,7 @@ Entries marked *(later)* do not exist yet.
 ```
 sw/
 ├── CMakeLists.txt  Kconfig  prj.conf
+├── sysbuild.conf  sysbuild/        # board build: MCUboot (single slot, USB serial recovery) + application
 ├── boards/
 │   ├── befi/cmdz5/                  # board definition (HWMv2): dts, pinctrl, defconfig, flash partitions
 │   ├── cmdz5_nrf52840.conf          # board-only Kconfig (I2C, PWM, regulators, charger)
@@ -104,6 +105,7 @@ sw/
 │   ├── fontconv/                    # BDF → C font headers (X11 misc-misc fonts, public domain)
 │   ├── qr/                          # QR code bitmap of the project address for the About screen
 │   ├── lmbuild/                     # corpus → n-grams → prune/quantise → .lm; evaluation
+│   ├── usb/                         # update.sh (firmware update over USB), udev rule
 │   ├── game/                        # level map generator for the jump and run game (1-1, 1-2)
 │   └── lcd_replay/                  # (later) replays ../display .dsl captures through lcd_ctrl_model
 └── tests/                           # emul/ (smoke.txt, run_mesh.sh), textinput/, meshtastic/ and synth/ (host tests: run.sh)
@@ -422,7 +424,7 @@ Built offline per language by `tools/lmbuild` (`build_models.sh` downloads the c
 
 | Partition / part | Size |
 |---|---|
-| MCUboot (single slot, USB serial recovery) | 48 KB |
+| MCUboot (single slot, USB serial recovery) | 64 KB (55 KB used) |
 | Application: Zephyr, drivers, LoRaWAN, Meshtastic + crypto, UI, fonts, text engine | 380–450 KB |
 | Settings + LittleFS | 128 KB |
 | Language models, German + English | 352 KB (2 × 176 KB) |
@@ -458,11 +460,21 @@ Build, in `sw/`:
 west build -b native_sim/native/64 --no-sysbuild -d build-sim .     # emulator
 ./build-sim/zephyr/zephyr.exe
 
-west build -b cmdz5/nrf52840 --no-sysbuild -d build-board .        # board
-west flash -d build-board                                           # SWD (J-Link): application + language models
+west build -b cmdz5/nrf52840 --sysbuild -d build-board .           # board: MCUboot + application
+tools/usb/update.sh                                                 # USB: application
+west flash -d build-board                                           # SWD (J-Link): MCUboot, application + language models
 ```
 
-`west flash` writes `merged.hex`: the application and the language model pack for the `lm` partition (built by `modules/lm_image`, a small Zephyr module, because the flash runner is configured before the application's own CMake code runs). Without the models the device still works; text input then offers multitap and 123 only.
+The board build uses sysbuild (`sysbuild.conf`, `sysbuild/`): MCUboot and the application, signed for MCUboot. `west flash` writes MCUboot and `merged.hex`: the signed application and the language model pack for the `lm` partition (built by `modules/lm_image`, a small Zephyr module, because the flash runner is configured before the application's own CMake code runs). Without the models the device still works; text input then offers multitap and 123 only.
+
+**Updates over USB.** Flash layout: MCUboot 0x00000–0x10000, one application slot 0x10000–0x88000 (480 KB), then `lm`, `storage` and `lfs`, which an update does not touch. With a single slot there is no rollback: the new application overwrites the old one, and MCUboot stays reachable if it does not start. Ways into MCUboot's USB serial recovery (`CMD-Z5 bootloader` on USB, SMP protocol):
+
+* the 1200-baud touch: open the application's port at 1200 baud (`stty -F /dev/ttyACM0 1200`), as for Arduino and Meshtastic nRF52 boards; `src/update.c` sets the boot mode (GPREGRET1) and restarts,
+* Settings → Firmware update on the device,
+* the power key still held 2 s after switching on (MCUboot reads P1.06),
+* no valid application in the slot.
+
+`tools/usb/update.sh [image]` does the touch, uploads `build-board/sw/zephyr/zephyr.signed.bin` with `smpmgr` (`pipx install smpmgr`) and restarts, about 25 s in all; its `ENOTSUP` messages (a parameter query MCUboot does not answer) are harmless. MCUboot leaves recovery only with an SMP reset (`smpmgr --port … os reset`) or a power cycle. Images are signed with MCUboot's default development key (the build warns about it): MCUboot rejects images that are not signed, but anyone can sign with that key. On Linux, ModemManager probes new serial ports and can swallow the first boot messages; `tools/usb/99-cmdz5.rules` keeps it away.
 
 On the board the log and console go to USB CDC ACM (`/dev/ttyACM0`, e.g. `picocom /dev/ttyACM0`; any baud rate), because the only UART belongs to the GPS. The port keeps up to 8 KB of output until the host opens it, so the boot messages are not lost; open the port only once (a separate `stty` drains them). SEGGER RTT stays a second log backend for the J-Link.
 
@@ -490,7 +502,7 @@ Phases 1–3 can run before the boards arrive.
 * **External SPI NOR flash** (rev 2, CS on P0.04, shared bus with the SX1262): larger language models, more message history.
 * **Neural re-ranker** for predictive text (small int8 GRU or transformer over the top-k n-gram candidates).
 * **Microphone:** voice notes are not practical over LoRa, but the microphone could serve as a clap or noise detector.
-* **Firmware update** over BLE (MCUboot dual slot needs the external flash).
+* **Firmware update** over BLE (needs MCUboot dual slot and so the external flash; over USB it works already, see [Build and run](#build-and-run)).
 
 # Open points
 

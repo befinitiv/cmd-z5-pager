@@ -18,6 +18,7 @@
 #include "hw.h"
 #include "i18n.h"
 #include "mesh/mesh.h"
+#include "update.h"
 #include "mesh/msgstore.h"
 #include "meshtastic/packet.h"
 #include "textin.h"
@@ -228,6 +229,7 @@ int main(void)
 	}
 	mesh_init();
 	gps_init();
+	update_init();
 	battery_init();
 	clock_init();
 	gfx_init(&gfx);

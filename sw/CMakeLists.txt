@@ -47,6 +47,7 @@ target_sources(app PRIVATE
   src/power.c
   src/statusbar.c
   src/textin.c
+  src/update.c
   src/mesh/mesh.c
   src/mesh/msglog.c
   src/mesh/msgstore.c

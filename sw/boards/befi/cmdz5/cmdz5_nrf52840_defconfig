@@ -3,11 +3,13 @@ CONFIG_HW_STACK_PROTECTION=y
 CONFIG_GPIO=y
 CONFIG_PINCTRL=y
 
-# Link into code_partition (the flash layout leaves room for the language models).
+# Link into zephyr,code-partition: slot0_partition for the application,
+# boot_partition for MCUboot (its own app.overlay chooses that).
 CONFIG_USE_DT_CODE_PARTITION=y
 
-# There is no console UART (the only UART goes to the GPS). The console goes
-# to SEGGER RTT over the SWD connector until USB CDC ACM is set up.
+# There is no console UART (the only UART goes to the GPS). By default the
+# console goes to SEGGER RTT; the application moves it to USB CDC ACM
+# (boards/cmdz5_nrf52840.conf), MCUboot keeps RTT.
 CONFIG_CONSOLE=y
 CONFIG_USE_SEGGER_RTT=y
 CONFIG_RTT_CONSOLE=y

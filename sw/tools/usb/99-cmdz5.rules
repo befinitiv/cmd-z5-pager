@@ -1,0 +1,4 @@
+# CMD-Z5 (application and MCUboot): keep ModemManager from probing the USB
+# serial port, which would swallow the first boot messages.
+# Install: sudo cp tools/usb/99-cmdz5.rules /etc/udev/rules.d/ && sudo udevadm control --reload
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2fe3", ATTRS{manufacturer}=="befi", ENV{ID_MM_DEVICE_IGNORE}="1"

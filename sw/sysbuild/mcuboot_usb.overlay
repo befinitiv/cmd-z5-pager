@@ -1,0 +1,6 @@
+/* MCUboot: SMP on the USB CDC ACM port (the console stays on RTT). */
+/ {
+	chosen {
+		zephyr,uart-mcumgr = &cdc_acm_uart0;
+	};
+};

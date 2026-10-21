@@ -160,6 +160,14 @@ static const struct translation de[] = {
 	 "gelöscht, und das Gerät erhält einen neuen Schlüssel. CALL = zurücksetzen, "
 	 "C = abbrechen."},
 
+	/* Firmware update */
+	{"Firmware update", "Firmware-Update"},
+	{"No bootloader in this build.", "Kein Bootloader in diesem Build."},
+	{"Restarts into the bootloader, which waits for new firmware over USB. "
+	 "CALL = restart, C = cancel.",
+	 "Startet in den Bootloader, der auf neue Firmware über USB wartet. "
+	 "CALL = neu starten, C = abbrechen."},
+
 	/* Power */
 	{"Power off", "Ausschalten"},
 	{"Release the key to switch off.", "Taste loslassen zum Ausschalten."},

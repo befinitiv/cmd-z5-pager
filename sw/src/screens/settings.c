@@ -14,6 +14,7 @@
 #include "../i18n.h"
 #include "../mesh/mesh.h"
 #include "../textin.h"
+#include "../update.h"
 #include "meshtastic/channel.h"
 #include "../power.h"
 #include "screens.h"
@@ -582,6 +583,20 @@ static void reset_action(struct ui_menu *m, int idx)
 		   factory_reset);
 }
 
+static void update_action(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+	ARG_UNUSED(idx);
+	if (!update_available()) {
+		ui_toast("Firmware update", "No bootloader in this build.", NULL, NULL);
+		return;
+	}
+	ui_confirm("Firmware update",
+		   "Restarts into the bootloader, which waits for new firmware over USB. "
+		   "CALL = restart, C = cancel.",
+		   update_enter_bootloader);
+}
+
 static const struct ui_menu_item settings_items[] = {
 	{"Mesh", &mesh_menu.screen, NULL},
 	{"Position", &position_menu.screen, NULL},
@@ -590,6 +605,7 @@ static const struct ui_menu_item settings_items[] = {
 	{"Text input", &input_menu.screen, NULL},
 	{"Language", NULL, language_next},
 	{"Factory reset", NULL, reset_action},
+	{"Firmware update", NULL, update_action},
 };
 
 struct ui_menu settings_menu = UI_MENU("Settings", settings_items, settings_value);

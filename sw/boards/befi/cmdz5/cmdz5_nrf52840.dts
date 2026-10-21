@@ -20,8 +20,14 @@
 	chosen {
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
-		zephyr,code-partition = &code_partition;
+		zephyr,code-partition = &slot0_partition;
 		zephyr,console = &cdc_acm_uart0;
+		zephyr,boot-mode = &boot_mode0;
+	};
+
+	aliases {
+		/* MCUboot: power key held at switch-on enters USB serial recovery. */
+		mcuboot-button0 = &power_key;
 	};
 
 	/*
@@ -101,7 +107,7 @@
 		};
 
 		/* Shared with nPM1300 SHPHLD through a BAT54C. */
-		power {
+		power_key: power {
 			gpios = <&gpio1 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
 			zephyr,code = <INPUT_KEY_POWER>;
 		};
@@ -165,6 +171,20 @@
 	/* P0.09/P0.10 drive the SX1262 RF switch and reset. */
 	nfct-pins-as-gpios;
 	gpio-as-nreset;
+};
+
+/*
+ * Boot mode in GPREGRET1, kept across a reset: the application sets it to
+ * ask MCUboot to stay in USB serial recovery (src/update.c).
+ */
+&gpregret1 {
+	status = "okay";
+
+	boot_mode0: boot_mode@0 {
+		compatible = "zephyr,retention";
+		status = "okay";
+		reg = <0x0 0x1>;
+	};
 };
 
 &gpiote {
@@ -338,9 +358,9 @@ zephyr_udc0: &usbd {
 };
 
 /*
- * Flash layout (1 MB). No bootloader yet: the application starts at 0.
- * With MCUboot, code_partition is split into the bootloader (48 KB) and the
- * application slot.
+ * Flash layout (1 MB). MCUboot with a single application slot: an update
+ * over USB overwrites the application in place (see README, "Updates over
+ * USB"). The language models, settings and LittleFS are not touched.
  */
 &flash0 {
 	partitions {
@@ -348,10 +368,16 @@ zephyr_udc0: &usbd {
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		code_partition: partition@0 {
+		boot_partition: partition@0 {
 			compatible = "zephyr,mapped-partition";
-			label = "app";
-			reg = <0x00000000 0x00088000>;
+			label = "mcuboot";
+			reg = <0x00000000 0x00010000>;
+		};
+
+		slot0_partition: partition@10000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x00010000 0x00078000>;
 		};
 
 		/* Predictive text language models (read-only, updated separately). */
