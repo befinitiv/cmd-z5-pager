@@ -25,6 +25,12 @@ static const struct device *const pmic = DEVICE_DT_GET(DT_NODELABEL(pmic));
 /* nPM1300 SHIP block: TASKENTERSHIPMODE (datasheet register map, verify on the board). */
 #define NPM1300_SHIP_BASE            0x0B
 #define NPM1300_TASK_ENTER_SHIP_MODE 0x02
+#include <hal/nrf_power.h>
+/*
+ * GPREGRET2 (kept over a reset): switched off while on USB power, see
+ * hw_boot_off(). GPREGRET1 holds MCUboot's boot mode.
+ */
+#define OFF_MARK 0x5a
 #endif
 
 LOG_MODULE_REGISTER(hw, CONFIG_CMDZ5_APP_LOG_LEVEL);
@@ -200,6 +206,27 @@ void hw_audio_stop(void)
 	}
 }
 
+bool hw_usb_power(void)
+{
+#ifdef HAVE_PMIC
+	return nrf_power_usbregstatus_vbusdet_get(NRF_POWER);
+#else
+	return false;
+#endif
+}
+
+bool hw_boot_off(void)
+{
+#ifdef HAVE_PMIC
+	bool off = NRF_POWER->GPREGRET2 == OFF_MARK;
+
+	NRF_POWER->GPREGRET2 = 0;
+	return off;
+#else
+	return false;
+#endif
+}
+
 FUNC_NORETURN void hw_power_off(void)
 {
 	hw_audio_stop();
@@ -210,6 +237,13 @@ FUNC_NORETURN void hw_power_off(void)
 #if defined(CONFIG_CMDZ5_EMUL)
 	frontpanel_power_off();
 #elif defined(HAVE_PMIC)
+	if (hw_usb_power()) {
+		/* USB power would wake the PMIC from ship mode at once. */
+		LOG_INF("USB power: restarting into the off state");
+		NRF_POWER->GPREGRET2 = OFF_MARK;
+		log_flush();
+		sys_reboot(SYS_REBOOT_WARM);
+	}
 	LOG_INF("entering ship mode");
 	log_flush();
 	int ret = mfd_npm13xx_reg_write(pmic, NPM1300_SHIP_BASE, NPM1300_TASK_ENTER_SHIP_MODE, 1);

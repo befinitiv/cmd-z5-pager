@@ -130,9 +130,68 @@ struct ui_screen nodes_screen = {
 
 /* Details ------------------------------------------------------------------- */
 
+/* x rounded to tenths, as "-1.5" (-999.9 .. 999.9). */
+static void tenths(char *buf, size_t len, float x)
+{
+	int v = CLAMP((int)(x * 10.0f + (x < 0 ? -0.5f : 0.5f)), -9999, 9999);
+
+	snprintf(buf, len, "%s%d.%d", v < 0 ? "-" : "", abs(v) / 10, abs(v) % 10);
+}
+
+/* Rounded percentage, 0..100. */
+static int pct(float x)
+{
+	return CLAMP((int)(x + 0.5f), 0, 100);
+}
+
+/* Telemetry lines: battery, channel use, environment (what the node sent). */
+static int telemetry_lines(const struct mt_telemetry *tm, char lines[][32])
+{
+	int n = 0;
+
+	if (tm->has_battery || tm->has_voltage) {
+		char level[8] = "", volts[10] = "";
+
+		if (tm->has_battery) {
+			if (tm->battery_level > 100) {
+				snprintf(level, sizeof(level), " %s", tr("ext."));
+			} else {
+				snprintf(level, sizeof(level), " %u%%", tm->battery_level);
+			}
+		}
+		if (tm->has_voltage) {
+			int mv = CLAMP((int)(tm->voltage * 1000.0f + 0.5f), 0, 99999);
+
+			snprintf(volts, sizeof(volts), " %d.%02dV", mv / 1000, mv % 1000 / 10);
+		}
+		snprintf(lines[n++], 32, "%s%s%s", tr("Battery"), level, volts);
+	}
+	if (tm->has_channel_util || tm->has_air_util_tx) {
+		snprintf(lines[n++], 32, "%s %d%% TX %d%%", tr("Channel"), pct(tm->channel_util),
+			 pct(tm->air_util_tx));
+	}
+	if (tm->has_temperature || tm->has_humidity || tm->has_pressure) {
+		char temp[10] = "", hum[8] = "", pres[10] = "";
+
+		if (tm->has_temperature) {
+			tenths(temp, sizeof(temp) - 2, tm->temperature);
+			strcat(temp, "C ");
+		}
+		if (tm->has_humidity) {
+			snprintf(hum, sizeof(hum), "%d%% ", pct(tm->humidity));
+		}
+		if (tm->has_pressure) {
+			snprintf(pres, sizeof(pres), "%dhPa",
+				 CLAMP((int)(tm->pressure + 0.5f), 0, 9999));
+		}
+		snprintf(lines[n++], 32, "%s%s%s", temp, hum, pres);
+	}
+	return n;
+}
+
 static void detail_draw(struct ui_screen *s, struct gfx *g)
 {
-	char lines[8][32];
+	char lines[12][32];
 	int n = 0;
 	char tmp[16], age[8];
 
@@ -159,6 +218,7 @@ static void detail_draw(struct ui_screen *s, struct gfx *g)
 		snprintf(lines[n++], 32, "SNR %d dB, %d dBm", copy.snr, copy.rssi);
 		snprintf(lines[n++], 32, "%s: %u", tr("Hops"), copy.hops_away);
 	}
+	n += telemetry_lines(&copy.telemetry, &lines[n]);
 	if (copy.has_position) {
 		const struct mt_position *p = &copy.position;
 		int32_t lat = p->latitude_i, lon = p->longitude_i;

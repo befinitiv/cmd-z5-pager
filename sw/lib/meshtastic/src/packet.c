@@ -420,6 +420,94 @@ int mt_position_decode(const uint8_t *buf, size_t len, struct mt_position *p)
 	return r.err ? -1 : 0;
 }
 
+static float f_float(const struct pb_field *f)
+{
+	uint32_t bits = (uint32_t)f->v;
+	float v;
+
+	memcpy(&v, &bits, sizeof(v));
+	return v;
+}
+
+static void device_metrics_decode(struct pbr *r, struct mt_telemetry *t)
+{
+	struct pb_field f;
+
+	while (r_next(r, &f)) {
+		switch (f.num) {
+		case 1:
+			t->battery_level = f.v;
+			t->has_battery = true;
+			break;
+		case 2:
+			t->voltage = f_float(&f);
+			t->has_voltage = true;
+			break;
+		case 3:
+			t->channel_util = f_float(&f);
+			t->has_channel_util = true;
+			break;
+		case 4:
+			t->air_util_tx = f_float(&f);
+			t->has_air_util_tx = true;
+			break;
+		case 5:
+			t->uptime_s = f.v;
+			t->has_uptime = true;
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+static void environment_metrics_decode(struct pbr *r, struct mt_telemetry *t)
+{
+	struct pb_field f;
+
+	while (r_next(r, &f)) {
+		switch (f.num) {
+		case 1:
+			t->temperature = f_float(&f);
+			t->has_temperature = true;
+			break;
+		case 2:
+			t->humidity = f_float(&f);
+			t->has_humidity = true;
+			break;
+		case 3:
+			t->pressure = f_float(&f);
+			t->has_pressure = true;
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+int mt_telemetry_decode(const uint8_t *buf, size_t len, struct mt_telemetry *t)
+{
+	struct pbr r = {.p = buf, .end = buf + len};
+	struct pb_field f;
+
+	memset(t, 0, sizeof(*t));
+	while (r_next(&r, &f)) {
+		if (f.num == 1) {
+			t->time = f.v;
+		} else if ((f.num == 2 || f.num == 3) && f.wt == WT_LEN) {
+			struct pbr sub = {.p = f.data, .end = f.data + f.len};
+
+			if (f.num == 2) {
+				device_metrics_decode(&sub, t);
+			} else {
+				environment_metrics_decode(&sub, t);
+			}
+			r.err |= sub.err;
+		}
+	}
+	return r.err ? -1 : 0;
+}
+
 int mt_routing_encode(uint32_t error_reason, uint8_t *buf, size_t size)
 {
 	struct pbw w = {.buf = buf, .size = size};

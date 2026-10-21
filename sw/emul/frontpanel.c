@@ -14,6 +14,9 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/reboot.h>
 
+#include <cmdline.h>
+#include <posix_native_task.h>
+
 #include <dt-bindings/cmdz5/keys.h>
 
 #include "frontpanel.h"
@@ -199,6 +202,26 @@ int32_t frontpanel_utc_offset(void)
 {
 	return fp_bottom_utc_offset();
 }
+
+static bool opt_no_clock;
+
+bool frontpanel_clock_known(void)
+{
+	return !opt_no_clock;
+}
+
+static void add_options(void)
+{
+	static struct args_struct_t options[] = {
+		{.option = "no-clock", .is_switch = true, .type = 'b', .dest = &opt_no_clock,
+		 .descript = "Start without the PC's time, like the board (time from GPS or mesh)"},
+		ARG_TABLE_ENDMARKER,
+	};
+
+	native_add_command_line_opts(options);
+}
+
+NATIVE_TASK(add_options, PRE_BOOT_1, 13);
 
 static void render_thread(void *p1, void *p2, void *p3)
 {

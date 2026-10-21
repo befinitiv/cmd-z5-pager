@@ -72,12 +72,6 @@ void power_lid(bool closed)
 	}
 }
 
-void power_toggle_display(void)
-{
-	last_activity = k_uptime_get();
-	enter(state == POWER_OFF ? POWER_ACTIVE : POWER_OFF);
-}
-
 void power_settings_changed(void)
 {
 	if (state == POWER_ACTIVE) {

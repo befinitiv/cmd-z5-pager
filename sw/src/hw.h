@@ -51,6 +51,16 @@ void hw_audio_stop(void);
 /*
  * Switch the device completely off: nPM1300 ship mode on the board (holding
  * the power key for about 1 s switches it on again), on the emulator a
- * blank panel until Esc is held. Does not return.
+ * blank panel until Esc is held. With USB power the PMIC cannot stay in ship
+ * mode; the board then restarts into the off state (hw_boot_off()). Does not
+ * return.
  */
 FUNC_NORETURN void hw_power_off(void);
+/* USB power present (board: VBUS seen by the nRF52840). */
+bool hw_usb_power(void);
+/*
+ * True once after hw_power_off() restarted into the off state because of
+ * USB power: the device must look switched off until the power key is held
+ * or USB is removed.
+ */
+bool hw_boot_off(void);

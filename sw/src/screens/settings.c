@@ -7,6 +7,7 @@
 
 #include <zephyr/kernel.h>
 
+#include "../clock.h"
 #include "../config.h"
 #include "../factory.h"
 #include "../gps.h"
@@ -565,12 +566,26 @@ static void language_next(struct ui_menu *m, int idx)
 	saved();
 }
 
+static void zone_next(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+	ARG_UNUSED(idx);
+	clock_set_zone((clock_zone() + 1) % clock_zone_count());
+}
+
 static const char *settings_value(struct ui_menu *m, int idx, char *buf, size_t len)
 {
 	ARG_UNUSED(m);
 	ARG_UNUSED(buf);
 	ARG_UNUSED(len);
-	return idx == 5 ? i18n_name(app_config.language) : NULL;
+	switch (idx) {
+	case 5:
+		return i18n_name(app_config.language);
+	case 6:
+		return tr(clock_zone_name(clock_zone()));
+	default:
+		return NULL;
+	}
 }
 
 static void reset_action(struct ui_menu *m, int idx)
@@ -604,6 +619,7 @@ static const struct ui_menu_item settings_items[] = {
 	{"Sound", &sound_menu.screen, NULL},
 	{"Text input", &input_menu.screen, NULL},
 	{"Language", NULL, language_next},
+	{"Time zone", NULL, zone_next},
 	{"Factory reset", NULL, reset_action},
 	{"Firmware update", NULL, update_action},
 };

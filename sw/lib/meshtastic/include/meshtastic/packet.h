@@ -94,6 +94,29 @@ struct mt_position {
 int mt_position_encode(const struct mt_position *p, uint8_t *buf, size_t size);
 int mt_position_decode(const uint8_t *buf, size_t len, struct mt_position *p);
 
+/*
+ * Telemetry (TELEMETRY_APP): the time and the device or environment metrics.
+ * Other variants (power, air quality, ...) are skipped. has_* tell which
+ * fields were present.
+ */
+struct mt_telemetry {
+	uint32_t time; /* unix time, 0 = unknown */
+	/* DeviceMetrics */
+	bool has_battery, has_voltage, has_channel_util, has_air_util_tx, has_uptime;
+	uint32_t battery_level; /* %, above 100 = external power */
+	float voltage;          /* V */
+	float channel_util;     /* % of the channel busy */
+	float air_util_tx;      /* % of the last hour spent sending */
+	uint32_t uptime_s;
+	/* EnvironmentMetrics */
+	bool has_temperature, has_humidity, has_pressure;
+	float temperature; /* degrees C */
+	float humidity;    /* % relative */
+	float pressure;    /* hPa */
+};
+
+int mt_telemetry_decode(const uint8_t *buf, size_t len, struct mt_telemetry *t);
+
 /* Routing message: error_reason (0 = none, i.e. an ACK). */
 int mt_routing_encode(uint32_t error_reason, uint8_t *buf, size_t size);
 int mt_routing_decode(const uint8_t *buf, size_t len, uint32_t *error_reason);

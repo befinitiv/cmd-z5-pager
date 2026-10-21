@@ -88,6 +88,34 @@ void test_packet(void)
 		      mt_geo_distance_m(-337000000, 0, mt_geo_reduce(-337000000, 13), 0) <= cell / 2 + 1,
 	      "negative coordinate reduced");
 
+	/*
+	 * Telemetry, encoded by hand from telemetry.proto: time (fixed32 1) and
+	 * DeviceMetrics (2: battery 87 %, 4.01 V, channel 12.5 %, airtime
+	 * 1.25 %, uptime 3600 s), then EnvironmentMetrics (3: 21.5 C, 45 %,
+	 * 1013.25 hPa).
+	 */
+	static const uint8_t tel_dev[] = {
+		0x0d, 0x80, 0x3b, 0xb1, 0x6a, 0x12, 0x14, 0x08, 0x57, 0x15, 0xec, 0x51, 0x80, 0x40,
+		0x1d, 0x00, 0x00, 0x48, 0x41, 0x25, 0x00, 0x00, 0xa0, 0x3f, 0x28, 0x90, 0x1c,
+	};
+	static const uint8_t tel_env[] = {
+		0x0d, 0xfb, 0x3b, 0xb1, 0x6a, 0x1a, 0x0f, 0x0d, 0x00, 0x00, 0xac, 0x41, 0x15,
+		0x00, 0x00, 0x34, 0x42, 0x1d, 0x00, 0x50, 0x7d, 0x44,
+	};
+	struct mt_telemetry tm;
+
+	CHECK(mt_telemetry_decode(tel_dev, sizeof(tel_dev), &tm) == 0 && tm.time == 1790000000 &&
+		      tm.has_battery && tm.battery_level == 87 && tm.has_voltage &&
+		      tm.voltage > 4.009f && tm.voltage < 4.011f && tm.channel_util == 12.5f &&
+		      tm.air_util_tx == 1.25f && tm.has_uptime && tm.uptime_s == 3600 &&
+		      !tm.has_temperature,
+	      "device telemetry");
+	CHECK(mt_telemetry_decode(tel_env, sizeof(tel_env), &tm) == 0 && tm.time == 1790000123 &&
+		      !tm.has_battery && tm.has_temperature && tm.temperature == 21.5f &&
+		      tm.humidity == 45.0f && tm.has_pressure && tm.pressure == 1013.25f,
+	      "environment telemetry");
+	CHECK(mt_telemetry_decode(tel_dev, 8, &tm) != 0, "truncated telemetry accepted");
+
 	/* Routing ACK is "error_reason = 0", written explicitly. */
 	n = mt_routing_encode(0, buf, sizeof(buf));
 	CHECK(n == 2 && buf[0] == 0x18 && buf[1] == 0x00, "Routing ACK encoding");

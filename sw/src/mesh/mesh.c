@@ -39,6 +39,12 @@ LOG_MODULE_REGISTER(mesh, CONFIG_CMDZ5_APP_LOG_LEVEL);
 #define APPROX_PRECISION     13
 /* Received positions are stored again after moving this far. */
 #define POSITION_SAVE_MOVE_M 100
+/*
+ * Time from received packets (as stock firmware, "time from net"): only
+ * plausible times, from packets that came over a few hops by radio.
+ */
+#define MESH_TIME_MIN        1767225600 /* 2026-01-01: before this firmware */
+#define MESH_TIME_MAX_HOPS   3
 
 #define RADIO_NODE DT_NODELABEL(mesh_radio)
 #if DT_NODE_HAS_STATUS_OKAY(RADIO_NODE)
@@ -375,6 +381,43 @@ static void position_changed(uint32_t now)
 	}
 }
 
+/* Device and environment metrics come in separate packets: keep both. */
+static void merge_telemetry(struct mt_telemetry *dst, const struct mt_telemetry *src)
+{
+#define TAKE(has, field)                                                                   \
+	do {                                                                               \
+		if (src->has) {                                                            \
+			dst->has = true;                                                   \
+			dst->field = src->field;                                           \
+		}                                                                          \
+	} while (0)
+	TAKE(has_battery, battery_level);
+	TAKE(has_voltage, voltage);
+	TAKE(has_channel_util, channel_util);
+	TAKE(has_air_util_tx, air_util_tx);
+	TAKE(has_uptime, uptime_s);
+	TAKE(has_temperature, temperature);
+	TAKE(has_humidity, humidity);
+	TAKE(has_pressure, pressure);
+#undef TAKE
+	if (src->time) {
+		dst->time = src->time;
+	}
+}
+
+/* The time field of a received packet: set the clock if it has no better time. */
+static void mesh_time(const struct mt_rx *rx, uint32_t t)
+{
+	int hops = rx->h.hop_start >= rx->h.hop_limit ? rx->h.hop_start - rx->h.hop_limit : 0;
+
+	if (t < MESH_TIME_MIN || rx->h.via_mqtt || hops > MESH_TIME_MAX_HOPS) {
+		return;
+	}
+	if (clock_offer(t, CLOCK_SRC_MESH)) {
+		LOG_INF("clock set from %08x (%d hops)", rx->h.from, hops);
+	}
+}
+
 static void cb_deliver(void *ctx, const struct mt_rx *rx)
 {
 	const struct mt_data *d = &rx->d;
@@ -421,11 +464,30 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 		}
 		break;
 	}
+	case MT_PORT_TELEMETRY: {
+		struct mt_telemetry tm;
+
+		if (mt_telemetry_decode(d->payload, d->payload_len, &tm) != 0) {
+			break;
+		}
+		if (tm.time) {
+			mesh_time(rx, tm.time);
+		}
+		if (node) {
+			merge_telemetry(&node->telemetry, &tm);
+			notify(MESH_EV_NODES);
+		}
+		LOG_DBG("telemetry from %08x", rx->h.from);
+		break;
+	}
 	case MT_PORT_POSITION: {
 		struct mt_position p;
+		bool ok = mt_position_decode(d->payload, d->payload_len, &p) == 0;
 
-		if (node && mt_position_decode(d->payload, d->payload_len, &p) == 0 &&
-		    p.has_latlon) {
+		if (ok && p.time) {
+			mesh_time(rx, p.time);
+		}
+		if (node && ok && p.has_latlon) {
 			/* Store it when new or moved, not with every update. */
 			bool save = !node->has_position ||
 				    mt_geo_distance_m(node->position.latitude_i,

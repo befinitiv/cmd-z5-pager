@@ -154,9 +154,9 @@ static void set_clock(const struct gnss_time *t)
 	int64_t unix = days_from_civil(2000 + t->century_year, t->month, t->month_day) * 86400 +
 		       t->hour * 3600 + t->minute * 60 + t->millisecond / 1000;
 
-	/* Only when unset or noticeably off: the clock runs on its own. */
-	if (!clock_valid() || llabs(clock_unix() - unix) > 2) {
-		clock_set_utc(unix);
+	/* Over a worse source, or when noticeably off: the clock runs on its own. */
+	if ((clock_source() < CLOCK_SRC_GPS || llabs(clock_unix() - unix) > 2) &&
+	    clock_offer(unix, CLOCK_SRC_GPS)) {
 		LOG_INF("clock set from GPS");
 	}
 }

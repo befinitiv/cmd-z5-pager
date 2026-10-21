@@ -26,8 +26,6 @@ void power_init(void);
 bool power_user_activity(bool keypad);
 
 void power_lid(bool closed);
-/* Power key short press: switch the display off, or on if it is off. */
-void power_toggle_display(void);
 /* Apply changed settings (timeouts, backlight level). */
 void power_settings_changed(void);
 /* Check the timeouts; call regularly. */

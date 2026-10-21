@@ -26,6 +26,8 @@ struct mt_node {
 	int16_t rssi;
 	int8_t snr;
 	uint8_t hops_away;   /* 0 = direct */
+	/* Latest telemetry values (device and environment merged), not stored. */
+	struct mt_telemetry telemetry;
 	/* Cached PKI key (SHA-256 of the X25519 secret), see the router. */
 	bool has_shared_key;
 	uint8_t shared_key[32];

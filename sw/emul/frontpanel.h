@@ -50,3 +50,5 @@ bool frontpanel_usb(void);
 
 int64_t frontpanel_unix_time(void);
 int32_t frontpanel_utc_offset(void);
+/* False with --no-clock: the clock starts unset, as on the board. */
+bool frontpanel_clock_known(void);

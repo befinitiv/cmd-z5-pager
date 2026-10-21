@@ -160,6 +160,15 @@ static const struct translation de[] = {
 	 "gelöscht, und das Gerät erhält einen neuen Schlüssel. CALL = zurücksetzen, "
 	 "C = abbrechen."},
 
+	/* Node telemetry */
+	{"Channel", "Kanal"},
+
+	/* Time zone (UTC and the US zones stay as they are) */
+	{"Time zone", "Zeitzone"},
+	{"WET", "WEZ"},
+	{"CET", "MEZ"},
+	{"EET", "OEZ"},
+
 	/* Firmware update */
 	{"Firmware update", "Firmware-Update"},
 	{"No bootloader in this build.", "Kein Bootloader in diesem Build."},

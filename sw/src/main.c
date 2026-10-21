@@ -9,6 +9,8 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
+#include <zephyr/sys/reboot.h>
 
 #include "app.h"
 #include "battery.h"
@@ -18,12 +20,12 @@
 #include "hw.h"
 #include "i18n.h"
 #include "mesh/mesh.h"
-#include "update.h"
 #include "mesh/msgstore.h"
 #include "meshtastic/packet.h"
 #include "textin.h"
 #include "power.h"
 #include "screens/screens.h"
+#include "update.h"
 
 LOG_MODULE_REGISTER(app, CONFIG_CMDZ5_APP_LOG_LEVEL);
 
@@ -65,9 +67,11 @@ static void tick(struct k_timer *timer)
 
 K_TIMER_DEFINE(tick_timer, tick, NULL);
 
+/* Switching off: C major arpeggio from top to bottom (C6 G5 E5 C5). */
 static const struct hw_note goodbye_tune[] = {
-	{2093, 90}, {1568, 90}, {1319, 90}, {1047, 200},
+	{1047, 110}, {784, 110}, {659, 110}, {523, 300},
 };
+#define GOODBYE_MS (110 + 110 + 110 + 300)
 
 static void render(void)
 {
@@ -85,12 +89,29 @@ static FUNC_NORETURN void switch_off(void)
 	render();
 	hw_melody(HW_SPEAKER, goodbye_tune, ARRAY_SIZE(goodbye_tune), app_config.volume);
 	battery_save();
-	k_msleep(1000);
+	/* Let the arpeggio finish (and its last note fade out). */
+	k_msleep(GOODBYE_MS + 200);
 	hw_power_off();
 }
 
 /* Key whose press only woke the display; its long/release events are dropped too. */
 static enum ui_key swallowed = UI_KEY_NONE;
+/* The current power key press only woke the display. */
+static bool power_woke;
+
+/* Key click and wheel tick (Settings -> Sound -> Key clicks). */
+static void click(const struct ui_event *ev)
+{
+	if (!app_config.key_click) {
+		return;
+	}
+	if (ev->type == UI_EV_KEY_PRESS) {
+		hw_tone(HW_SPEAKER, 2500, 6, app_config.volume / 4);
+	} else if (ev->type == UI_EV_WHEEL) {
+		/* Subtler than a key: shorter, higher and quieter. */
+		hw_tone(HW_SPEAKER, 4000, 3, app_config.volume / 5);
+	}
+}
 
 /* Keys under the lid, as opposed to the side controls (wheel, power key). */
 static bool is_keypad(const struct ui_event *ev)
@@ -181,8 +202,16 @@ static void handle(const struct ui_event *ev)
 	}
 
 	if (ev->key == UI_KEY_POWER) {
-		if (ui_ev_short(ev, UI_KEY_POWER)) {
-			power_toggle_display();
+		if (ev->type == UI_EV_KEY_PRESS) {
+			/* Like any key: a press that only wakes the display does nothing else. */
+			power_woke = power_user_activity(false);
+			if (!power_woke) {
+				click(ev);
+			}
+		} else if (ui_ev_short(ev, UI_KEY_POWER)) {
+			if (!power_woke) {
+				ui_home();
+			}
 		} else if (ui_ev_long(ev, UI_KEY_POWER)) {
 			power_user_activity(false);
 			poweroff_show();
@@ -200,15 +229,33 @@ static void handle(const struct ui_event *ev)
 		return;
 	}
 
-	if (app_config.key_click) {
-		if (ev->type == UI_EV_KEY_PRESS) {
-			hw_tone(HW_SPEAKER, 2500, 6, app_config.volume / 4);
-		} else if (ev->type == UI_EV_WHEEL) {
-			/* Subtler than a key: shorter, higher and quieter. */
-			hw_tone(HW_SPEAKER, 4000, 3, app_config.volume / 5);
+	click(ev);
+	ui_dispatch(ev);
+}
+
+/*
+ * Switched off while on USB power: the PMIC cannot stay in ship mode, so the
+ * device only looks off. Display, mesh and GPS stay off, the battery charges.
+ * Holding the power key switches on (a restart); removing USB enters ship
+ * mode.
+ */
+static FUNC_NORETURN void stay_off(void)
+{
+	struct ui_event ev;
+
+	LOG_INF("off (USB power): hold the power key to switch on");
+	hw_display_power(false);
+	hw_backlight(0);
+	for (;;) {
+		if (k_msgq_get(&ui_queue, &ev, K_MSEC(500)) == 0 && ui_ev_long(&ev, UI_KEY_POWER)) {
+			LOG_INF("switching on");
+			log_flush();
+			sys_reboot(SYS_REBOOT_COLD);
+		}
+		if (!hw_usb_power()) {
+			hw_power_off();
 		}
 	}
-	ui_dispatch(ev);
 }
 
 int main(void)
@@ -220,6 +267,9 @@ int main(void)
 	if (hw_init() != 0) {
 		LOG_ERR("hardware init failed");
 		return 0;
+	}
+	if (hw_boot_off()) {
+		stay_off();
 	}
 	config_init();
 	hw_display_contrast(app_config.contrast);
