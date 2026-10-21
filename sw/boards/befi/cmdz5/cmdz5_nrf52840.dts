@@ -170,12 +170,20 @@
 	status = "okay";
 };
 
+/*
+ * GPIOTE has only 8 channels. Keypad rows, lid and power key use the port
+ * SENSE mechanism instead; wheel, nPM1300 and LIS2DH12 interrupts and
+ * SX1262 DIO1 keep a GPIOTE channel each.
+ */
 &gpio0 {
 	status = "okay";
+	sense-edge-mask = <(BIT(2) | BIT(3))>;		/* keypad rows 0, 1 */
 };
 
 &gpio1 {
 	status = "okay";
+	sense-edge-mask = <(BIT(6) | BIT(10) |		/* power key, lid */
+			    BIT(13) | BIT(14) | BIT(15))>;	/* keypad rows 4, 3, 2 */
 };
 
 &i2c0 {
