@@ -202,7 +202,7 @@ static void handle(const struct ui_event *ev)
 
 	if (app_config.key_click) {
 		if (ev->type == UI_EV_KEY_PRESS) {
-			hw_tone(HW_SPEAKER, 2500, 6, app_config.volume / 2);
+			hw_tone(HW_SPEAKER, 2500, 6, app_config.volume / 4);
 		} else if (ev->type == UI_EV_WHEEL) {
 			/* Subtler than a key: shorter, higher and quieter. */
 			hw_tone(HW_SPEAKER, 4000, 3, app_config.volume / 5);
