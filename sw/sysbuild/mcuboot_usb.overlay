@@ -4,3 +4,8 @@
 		zephyr,uart-mcumgr = &cdc_acm_uart0;
 	};
 };
+
+/* The GPS stays unpowered in the bootloader; keep its UART lines idle. */
+&uart0 {
+	status = "disabled";
+};

@@ -61,7 +61,7 @@ sw/
 │   ├── befi/cmdz5/                  # board definition (HWMv2): dts, pinctrl, defconfig, flash partitions
 │   ├── cmdz5_nrf52840.conf          # board-only Kconfig (I2C, PWM, regulators, charger)
 │   └── native_sim_native_64.overlay # emulator: same node labels, emulated devices
-├── dts/bindings/                    # sony,cmdz5-lcd, cmdz5,lcd-bus-gpio, cmdz5,audio-pwm, cmdz5,sx1262, emulator nodes
+├── dts/bindings/                    # sony,cmdz5-lcd, cmdz5,lcd-bus-gpio, cmdz5,audio-pwm, cmdz5,sx1262, cmdz5,gps-m10, emulator nodes
 ├── include/
 │   ├── cmdz5/drivers/               # lcd.h, lcd_bus.h, audio_out.h, mesh_radio.h (custom device APIs)
 │   └── dt-bindings/cmdz5/keys.h     # key codes without a Zephyr equivalent (CALL, Memo, *, #, lid)
@@ -69,7 +69,8 @@ sw/
 │   ├── display/cmdz5_lcd.c          # controller driver (init sequence, row writes, contrast, power)
 │   ├── display/lcd_bus_gpio.c       # 8080 bus bit-bang, one masked port write per byte on P0.19–P0.26
 │   ├── audio/audio_pwm.c            # PCM on PWM1/PWM2 with EasyDMA (8-bit DAC, 62.5 kHz carrier)
-│   └── radio/sx1262_mesh.c          # SX1262 as mesh radio: free sync word, continuous RX, CAD before TX
+│   ├── radio/sx1262_mesh.c          # SX1262 as mesh radio: free sync word, continuous RX, CAD before TX
+│   └── gnss/gps_m10.c               # u-blox M10 over NMEA; device PM switches the boost and the UART
 ├── emul/                            # native_sim only
 │   ├── frontpanel.c                 # Zephyr side: input device, state, render thread
 │   ├── frontpanel_bottom.c          # host side: SDL2 window, drawing, keyboard/mouse, audio
@@ -125,7 +126,7 @@ sw/
 | Earpiece | `audio_out` → PCM through PWM2 EasyDMA on P0.06 → RC (1 kΩ/10 nF, 16 kHz) → PAM8302 (enabled by LDSW2) | SDL audio, quieter, EAR indicator lit |
 | Vibration | `led` API on PWM (P0.07) | display shakes, VIB indicator lit |
 | LoRa SX1262 | `mesh_radio` → `sx1262_mesh` (`cmdz5,sx1262`; Zephyr's `lora` API cannot set the Meshtastic sync word 0x2b), power via nPM1300 BUCK1, TCXO on DIO3, RF switch on DIO2 and P0.09 | UDP multicast between emulator instances (`radio_emul`) |
-| GPS M10N | `gnss` API (u-blox M10 driver), 5 V boost EN on P1.03 (not yet in the devicetree) | Zephyr's `zephyr,gnss-emul`, switched by device PM and fed by `emul/gps_sim.c` |
+| GPS M10N | `gnss` API → `gps_m10` (`cmdz5,gps-m10`; Zephyr's NMEA parser, factory settings: NMEA at 38400 baud on UART0), 5 V boost EN on P1.03 switched with the UART by device PM | Zephyr's `zephyr,gnss-emul`, switched by device PM and fed by `emul/gps_sim.c` |
 | PMIC nPM1300 | `regulator`, `charger` sensor (voltage, current, die temperature, charge and VBUS state), nRF Fuel Gauge | simulated battery (`battery_emul.c`): current from the emulated outputs, USB power from the front panel |
 | Accelerometer | `sensor` API (`st,lis2dh`), motion trigger | key `A` sends a motion event |
 | Microphone | not used in the first version | – |
@@ -259,7 +260,7 @@ The GPS service switches the receiver (Zephyr GNSS device `gnss`) through device
 
 While the GPS screen is open the receiver stays on. A fix sets the clock when it is unset or more than 2 s off. The GPS screen shows the state (searching with time and satellites, fix, off, fixed), the coordinates, altitude, HDOP and the age of the fix, or the speed when moving; push opens the position settings.
 
-On the board the receiver is not in the devicetree yet: the u-blox M10 node on UART0 and the 5 V boost (P1.03) come with the bring-up. Until then only the fixed position works there. Every fix from power-on is a cold start (~30 s) unless the TBS M10N keeps its almanac with a backup supply, which still needs checking.
+On the board the receiver is a TBS M10N (u-blox M10, firmware SPG 5.10, protocol 34.10; GPS, GLONASS, Galileo, BeiDou, SBAS, QZSS) on UART0 at its factory settings (NMEA at 38400 baud, one fix per second). `drivers/gnss/gps_m10.c` feeds GGA and RMC to Zephyr's NMEA 0183 parser; resuming the device switches on the 5 V boost (P1.03) and opens the UART, suspending closes the UART, puts its pins to their sleep state (so they cannot back-power the receiver) and switches the boost off. Zephyr's `gnss-nmea-generic` driver cannot be suspended, and its u-blox driver is for the M8. MCUboot leaves UART0 disabled. Tested indoors: switching on and off, NMEA arriving and parsed (no fix yet); a fix outdoors is still to be tested. Every fix from power-on is a cold start (~30 s) unless the TBS M10N keeps its almanac with a backup supply, which still needs checking.
 
 ## Power (`power_svc`)
 
@@ -492,7 +493,7 @@ The language models are rebuilt with `tools/lmbuild/build_models.sh` (needs nump
 | 4 | Board bring-up: nPM1300 charger and rails, LCD bit-bang driver, keypad, QDEC, LEDs, vibration, PWM audio. Battery measurement, fuel gauge and diagnostics screen are written and run in the emulator | yes |
 | 5 | SX1262 on the board, over-the-air test against a stock Meshtastic node | yes |
 | 6 | LoRaWAN on TTN, radio arbiter, duty-cycle accounting | yes |
-| 7 | GPS on the board (M10 driver, boost and UART power switching; GPS service, position sharing and screens already run in the emulator), power states, measuring the <20 µA low-power current | yes |
+| 7 | GPS on the board (driver and power switching done; a fix outdoors still to be tested), power states, measuring the <20 µA low-power current | yes |
 
 Phases 1–3 can run before the boards arrive.
 

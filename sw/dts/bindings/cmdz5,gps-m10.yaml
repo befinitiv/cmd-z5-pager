@@ -1,0 +1,20 @@
+description: |
+  u-blox M10 GPS receiver (TBS M10N) on a UART with a switched supply.
+  Reads NMEA (GGA, RMC, GSV) at the receiver's factory settings. Device
+  power management switches the supply and the UART together, so the UART
+  lines never drive the unpowered receiver.
+
+compatible: "cmdz5,gps-m10"
+
+include: uart-device.yaml
+
+properties:
+  enable-gpios:
+    type: phandle-array
+    required: true
+    description: Supply enable (TPS610997 5 V boost EN).
+
+  startup-delay-ms:
+    type: int
+    default: 5
+    description: Time from supply on until the UART is opened.

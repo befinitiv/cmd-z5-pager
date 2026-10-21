@@ -308,17 +308,24 @@
 };
 
 /*
- * GPS UART (TBS M10N, powered through the 5 V boost on P1.03). Disabled until
- * the GPS service switches the boost and the pins together; an idle-high TX
- * line would back-power the unpowered module.
+ * GPS UART: TBS M10N (u-blox M10, factory settings: NMEA at 38400 baud),
+ * powered through the 5 V boost on P1.03. The driver (drivers/gnss/gps_m10.c)
+ * switches the boost and the UART together; while the receiver is off the
+ * UART pins are in their sleep state, so an idle-high TX line cannot
+ * back-power it.
  */
 &uart0 {
 	compatible = "nordic,nrf-uarte";
-	status = "disabled";
+	status = "okay";
 	current-speed = <38400>;
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-1 = <&uart0_sleep>;
 	pinctrl-names = "default", "sleep";
+
+	gnss: gnss {
+		compatible = "cmdz5,gps-m10";
+		enable-gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &pwm0 {
