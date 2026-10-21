@@ -464,7 +464,7 @@ west flash -d build-board                                           # SWD (J-Lin
 
 `west flash` writes `merged.hex`: the application and the language model pack for the `lm` partition (built by `modules/lm_image`, a small Zephyr module, because the flash runner is configured before the application's own CMake code runs). Without the models the device still works; text input then offers multitap and 123 only.
 
-On the board the log goes to SEGGER RTT, because the only UART belongs to the GPS. USB CDC ACM follows later.
+On the board the log and console go to USB CDC ACM (`/dev/ttyACM0`, e.g. `picocom /dev/ttyACM0`; any baud rate), because the only UART belongs to the GPS. The port keeps up to 8 KB of output until the host opens it, so the boot messages are not lost; open the port only once (a separate `stty` drains them). SEGGER RTT stays a second log backend for the J-Link.
 
 Fonts are generated with `tools/fontconv/gen_fonts.sh`; the generated headers are committed. The same holds for the About screen's QR code (`tools/qr/gen_qr.py`, needs the Python `qrcode` module). The git hash and version (`git describe --tags --always --dirty`, e.g. `R0-15-g783be4a`) are read on every build by `cmake/git_version.cmake`; the About screen marks a build with uncommitted changes with a `+` after the hash.
 
