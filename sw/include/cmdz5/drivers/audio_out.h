@@ -19,7 +19,10 @@
 
 #include <zephyr/device.h>
 
-/* Fill buf with n samples. Return false when there is nothing more to play. */
+/*
+ * Fill buf with n samples, always. Return false when nothing follows this
+ * block: the block is still played (it may hold the end of the sound).
+ */
 typedef bool (*audio_out_fill_t)(int16_t *buf, size_t n, void *user);
 
 struct audio_out_api {

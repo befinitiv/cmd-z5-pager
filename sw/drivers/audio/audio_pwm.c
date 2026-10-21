@@ -135,13 +135,16 @@ static void refill(const struct device *dev, int half)
 	struct audio_pwm_data *data = dev->data;
 	bool more = data->fill && data->fill(data->pcm, BLOCK, data->user);
 
-	if (more) {
-		data->quiet = 0;
-	} else {
+	if (!data->fill) {
 		memset(data->pcm, 0, sizeof(data->pcm));
-		data->quiet++;
 	}
-	convert(dev, data->seq[half], data->pcm, !more);
+	/*
+	 * fill() still filled the block when it returns false: the last block
+	 * holds the end of the sound (all of a sound shorter than a block).
+	 * The earpiece offset ramps down from the first silent block on.
+	 */
+	data->quiet = more ? 0 : data->quiet + 1;
+	convert(dev, data->seq[half], data->pcm, data->quiet > 1);
 }
 
 static void begin(const struct device *dev)
