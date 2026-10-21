@@ -49,3 +49,27 @@ config CMDZ5_AUDIO_INIT_PRIORITY
 module = CMDZ5_AUDIO
 module-str = CMD-Z5 audio
 source "subsys/logging/Kconfig.template.log_config"
+
+config CMDZ5_SX1262
+	bool "SX1262 mesh radio driver"
+	default y
+	depends on DT_HAS_CMDZ5_SX1262_ENABLED
+	select SPI
+	select GPIO
+	select REGULATOR
+
+config CMDZ5_SX1262_INIT_PRIORITY
+	int "SX1262 driver init priority"
+	default 90
+	depends on CMDZ5_SX1262
+	help
+	  Must be after SPI, GPIO and the regulator that supplies the radio.
+
+config CMDZ5_SX1262_THREAD_STACK_SIZE
+	int "SX1262 interrupt thread stack size"
+	default 2048
+	depends on CMDZ5_SX1262
+
+module = CMDZ5_RADIO
+module-str = CMD-Z5 radio
+source "subsys/logging/Kconfig.template.log_config"

@@ -1,0 +1,49 @@
+description: |
+  Semtech SX1262 as the mesh radio (raw LoRa packets with a free sync word,
+  see include/cmdz5/drivers/mesh_radio.h). Zephyr's own semtech,sx1262
+  driver cannot set the Meshtastic sync word 0x2b. Property names follow
+  Zephyr's semtech,sx126x binding.
+
+compatible: "cmdz5,sx1262"
+
+include: spi-device.yaml
+
+properties:
+  reset-gpios:
+    type: phandle-array
+    required: true
+    description: NRESET (active low).
+
+  busy-gpios:
+    type: phandle-array
+    required: true
+    description: BUSY (active high).
+
+  dio1-gpios:
+    type: phandle-array
+    required: true
+    description: DIO1, the interrupt line (active high).
+
+  rx-enable-gpios:
+    type: phandle-array
+    description: |
+      RF switch receive path, high while receiving and low otherwise.
+
+  dio2-tx-enable:
+    type: boolean
+    description: DIO2 drives the RF switch transmit path.
+
+  dio3-tcxo-voltage:
+    type: int
+    description: |
+      TCXO supply on DIO3, one of SX126X_DIO3_TCXO_* from
+      <zephyr/dt-bindings/lora/sx126x.h>. Without it, a crystal is assumed.
+
+  tcxo-power-startup-delay-ms:
+    type: int
+    default: 5
+    description: TCXO start-up time.
+
+  power-supply:
+    type: phandle
+    description: Regulator that powers the radio, switched on while it is in use.

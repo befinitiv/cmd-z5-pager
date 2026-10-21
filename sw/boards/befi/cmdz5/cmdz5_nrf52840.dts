@@ -266,10 +266,15 @@
 	pinctrl-1 = <&spi1_sleep>;
 	pinctrl-names = "default", "sleep";
 
-	/* Powered from BUCK1, which firmware must enable before using the radio. */
-	lora0: lora@0 {
-		compatible = "semtech,sx1262";
+	/*
+	 * Wio-SX1262 as the mesh radio (drivers/radio/sx1262_mesh.c; Zephyr's
+	 * semtech,sx1262 driver cannot set the Meshtastic sync word). Powered
+	 * from BUCK1, which the driver switches on.
+	 */
+	mesh_radio: lora0: lora@0 {
+		compatible = "cmdz5,sx1262";
 		reg = <0>;
+		power-supply = <&radio_supply>;
 		spi-max-frequency = <8000000>;
 		reset-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
 		busy-gpios = <&gpio1 1 GPIO_ACTIVE_HIGH>;

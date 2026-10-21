@@ -60,14 +60,15 @@ sw/
 │   ├── befi/cmdz5/                  # board definition (HWMv2): dts, pinctrl, defconfig, flash partitions
 │   ├── cmdz5_nrf52840.conf          # board-only Kconfig (I2C, PWM, regulators, charger)
 │   └── native_sim_native_64.overlay # emulator: same node labels, emulated devices
-├── dts/bindings/                    # sony,cmdz5-lcd, cmdz5,lcd-bus-gpio, cmdz5,audio-pwm, emulator nodes
+├── dts/bindings/                    # sony,cmdz5-lcd, cmdz5,lcd-bus-gpio, cmdz5,audio-pwm, cmdz5,sx1262, emulator nodes
 ├── include/
-│   ├── cmdz5/drivers/               # lcd.h, lcd_bus.h, audio_out.h (custom device APIs)
+│   ├── cmdz5/drivers/               # lcd.h, lcd_bus.h, audio_out.h, mesh_radio.h (custom device APIs)
 │   └── dt-bindings/cmdz5/keys.h     # key codes without a Zephyr equivalent (CALL, Memo, *, #, lid)
 ├── drivers/
 │   ├── display/cmdz5_lcd.c          # controller driver (init sequence, row writes, contrast, power)
 │   ├── display/lcd_bus_gpio.c       # 8080 bus bit-bang, one masked port write per byte on P0.19–P0.26
-│   └── audio/audio_pwm.c            # PCM on PWM1/PWM2 with EasyDMA (8-bit DAC, 62.5 kHz carrier)
+│   ├── audio/audio_pwm.c            # PCM on PWM1/PWM2 with EasyDMA (8-bit DAC, 62.5 kHz carrier)
+│   └── radio/sx1262_mesh.c          # SX1262 as mesh radio: free sync word, continuous RX, CAD before TX
 ├── emul/                            # native_sim only
 │   ├── frontpanel.c                 # Zephyr side: input device, state, render thread
 │   ├── frontpanel_bottom.c          # host side: SDL2 window, drawing, keyboard/mouse, audio
@@ -121,7 +122,7 @@ sw/
 | Loudspeaker | `audio_out` → PCM through PWM1 EasyDMA on P0.27 (low-side FET) | SDL audio (8-bit like the board), SPK indicator lit |
 | Earpiece | `audio_out` → PCM through PWM2 EasyDMA on P0.06 → RC (1 kΩ/10 nF, 16 kHz) → PAM8302 (enabled by LDSW2) | SDL audio, quieter, EAR indicator lit |
 | Vibration | `led` API on PWM (P0.07) | display shakes, VIB indicator lit |
-| LoRa SX1262 | `lora` API (`semtech,sx1262`), power via nPM1300 BUCK1 | stub: TX logged and RX injectable; optional UDP multicast between instances |
+| LoRa SX1262 | `mesh_radio` → `sx1262_mesh` (`cmdz5,sx1262`; Zephyr's `lora` API cannot set the Meshtastic sync word 0x2b), power via nPM1300 BUCK1, TCXO on DIO3, RF switch on DIO2 and P0.09 | UDP multicast between emulator instances (`radio_emul`) |
 | GPS M10N | `gnss` API (u-blox M10 driver), 5 V boost EN on P1.03 | fixed position from config, or NMEA file replay |
 | PMIC nPM1300 | `regulator`, `charger` sensor (voltage, current, die temperature, charge and VBUS state), nRF Fuel Gauge | simulated battery (`battery_emul.c`): current from the emulated outputs, USB power from the front panel |
 | Accelerometer | `sensor` API (`st,lis2dh`), motion trigger | key `A` sends a motion event |
@@ -476,7 +477,7 @@ Phases 1–3 can run before the boards arrive.
 
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
 * Meshtastic protocol changes between releases: the implementation follows firmware 2.7; check new releases (e.g. next-hop routing, signed packets).
-* SX1262 driver for the board with the Meshtastic sync word 0x2b (the Zephyr lora API only offers 0x34/0x12), BUCK1 switching and TCXO; until then the board reports "Radio not available".
+* SX1262 on the board (`drivers/radio/sx1262_mesh.c`): sends on EU_868 LongFast (869.525 MHz, 22 dBm, the chip's maximum); reception from a stock Meshtastic node and the RF switch polarity (P0.09 high while receiving) are still to be tested over the air. BUCK1 stays on while the mesh runs (about 5 mA in RX); switching it off in low-power mode is still to do.
 * nRF52840 REG1 runs in LDO mode: on the first board the chip locked up after switching to DC/DC (check the DCC → 10 µH → 15 nH → DEC4 inductors).
 * Battery model for the real cell (see [Battery and current measurement](#battery-and-current-measurement-srcbatteryc)); the fuel gauge code is untested on hardware.
 * Radio sharing between Meshtastic and the Zephyr LoRaWAN stack (see [Radio arbiter](#radio-arbiter-meshtastic-and-lorawan-on-one-sx1262)).
