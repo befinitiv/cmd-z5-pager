@@ -221,6 +221,7 @@ int main(void)
 		return 0;
 	}
 	config_init();
+	hw_display_contrast(app_config.contrast);
 	i18n_set(app_config.language);
 	if (textin_init() != 0) {
 		LOG_ERR("predictive text not available");

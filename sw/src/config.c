@@ -17,14 +17,14 @@ LOG_MODULE_REGISTER(config, CONFIG_CMDZ5_APP_LOG_LEVEL);
 #define CONFIG_KEY     "cfg/" CONFIG_VERSION
 
 static const struct app_config defaults = {
-	.contrast = 0x85,
+	.contrast = 110,
 	.backlight_level = 100,
 	.backlight_timeout_s = 10,
 	.screen_timeout_s = 0, /* never */
 	.volume = 60,
 	.key_click = false,
 	.vibrate = true,
-	.language = LANG_EN,
+	.language = LANG_DE,
 	.input_lang = LANG_DE,
 	.learn_words = true,
 };

@@ -350,7 +350,7 @@ The game runs at 30 steps per second; while it is open, the main loop wakes ever
 
 ## Menu language
 
-The menus are in English or German (Settings → Language, stored with the other settings). Strings stay English in the code and are translated when drawn: `tr("Settings")` in the application, and the UI library passes titles, menu labels and its own texts through the same hook (`ui_set_translator()`). The German table is in `src/i18n.c`; a missing entry falls back to English. Texts must stay short: a menu row holds about 18 characters.
+The menus are in English or German (default German; Settings → Language, stored with the other settings). Strings stay English in the code and are translated when drawn: `tr("Settings")` in the application, and the UI library passes titles, menu labels and its own texts through the same hook (`ui_set_translator()`). The German table is in `src/i18n.c`; a missing entry falls back to English. Texts must stay short: a menu row holds about 18 characters.
 
 ## Screens
 

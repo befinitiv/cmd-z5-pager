@@ -14,5 +14,5 @@ properties:
 
   contrast:
     type: int
-    default: 0x85
+    default: 110
     description: Initial value of registers 0x23/0x24 (probably the contrast).
