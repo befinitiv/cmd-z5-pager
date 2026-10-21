@@ -367,6 +367,12 @@ int mt_position_encode(const struct mt_position *p, uint8_t *buf, size_t size)
 	if (p->time) {
 		w_fixed32(&w, 4, p->time);
 	}
+	if (p->location_source) {
+		w_varint(&w, 5, p->location_source);
+	}
+	if (p->sats_in_view) {
+		w_varint(&w, 19, p->sats_in_view);
+	}
 	if (p->precision_bits) {
 		w_varint(&w, 23, p->precision_bits);
 	}
@@ -396,6 +402,12 @@ int mt_position_decode(const uint8_t *buf, size_t len, struct mt_position *p)
 			break;
 		case 4:
 			p->time = f.v;
+			break;
+		case 5:
+			p->location_source = f.v;
+			break;
+		case 19:
+			p->sats_in_view = f.v;
 			break;
 		case 23:
 			p->precision_bits = f.v;

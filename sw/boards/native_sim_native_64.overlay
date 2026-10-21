@@ -64,6 +64,11 @@
 		compatible = "cmdz5,radio-emul";
 	};
 
+	/* Zephyr's GNSS emulator, fed by emul/gps_sim.c (--gps, --gps-move). */
+	gnss: gnss {
+		compatible = "zephyr,gnss-emul";
+	};
+
 	/* Messages (and later more): LittleFS in the lfs partition. */
 	fstab {
 		compatible = "zephyr,fstab";

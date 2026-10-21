@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <zephyr/device.h>
@@ -12,6 +13,8 @@
 
 #include "../app.h"
 #include "../clock.h"
+#include "../gps.h"
+#include "meshtastic/geo.h"
 #include "meshtastic/router.h"
 #include "mesh.h"
 #include "msgstore.h"
@@ -26,6 +29,16 @@ LOG_MODULE_REGISTER(mesh, CONFIG_CMDZ5_APP_LOG_LEVEL);
 #define NODEINFO_FIRST_MS    5000
 #define NODEINFO_REPLY_MS    (10 * 60 * 1000)  /* answer one node at most every 10 min */
 #define MAX_WAIT_MS          1000
+/* Position broadcasts, as the Meshtastic defaults (position_broadcast_secs and
+ * smart broadcast): every 15 min, and after moving 100 m, at most every 30 s. */
+#define POSITION_INTERVAL_MS (15 * 60 * 1000)
+#define POSITION_MIN_MOVE_M  100
+#define POSITION_MIN_GAP_MS  (30 * 1000)
+#define POSITION_REPLY_MS    (10 * 60 * 1000)
+/* "Approximate": Meshtastic precision 13, within about 2.9 km. */
+#define APPROX_PRECISION     13
+/* Received positions are stored again after moving this far. */
+#define POSITION_SAVE_MOVE_M 100
 
 #define RADIO_NODE DT_NODELABEL(mesh_radio)
 #if DT_NODE_HAS_STATUS_OKAY(RADIO_NODE)
@@ -38,6 +51,7 @@ enum evt_type {
 	EVT_RX,
 	EVT_SEND,
 	EVT_RECONFIG,
+	EVT_POSITION, /* our position or the sharing setting changed */
 };
 
 struct evt {
@@ -68,11 +82,22 @@ static struct {
 } txbuf[MT_TXQ_LEN];
 static int txcount;
 
-/* Who we answered with our NodeInfo recently. */
-static struct {
+/* Who we answered with our NodeInfo (and position) recently. */
+struct reply_slot {
 	uint32_t num;
 	uint32_t time;
-} replied[8];
+};
+
+static struct reply_slot replied[8];
+static struct reply_slot replied_pos[8];
+
+/* The position we sent last (as sent, i.e. rounded), for smart broadcasts. */
+static struct {
+	bool sent;
+	int32_t lat_e7, lon_e7;
+	uint8_t share;
+	uint32_t time; /* uptime ms */
+} pos_sent;
 
 /* Settings ------------------------------------------------------------------ */
 
@@ -232,32 +257,122 @@ static void send_nodeinfo(uint32_t to, bool want_response)
 	}
 }
 
-/* Answer NodeInfo requests and introduce ourselves to new nodes, rate-limited. */
-static void maybe_reply_nodeinfo(uint32_t to, bool want_response)
+/* True if `to` may get another reply (at most one per `ms`); records it. */
+static bool reply_allowed(struct reply_slot *slots, int n, uint32_t to, uint32_t ms)
 {
 	uint32_t now = k_uptime_get_32();
 	int slot = 0;
 
-	for (int i = 0; i < (int)ARRAY_SIZE(replied); i++) {
-		if (replied[i].num == to) {
-			if (now - replied[i].time < NODEINFO_REPLY_MS) {
-				return;
+	for (int i = 0; i < n; i++) {
+		if (slots[i].num == to) {
+			if (now - slots[i].time < ms) {
+				return false;
 			}
 			slot = i;
 			break;
 		}
-		if (now - replied[i].time > now - replied[slot].time) {
+		if (now - slots[i].time > now - slots[slot].time) {
 			slot = i;
 		}
 	}
-	replied[slot].num = to;
-	replied[slot].time = now;
-	send_nodeinfo(to, want_response);
+	slots[slot].num = to;
+	slots[slot].time = now;
+	return true;
+}
+
+/* Answer NodeInfo requests and introduce ourselves to new nodes, rate-limited. */
+static void maybe_reply_nodeinfo(uint32_t to, bool want_response)
+{
+	if (reply_allowed(replied, ARRAY_SIZE(replied), to, NODEINFO_REPLY_MS)) {
+		send_nodeinfo(to, want_response);
+	}
 }
 
 static uint32_t now_time(void)
 {
 	return clock_valid() ? (uint32_t)clock_unix() : 0;
+}
+
+/* Our position as we may share it; false if there is none or sharing is off. */
+static bool make_position(struct mt_position *p, struct gps_fix *f, uint8_t *share)
+{
+	struct gps_config gc;
+	uint32_t bits;
+
+	gps_get_config(&gc);
+	*share = gc.share;
+	if (gc.share == GPS_SHARE_OFF || !gps_position(f)) {
+		return false;
+	}
+	bits = gc.share == GPS_SHARE_EXACT ? 32 : APPROX_PRECISION;
+	*p = (struct mt_position){
+		.has_latlon = true,
+		.latitude_i = mt_geo_reduce(f->lat_e7, bits),
+		.longitude_i = mt_geo_reduce(f->lon_e7, bits),
+		.time = now_time(),
+		.location_source = f->manual ? MT_LOC_MANUAL : MT_LOC_INTERNAL,
+		.precision_bits = bits,
+	};
+	/* Altitude and satellites only with the exact position. */
+	if (bits == 32 && f->has_alt) {
+		p->has_altitude = true;
+		p->altitude = f->alt_m;
+	}
+	if (bits == 32 && !f->manual) {
+		p->sats_in_view = f->sats;
+	}
+	return true;
+}
+
+/* Send our position (lock held); false if there is nothing to share. */
+static bool send_position(uint32_t to, bool want_response)
+{
+	struct mt_position p;
+	struct gps_fix f;
+	uint8_t share, buf[64];
+	int n;
+
+	if (!make_position(&p, &f, &share)) {
+		return false;
+	}
+	n = mt_position_encode(&p, buf, sizeof(buf));
+	if (n <= 0) {
+		return false;
+	}
+	mt_router_send(&router, to, 0, MT_PORT_POSITION, buf, n, false, want_response, 0);
+	if (to == MT_BROADCAST) {
+		pos_sent.sent = true;
+		pos_sent.lat_e7 = p.latitude_i;
+		pos_sent.lon_e7 = p.longitude_i;
+		pos_sent.share = share;
+		pos_sent.time = k_uptime_get_32();
+	}
+	LOG_INF("position sent to %08x (precision %u)", to, p.precision_bits);
+	return true;
+}
+
+/*
+ * Smart broadcast: first position, sharing changed, or moved far enough.
+ * Compared as shared, so an approximate position is only sent again when it
+ * falls into another cell.
+ */
+static void position_changed(uint32_t now)
+{
+	struct mt_position p;
+	struct gps_fix f;
+	uint8_t share;
+
+	if (!make_position(&p, &f, &share)) {
+		pos_sent.share = share;
+		return;
+	}
+	if (!pos_sent.sent || share != pos_sent.share ||
+	    (now - pos_sent.time >= POSITION_MIN_GAP_MS &&
+	     mt_geo_distance_m(pos_sent.lat_e7, pos_sent.lon_e7, p.latitude_i, p.longitude_i) >=
+		     POSITION_MIN_MOVE_M)) {
+		router.now = now;
+		send_position(MT_BROADCAST, false);
+	}
 }
 
 static void cb_deliver(void *ctx, const struct mt_rx *rx)
@@ -311,9 +426,27 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 
 		if (node && mt_position_decode(d->payload, d->payload_len, &p) == 0 &&
 		    p.has_latlon) {
+			/* Store it when new or moved, not with every update. */
+			bool save = !node->has_position ||
+				    mt_geo_distance_m(node->position.latitude_i,
+						      node->position.longitude_i, p.latitude_i,
+						      p.longitude_i) >= POSITION_SAVE_MOVE_M;
+
 			node->position = p;
 			node->has_position = true;
+			if (save) {
+				save_node(node);
+			}
 			notify(MESH_EV_NODES);
+			LOG_INF("position from %08x: %d.%07d %d.%07d", rx->h.from,
+				p.latitude_i / 10000000, abs(p.latitude_i % 10000000),
+				p.longitude_i / 10000000, abs(p.longitude_i % 10000000));
+		}
+		/* A request for our position (e.g. from the phone app). */
+		if (d->want_response && rx->h.to == my_num &&
+		    reply_allowed(replied_pos, ARRAY_SIZE(replied_pos), rx->h.from,
+				  POSITION_REPLY_MS)) {
+			send_position(rx->h.from, false);
 		}
 		break;
 	}
@@ -450,6 +583,7 @@ static void mesh_thread(void *p1, void *p2, void *p3)
 {
 	struct evt e;
 	uint32_t next_nodeinfo = k_uptime_get_32() + NODEINFO_FIRST_MS + next_random(NULL) % 10000;
+	uint32_t next_position = k_uptime_get_32() + POSITION_INTERVAL_MS;
 	uint32_t wait = 0;
 
 	ARG_UNUSED(p1);
@@ -474,6 +608,9 @@ static void mesh_thread(void *p1, void *p2, void *p3)
 				apply_radio();
 				next_nodeinfo = now;
 				break;
+			case EVT_POSITION:
+				position_changed(now);
+				break;
 			default:
 				break;
 			}
@@ -482,6 +619,11 @@ static void mesh_thread(void *p1, void *p2, void *p3)
 			router.now = now;
 			send_nodeinfo(MT_BROADCAST, false);
 			next_nodeinfo = now + NODEINFO_INTERVAL_MS;
+		}
+		if ((int32_t)(now - next_position) >= 0) {
+			router.now = now;
+			send_position(MT_BROADCAST, false);
+			next_position = now + POSITION_INTERVAL_MS;
 		}
 		wait = mt_router_poll(&router, now);
 		k_mutex_unlock(&lock);
@@ -520,6 +662,15 @@ int mesh_init(void)
 			NULL, NULL, NULL, K_PRIO_PREEMPT(6), 0, K_NO_WAIT);
 	k_thread_name_set(&mesh_tid, "mesh");
 	return 0;
+}
+
+void mesh_position_update(void)
+{
+	struct evt e = {.type = EVT_POSITION};
+
+	if (available) {
+		k_msgq_put(&evq, &e, K_NO_WAIT);
+	}
 }
 
 bool mesh_available(void)

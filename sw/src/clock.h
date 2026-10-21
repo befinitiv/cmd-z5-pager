@@ -18,6 +18,8 @@ struct clock_tm {
 
 void clock_init(void);
 void clock_set(int64_t unix_utc, int32_t utc_offset_s);
+/* Set the time (e.g. from GPS) and keep the time zone offset. */
+void clock_set_utc(int64_t unix_utc);
 bool clock_valid(void);
 int64_t clock_unix(void);
 /* Local time; returns false if the clock was never set. */

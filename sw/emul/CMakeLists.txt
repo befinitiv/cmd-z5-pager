@@ -8,6 +8,7 @@ target_sources(app PRIVATE
   battery_emul.c
   script.c
   radio_emul.c
+  gps_sim.c
 )
 
 # Host side, built into the native simulator runner against SDL2. The SDL

@@ -19,6 +19,11 @@ void clock_set(int64_t unix_utc, int32_t utc_offset_s)
 	valid = true;
 }
 
+void clock_set_utc(int64_t unix_utc)
+{
+	clock_set(unix_utc, utc_offset);
+}
+
 bool clock_valid(void)
 {
 	return valid;

@@ -2,6 +2,7 @@ zephyr_include_directories(include)
 target_sources(app PRIVATE
   src/aes.c
   src/channel.c
+  src/geo.c
   src/mtcrypto.c
   src/nodedb.c
   src/packet.c

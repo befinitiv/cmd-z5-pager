@@ -28,4 +28,6 @@ wheel -1
 key push
 wait 500
 shot a4.bmp
+# Positions are exchanged after the messages (--gps-ttff in run_mesh.sh).
+wait 12000
 quit

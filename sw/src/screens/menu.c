@@ -28,7 +28,7 @@ static void about_action(struct ui_menu *m, int idx)
 static const struct ui_menu_item main_items[] = {
 	{"Messages", &inbox_screen, NULL},
 	{"Nodes", &nodes_screen, NULL},
-	{"GPS", NULL, not_yet},
+	{"GPS", &gps_screen, NULL},
 	{"LoRaWAN", NULL, not_yet},
 	{"Settings", &settings_menu.screen, NULL},
 	{"Diagnostics", &diag_screen, NULL},

@@ -77,7 +77,7 @@ sw/
 │   ├── led_emul.c  audio_emul.c     # backlight/vibration; speaker/earpiece PCM mixed into SDL audio
 │   ├── script.c                     # --script: scripted keys, wheel, lid and screenshots
 │   ├── radio_emul.c                 # mesh radio over UDP multicast between emulator instances
-│   ├── gnss_emul.c                  # (later) fixed position or NMEA file replay
+│   ├── gps_sim.c                    # feeds Zephyr's GNSS emulator: --gps, --gps-move, --gps-ttff
 │   └── battery_emul.c               # simulated battery: current from the emulated outputs, USB from the front panel
 ├── lib/
 │   ├── gfx/                         # 2bpp framebuffer, primitives, fonts, icons, dirty-row tracking
@@ -123,7 +123,7 @@ sw/
 | Earpiece | `audio_out` → PCM through PWM2 EasyDMA on P0.06 → RC (1 kΩ/10 nF, 16 kHz) → PAM8302 (enabled by LDSW2) | SDL audio, quieter, EAR indicator lit |
 | Vibration | `led` API on PWM (P0.07) | display shakes, VIB indicator lit |
 | LoRa SX1262 | `mesh_radio` → `sx1262_mesh` (`cmdz5,sx1262`; Zephyr's `lora` API cannot set the Meshtastic sync word 0x2b), power via nPM1300 BUCK1, TCXO on DIO3, RF switch on DIO2 and P0.09 | UDP multicast between emulator instances (`radio_emul`) |
-| GPS M10N | `gnss` API (u-blox M10 driver), 5 V boost EN on P1.03 | fixed position from config, or NMEA file replay |
+| GPS M10N | `gnss` API (u-blox M10 driver), 5 V boost EN on P1.03 (not yet in the devicetree) | Zephyr's `zephyr,gnss-emul`, switched by device PM and fed by `emul/gps_sim.c` |
 | PMIC nPM1300 | `regulator`, `charger` sensor (voltage, current, die temperature, charge and VBUS state), nRF Fuel Gauge | simulated battery (`battery_emul.c`): current from the emulated outputs, USB power from the front panel |
 | Accelerometer | `sensor` API (`st,lis2dh`), motion trigger | key `A` sends a motion event |
 | Microphone | not used in the first version | – |
@@ -183,7 +183,12 @@ mkdir -p /tmp/a /tmp/b
 (cd /tmp/b && ~/repos/cmd-z5/sw/build-sim/zephyr/zephyr.exe --node-num=bbbb0002) &
 ```
 
-Planned option: `--gps lat,lon`.
+**Emulated GPS** (`emul/gps_sim.c`): Zephyr's GNSS emulator (`CONFIG_GNSS_EMUL_MANUAL_UPDATE`), switched on and off through device power management like the real receiver. While it is on, it searches for `--gps-ttff=<s>` seconds (default 8, plus a random 0–3 s, with a few satellites showing up) and then reports the position from `--gps=<lat>,<lon>[,<alt>]`, moving with `--gps-move=<m/s>,<heading>`. Without `--gps` it never gets a fix. Example: two instances 11 km apart, B walking north-east:
+
+```
+(cd /tmp/a && ~/repos/cmd-z5/sw/build-sim/zephyr/zephyr.exe --node-num=aaaa0001 --gps=52.52,13.405,34) &
+(cd /tmp/b && ~/repos/cmd-z5/sw/build-sim/zephyr/zephyr.exe --node-num=bbbb0002 --gps=52.60,13.50 --gps-move=1.4,45) &
+```
 
 # Concurrency and services
 
@@ -227,16 +232,32 @@ The mesh service (`src/mesh/mesh.c`) runs the router in its own thread:
 * **Identity:** node number from the chip's device id (emulator: random or `--node-num`), X25519 key pair from the entropy source, default names "CMD-Z5 xxxx" / "xxxx"; all kept in the settings.
 * **NodeInfo:** broadcast 5–15 s after the start and every 3 hours; answered when requested; a node that sends something without being known gets our NodeInfo with a request for its own (rate-limited), so keys are exchanged quickly.
 * **Messages** (`msgstore.c`): the primary channel and one conversation per node, the newest 40 messages, delivery status queued → sent → delivered / no relay / failed. They are stored in LittleFS (`msglog.c`, `/lfs/msgs.log`): new messages, status changes and read marks are appended as small records and replayed at startup; above 24 KB the log is rewritten with the current messages only. Messages that were still queued when the device stopped are shown as failed.
-* **Nodes** with user info and position are stored in the settings and survive a restart.
+* **Nodes** with user info and position are stored in the settings and survive a restart (a received position is stored again only after the node moved 100 m).
+* **Position** (`POSITION_APP`): our position from the GPS service (`src/gps.c`) is broadcast after the first fix, every 15 min, when the sharing setting changes, and after moving 100 m but at most every 30 s (the Meshtastic defaults for `position_broadcast_secs` and smart broadcast). Settings → Position → Share: off, approximate (Meshtastic `precision_bits` 13: rounded to the middle of a cell of about 6 km, "within 2.9 km") or exact (with altitude and satellites). The location source is "internal" for GPS fixes and "manual" for a fixed position. A position request addressed to us (`want_response`) is answered, at most every 10 min per node. Node details show distance and compass direction to a node ("~" when it shares only an approximate position) and the age of its position.
 * **New messages:** sound, vibration and the display wakes up. The home screen shows a preview; on other screens a pop-up (`ui_toast()`) shows the sender and the start of the text for 8 s, unless that conversation is open. Push opens the conversation; any other key only closes the pop-up.
 
-Tested on the host (`tests/meshtastic/run.sh`): crypto against FIPS-197 and RFC 7748 vectors and against vectors generated with Python `cryptography`; the LongFast channel hash (8) and the US LongFast frequency (906.875 MHz) as seen on real meshes; router scenarios in a simulated network (two-hop flooding, implicit ACK, encrypted DM over two hops with ACK, fallback to the channel key, retries until failed, lost ACK, relay cancelled in a triangle, foreign channel relayed but not delivered). In the emulator, `tests/emul/run_mesh.sh` lets two instances exchange a channel message and an encrypted direct message. A test against a stock Meshtastic node needs the board (phase 5).
+Tested on the host (`tests/meshtastic/run.sh`): crypto against FIPS-197 and RFC 7748 vectors and against vectors generated with Python `cryptography`; the LongFast channel hash (8) and the US LongFast frequency (906.875 MHz) as seen on real meshes; router scenarios in a simulated network (two-hop flooding, implicit ACK, encrypted DM over two hops with ACK, fallback to the channel key, retries until failed, lost ACK, relay cancelled in a triangle, foreign channel relayed but not delivered). In the emulator, `tests/emul/run_mesh.sh` lets two instances exchange a channel message, an encrypted direct message and their positions. A test against a stock Meshtastic node needs the board (phase 5).
 
-Not yet: secondary channels, position broadcasts (no GPS yet), telemetry, traceroute, next-hop routing (packets are flooded), duty-cycle accounting, the PhoneAPI.
+Not yet: secondary channels, position requests from the UI, telemetry, traceroute, next-hop routing (packets are flooded), duty-cycle accounting, the PhoneAPI.
 
 ## LoRaWAN (`lorawan_svc`)
 
 Uses the Zephyr LoRaWAN subsystem (OTAA, EU868, class A). DevEUI, JoinEUI and AppKey are entered in the settings or over the USB shell and stored with the settings subsystem. The DevNonce is kept persistently because LoRaWAN 1.0.4 requires it. Uplinks: Cayenne LPP for position and battery (so TTN decodes them without a custom formatter), and port 10 for UTF-8 text. Downlinks appear in the inbox as a "TTN" conversation.
+
+## GPS (`src/gps.c`)
+
+The GPS service switches the receiver (Zephyr GNSS device `gnss`) through device power management, takes its fixes from the GNSS data callback and passes new positions to the mesh. Modes (Settings → Position → GPS):
+
+| Mode | Receiver | Position |
+|---|---|---|
+| off | off | none |
+| fixed | off | the position entered under "Fixed position" (degrees, e.g. `52.52 13.405`, south and west negative) or taken from the last fix with "Use GPS fix" |
+| 5 / 15 (default) / 30 / 60 min | on at the start and then every interval, until 3 fixes in a row with HDOP ≤ 5 or for at most 120 s | the last good fix |
+| always | on | the latest fix |
+
+While the GPS screen is open the receiver stays on. A fix sets the clock when it is unset or more than 2 s off. The GPS screen shows the state (searching with time and satellites, fix, off, fixed), the coordinates, altitude, HDOP and the age of the fix, or the speed when moving; push opens the position settings.
+
+On the board the receiver is not in the devicetree yet: the u-blox M10 node on UART0 and the 5 V boost (P1.03) come with the bring-up. Until then only the fixed position works there. Every fix from power-on is a cold start (~30 s) unless the TBS M10N keeps its almanac with a backup supply, which still needs checking.
 
 ## Power (`power_svc`)
 
@@ -333,7 +354,7 @@ The menus are in English or German (Settings → Language, stored with the other
 
 ## Screens
 
-Home (clock, battery; with unread messages a preview: sender, count and the start of the newest text) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS status · LoRaWAN (join state, last uplink, send now) · Diagnostics (battery, current consumption) · Z5 Jump (wheel bent down on the home screen) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power) · About (git commit and version, Zephyr version, build date; push shows a QR code with the project address https://github.com/befinitiv/cmd-z5-pager).
+Home (clock, battery; with unread messages a preview: sender, count and the start of the newest text) · Inbox (channels, DMs, TTN) · Chat (scrollback with delivery state: queued / sent / acked) · Compose · Nodes (list sorted by last heard, detail with distance and bearing from GPS, SNR, hops; start a DM or traceroute) · GPS (state, satellites, position, age; the receiver stays on while it is open) · LoRaWAN (join state, last uplink, send now) · Diagnostics (battery, current consumption) · Z5 Jump (wheel bent down on the home screen) · Settings (Factory reset: erases all settings and messages and restarts · Mesh: name, region, preset, channels and PSK · Position: GPS mode, sharing, fixed position · LoRaWAN: keys, interval · Display: contrast, backlight timeout · Sound: ringtone, vibration, earpiece/speaker · Input: languages, learn words on/off, reset dictionary · Power) · About (git commit and version, Zephyr version, build date; push shows a QR code with the project address https://github.com/befinitiv/cmd-z5-pager).
 
 # Predictive text (`lib/textinput`)
 
@@ -459,7 +480,7 @@ The language models are rebuilt with `tools/lmbuild/build_models.sh` (needs nump
 | 4 | Board bring-up: nPM1300 charger and rails, LCD bit-bang driver, keypad, QDEC, LEDs, vibration, PWM audio. Battery measurement, fuel gauge and diagnostics screen are written and run in the emulator | yes |
 | 5 | SX1262 on the board, over-the-air test against a stock Meshtastic node | yes |
 | 6 | LoRaWAN on TTN, radio arbiter, duty-cycle accounting | yes |
-| 7 | GPS, power states, measuring the <20 µA low-power current | yes |
+| 7 | GPS on the board (M10 driver, boost and UART power switching; GPS service, position sharing and screens already run in the emulator), power states, measuring the <20 µA low-power current | yes |
 
 Phases 1–3 can run before the boards arrive.
 

@@ -25,5 +25,6 @@ key 8
 key call
 wait 12000
 shot b5.bmp
-wait 3000
+# Positions are exchanged after the messages (--gps-ttff in run_mesh.sh).
+wait 15000
 quit

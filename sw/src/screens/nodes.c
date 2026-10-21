@@ -4,17 +4,22 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <zephyr/sys/util.h>
 #include <string.h>
 
 #include "../i18n.h"
 #include "../mesh/mesh.h"
+#include "../clock.h"
+#include "../gps.h"
+#include "meshtastic/geo.h"
 #include "meshtastic/nodedb.h"
 #include "screens.h"
 
 static int sel, top;
 static uint32_t detail_num;
+static int detail_top, detail_lines;
 
 /* "5s", "12m", "3h", "2d", or "-" if not heard since the start. */
 static void format_age(uint32_t last_heard, char *buf, size_t size)
@@ -155,18 +160,58 @@ static void detail_draw(struct ui_screen *s, struct gfx *g)
 		snprintf(lines[n++], 32, "%s: %u", tr("Hops"), copy.hops_away);
 	}
 	if (copy.has_position) {
-		int32_t lat = copy.position.latitude_i, lon = copy.position.longitude_i;
+		const struct mt_position *p = &copy.position;
+		int32_t lat = p->latitude_i, lon = p->longitude_i;
+		struct gps_fix me;
 
-		snprintf(lines[n++], 32, "%d.%05d %d.%05d", lat / 10000000,
-			 (int)((lat < 0 ? -lat : lat) % 10000000) / 100, lon / 10000000,
-			 (int)((lon < 0 ? -lon : lon) % 10000000) / 100);
+		/* Distance and direction from us, "~" when rounded by the sender. */
+		if (gps_position(&me)) {
+			uint32_t d = mt_geo_distance_m(me.lat_e7, me.lon_e7, lat, lon);
+			int b = mt_geo_bearing_deg(me.lat_e7, me.lon_e7, lat, lon);
+			const char *approx = p->precision_bits && p->precision_bits < 32 ? "~" : "";
+
+			if (d < 1000) {
+				snprintf(lines[n++], 32, "%s%u m %s", approx, d, mt_geo_compass(b));
+			} else if (d < 100000) {
+				snprintf(lines[n++], 32, "%s%u.%u km %s", approx, d / 1000,
+					 d % 1000 / 100, mt_geo_compass(b));
+			} else {
+				snprintf(lines[n++], 32, "%s%u km %s", approx, d / 1000,
+					 mt_geo_compass(b));
+			}
+		}
+		snprintf(lines[n++], 32, "%s%d.%05d %s%d.%05d", lat < 0 ? "-" : "",
+			 abs(lat) / 10000000, abs(lat) % 10000000 / 100, lon < 0 ? "-" : "",
+			 abs(lon) / 10000000, abs(lon) % 10000000 / 100);
+		/* Age of the position, if the sender's and our clock are set. */
+		if (p->time && clock_valid() && clock_unix() >= p->time) {
+			uint32_t a = clock_unix() - p->time;
+
+			if (a < 60) {
+				snprintf(age, sizeof(age), "%us", a);
+			} else if (a < 3600) {
+				snprintf(age, sizeof(age), "%um", a / 60);
+			} else if (a < 86400) {
+				snprintf(age, sizeof(age), "%uh", a / 3600);
+			} else {
+				snprintf(age, sizeof(age), "%ud", a / 86400);
+			}
+			snprintf(lines[n++], 32, "%s: %s", tr("Position"), age);
+		}
 	}
 	snprintf(lines[n++], 32, "%s", tr(copy.has_user && copy.user.has_public_key
 						  ? "Encrypted DMs"
 						  : "No key (channel DMs)"));
-	for (int i = 0; i < n && y + 8 <= GFX_HEIGHT - 8; i++, y += 8) {
+	/* The wheel scrolls when the lines do not fit. */
+	int rows = (GFX_HEIGHT - 8 - y) / 8;
+	int y0 = y;
+
+	detail_lines = n;
+	detail_top = CLAMP(detail_top, 0, MAX(n - rows, 0));
+	for (int i = detail_top; i < n && y + 8 <= GFX_HEIGHT - 8; i++, y += 8) {
 		gfx_text_fit(g, gfx_font_text, 2, y + 1, GFX_WIDTH - 4, lines[i], GFX_BLACK);
 	}
+	ui_draw_scrollbar(g, y0, rows * 8, detail_top, rows, n);
 	gfx_fill_rect(g, 0, GFX_HEIGHT - 8, GFX_WIDTH, 8, GFX_LIGHT);
 	gfx_text_aligned(g, gfx_font_small, 0, GFX_HEIGHT - 7, GFX_WIDTH, GFX_ALIGN_CENTER,
 			 tr("push: message"), GFX_BLACK);
@@ -175,6 +220,11 @@ static void detail_draw(struct ui_screen *s, struct gfx *g)
 static bool detail_event(struct ui_screen *s, const struct ui_event *ev)
 {
 	ARG_UNUSED(s);
+	if (ev->type == UI_EV_WHEEL) {
+		detail_top = CLAMP(detail_top - ev->value, 0, MAX(detail_lines - 1, 0));
+		ui_invalidate();
+		return true;
+	}
 	if (ui_ev_press(ev, UI_KEY_SELECT) || ui_ev_press(ev, UI_KEY_CALL)) {
 		chat_open(detail_num);
 		return true;
@@ -190,5 +240,6 @@ static struct ui_screen detail_screen = {
 void node_detail_open(uint32_t num)
 {
 	detail_num = num;
+	detail_top = 0;
 	ui_push(&detail_screen);
 }

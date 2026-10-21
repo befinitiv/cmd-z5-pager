@@ -72,6 +72,13 @@ struct mt_user {
 int mt_user_encode(const struct mt_user *u, uint8_t *buf, size_t size);
 int mt_user_decode(const uint8_t *buf, size_t len, struct mt_user *u);
 
+/* Values of Position.LocSource */
+enum mt_loc_source {
+	MT_LOC_UNSET = 0,
+	MT_LOC_MANUAL = 1,   /* entered by the user */
+	MT_LOC_INTERNAL = 2, /* the device's own GPS */
+};
+
 struct mt_position {
 	bool has_latlon;
 	int32_t latitude_i;  /* degrees * 1e7 */
@@ -79,7 +86,9 @@ struct mt_position {
 	bool has_altitude;
 	int32_t altitude;    /* m */
 	uint32_t time;       /* unix time */
-	uint32_t precision_bits;
+	uint32_t location_source; /* enum mt_loc_source */
+	uint32_t sats_in_view;
+	uint32_t precision_bits;  /* 32 = exact; fewer: rounded to a grid cell */
 };
 
 int mt_position_encode(const struct mt_position *p, uint8_t *buf, size_t size);

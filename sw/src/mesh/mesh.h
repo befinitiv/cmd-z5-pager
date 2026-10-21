@@ -38,6 +38,12 @@ void mesh_get_config(struct mesh_config *c);
 /* Apply (radio settings, names) and store. */
 void mesh_set_config(const struct mesh_config *c);
 
+/*
+ * Our position or the sharing setting changed (from the GPS service):
+ * broadcast it if it is the first, sharing changed, or we moved far enough.
+ */
+void mesh_position_update(void);
+
 /* Store and send a text; to = MT_BROADCAST for the channel. 0 or -errno. */
 int mesh_send_text(uint32_t to, const char *text);
 

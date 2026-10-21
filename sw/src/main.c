@@ -14,6 +14,7 @@
 #include "battery.h"
 #include "clock.h"
 #include "config.h"
+#include "gps.h"
 #include "hw.h"
 #include "i18n.h"
 #include "mesh/mesh.h"
@@ -225,6 +226,7 @@ int main(void)
 		LOG_ERR("predictive text not available");
 	}
 	mesh_init();
+	gps_init();
 	battery_init();
 	clock_init();
 	gfx_init(&gfx);

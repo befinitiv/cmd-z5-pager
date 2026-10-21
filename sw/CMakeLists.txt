@@ -40,6 +40,7 @@ target_sources(app PRIVATE
   src/clock.c
   src/config.c
   src/factory.c
+  src/gps.c
   src/hw.c
   src/i18n.c
   src/input.c
@@ -54,6 +55,7 @@ target_sources(app PRIVATE
   src/screens/compose.c
   src/screens/diag.c
   src/screens/game.c
+  src/screens/gps.c
   src/screens/home.c
   src/screens/hwtest.c
   src/screens/inbox.c

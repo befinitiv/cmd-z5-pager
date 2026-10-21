@@ -59,6 +59,28 @@ static const struct translation de[] = {
 	/* Widgets */
 	{"push = ok   C = cancel", "Drücken = OK  C = Abbr."},
 
+	/* GPS and position */
+	{"Fixed position", "Feste Position"},
+	{"No GPS receiver", "Kein GPS-Empfänger"},
+	{"Off", "Aus"},
+	{"Fix", "Fix"},
+	{"sat.", "Sat."},
+	{"Searching", "Suche"},
+	{"ago", "her"},
+	{"No position yet", "Noch keine Position"},
+	{"push: settings", "Drücken: Einstellungen"},
+	{"Position", "Position"},
+	{"Share position", "Position teilen"},
+	{"Use GPS fix", "GPS-Fix übernehmen"},
+	{"fixed", "fest"},
+	{"always", "immer"},
+	{"approx.", "ungefähr"},
+	{"exact", "genau"},
+	{"set", "gesetzt"},
+	{"No GPS fix yet.", "Noch kein GPS-Fix."},
+	{"Enter latitude and longitude in degrees, e.g. 52.52 13.405 (south and west negative).",
+	 "Breite und Länge in Grad eingeben, z. B. 52.52 13.405 (Süd und West negativ)."},
+
 	/* Diagnostics */
 	{"No battery data", "Keine Akkudaten"},
 	{"Charge", "Ladung"},

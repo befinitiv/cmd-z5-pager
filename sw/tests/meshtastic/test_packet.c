@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "meshtastic/channel.h"
+#include "meshtastic/geo.h"
 #include "meshtastic/packet.h"
 #include "test.h"
 
@@ -54,13 +55,38 @@ void test_packet(void)
 	/* Position, negative coordinates and altitude. */
 	struct mt_position p = {.has_latlon = true, .latitude_i = -337000000,
 				.longitude_i = 1512000000, .has_altitude = true, .altitude = -12,
-				.time = 1760000000};
+				.time = 1760000000, .location_source = MT_LOC_INTERNAL,
+				.sats_in_view = 9, .precision_bits = 13};
 	struct mt_position p2;
 
 	n = mt_position_encode(&p, buf, sizeof(buf));
 	CHECK(mt_position_decode(buf, n, &p2) == 0 && p2.latitude_i == p.latitude_i &&
-		      p2.longitude_i == p.longitude_i && p2.altitude == -12 && p2.time == p.time,
+		      p2.longitude_i == p.longitude_i && p2.altitude == -12 && p2.time == p.time &&
+		      p2.location_source == MT_LOC_INTERNAL && p2.sats_in_view == 9 &&
+		      p2.precision_bits == 13,
 	      "Position round trip");
+
+	/* Geo: Berlin to Paris is about 878 km, west-southwest. */
+	uint32_t dist = mt_geo_distance_m(525200000, 134050000, 488566000, 23522000);
+	int bear = mt_geo_bearing_deg(525200000, 134050000, 488566000, 23522000);
+
+	CHECK(dist > 875000 && dist < 881000, "distance Berlin-Paris %u m", dist);
+	CHECK(bear > 240 && bear < 250 && strcmp(mt_geo_compass(bear), "SW") == 0, "bearing %d (%s)",
+	      bear, mt_geo_compass(bear));
+	CHECK(mt_geo_distance_m(0, 0, 0, 0) == 0 && strcmp(mt_geo_compass(359), "N") == 0,
+	      "zero distance, north");
+
+	/* Precision: the reduced point lies in the middle of its cell. */
+	int32_t r = mt_geo_reduce(525200000, 13);
+	uint32_t cell = mt_geo_precision_m(13);
+
+	CHECK(mt_geo_reduce(525200000, 32) == 525200000, "precision 32 is exact");
+	/* Meshtastic calls 13 bits "within 2.9 km": half of the cell. */
+	CHECK(cell > 5500 && cell < 6200, "cell of 13 bits %u m", cell);
+	CHECK(mt_geo_distance_m(525200000, 0, r, 0) <= cell / 2 + 1, "reduced point too far");
+	CHECK(mt_geo_reduce(-337000000, 13) < 0 &&
+		      mt_geo_distance_m(-337000000, 0, mt_geo_reduce(-337000000, 13), 0) <= cell / 2 + 1,
+	      "negative coordinate reduced");
 
 	/* Routing ACK is "error_reason = 0", written explicitly. */
 	n = mt_routing_encode(0, buf, sizeof(buf));
