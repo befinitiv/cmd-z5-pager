@@ -512,7 +512,6 @@ Phases 1–3 can run before the boards arrive.
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
 * Meshtastic protocol changes between releases: the implementation follows firmware 2.7; check new releases (e.g. next-hop routing, signed packets).
 * SX1262 on the board (`drivers/radio/sx1262_mesh.c`): sends on EU_868 LongFast (869.525 MHz, 22 dBm, the chip's maximum); reception from a stock Meshtastic node and the RF switch polarity (P0.09 high while receiving) are still to be tested over the air. BUCK1 stays on while the mesh runs (about 5 mA in RX); switching it off in low-power mode is still to do.
-* nRF52840 REG1 runs in LDO mode: on the first board the chip locked up after switching to DC/DC (check the DCC → 10 µH → 15 nH → DEC4 inductors).
 * Battery model for the real cell (see [Battery and current measurement](#battery-and-current-measurement-srcbatteryc)); the fuel gauge code is untested on hardware.
 * Radio sharing between Meshtastic and the Zephyr LoRaWAN stack (see [Radio arbiter](#radio-arbiter-meshtastic-and-lorawan-on-one-sx1262)).
 * Licences: no Meshtastic code is used (protocol re-implemented). The language models are CC BY derived works of their corpora (see `lm/README.md`).

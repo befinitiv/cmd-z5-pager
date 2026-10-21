@@ -158,13 +158,12 @@
 };
 
 /*
- * LDO, not DC/DC: on the first board the chip locks up a few milliseconds
- * after REG1 switches to DC/DC (SWD stops answering, recovery only by power
- * cycle). Check the DCC -> 10 uH -> 15 nH -> DEC4 inductors before switching
- * back to NRF5X_REG_MODE_DCDC.
+ * REG1 in DC/DC mode (DCC -> 10 uH -> 15 nH -> DEC4). On the first board the
+ * chip locked up a few milliseconds after switching to DC/DC until L3 was
+ * replaced; NRF5X_REG_MODE_LDO is the fallback if that comes back.
  */
 &reg1 {
-	regulator-initial-mode = <NRF5X_REG_MODE_LDO>;
+	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
 };
 
 &uicr {
