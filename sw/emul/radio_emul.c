@@ -2,8 +2,14 @@
  * Emulated LoRa radio: packets travel as UDP multicast datagrams between
  * emulator instances. Each datagram carries the radio settings, so only
  * instances on the same frequency, bandwidth, spreading factor and sync word
- * receive it. Sending takes the packet's time on air; the radio is
- * half-duplex, like the real one.
+ * receive it.
+ *
+ * The channel is shared like a real one: a datagram goes out when the
+ * transmission starts, and receivers deliver the packet at the end of its
+ * time on air. Until then the channel is busy. A sender listens before it
+ * talks (waits for a free channel plus a random backoff, as channel
+ * activity detection does on the board). Packets overlapping at a receiver
+ * are lost, and the radio cannot receive while it transmits (half-duplex).
  *
  * Options: --radio-port=<n> (default 4403), --radio-off, --node-num=<hex>.
  */
@@ -31,6 +37,10 @@ LOG_MODULE_REGISTER(radio_emul, CONFIG_CMDZ5_EMUL_LOG_LEVEL);
 
 #define ENVELOPE_LEN 20
 #define POLL_MS      5
+#define MAX_PENDING  4
+/* Backoff before sending: 0..BACKOFF_SLOTS-1 slots of SLOT_SYMBOLS symbols. */
+#define BACKOFF_SLOTS 8
+#define SLOT_SYMBOLS  4
 #define EMUL_RSSI    (-60)
 #define EMUL_SNR     9
 
@@ -47,6 +57,18 @@ static struct {
 	mesh_radio_rx_cb cb;
 	void *user;
 } radio;
+
+/* Packets on the air towards us, delivered when their airtime has passed. */
+static struct pending {
+	bool used;
+	bool lost; /* overlapped with another packet or our own transmission */
+	int64_t done; /* uptime ms */
+	uint8_t len;
+	uint8_t data[256];
+} pending[MAX_PENDING];
+
+static K_MUTEX_DEFINE(air_lock);
+static int64_t busy_until; /* the channel is busy (others or us) until then */
 
 void emul_random(void *buf, size_t len)
 {
@@ -99,19 +121,56 @@ static int radio_emul_configure(const struct device *dev, const struct mesh_radi
 	return 0;
 }
 
+static uint32_t slot_ms(void)
+{
+	uint32_t tsym = (1000u << radio.cfg.sf) / radio.cfg.bw_hz;
+
+	return MAX(tsym * SLOT_SYMBOLS, 1);
+}
+
 static int radio_emul_send(const struct device *dev, const uint8_t *data, size_t len)
 {
 	uint8_t buf[ENVELOPE_LEN + 256];
+	uint32_t air;
 
 	ARG_UNUSED(dev);
 	if (!radio.open || !radio.configured || len > 255) {
 		return -EIO;
 	}
+	air = airtime_ms(&radio.cfg, len);
+
+	/* Listen before talk: a free channel, then a random backoff, still free. */
+	for (;;) {
+		int64_t wait;
+		uint32_t r;
+
+		k_mutex_lock(&air_lock, K_FOREVER);
+		wait = busy_until - k_uptime_get();
+		k_mutex_unlock(&air_lock);
+		if (wait > 0) {
+			k_msleep(wait);
+			continue;
+		}
+		emul_random(&r, sizeof(r));
+		k_msleep(r % BACKOFF_SLOTS * slot_ms());
+		k_mutex_lock(&air_lock, K_FOREVER);
+		if (busy_until <= k_uptime_get()) {
+			break; /* lock held */
+		}
+		k_mutex_unlock(&air_lock);
+	}
+	/* Transmitting: whatever is arriving now is lost to us. */
 	radio.sending = true;
-	k_msleep(airtime_ms(&radio.cfg, len));
+	busy_until = k_uptime_get() + air;
+	for (int i = 0; i < MAX_PENDING; i++) {
+		pending[i].lost |= pending[i].used;
+	}
+	k_mutex_unlock(&air_lock);
+
 	put_cfg(buf, &radio.cfg, len);
 	memcpy(buf + ENVELOPE_LEN, data, len);
 	radio_bottom_send(buf, ENVELOPE_LEN + len);
+	k_msleep(air);
 	radio.sending = false;
 	return 0;
 }
@@ -133,6 +192,7 @@ static void rx_thread(void *p1, void *p2, void *p3)
 	ARG_UNUSED(p3);
 
 	for (;;) {
+		static struct pending done;
 		int n;
 
 		k_msleep(POLL_MS);
@@ -142,13 +202,53 @@ static void rx_thread(void *p1, void *p2, void *p3)
 				continue;
 			}
 			/* Different settings: a real radio would not hear it either. */
-			if (!radio.configured || radio.sending || !radio.cb ||
+			if (!radio.configured || !radio.cb ||
 			    sys_get_le32(buf + 8) != radio.cfg.freq_hz ||
 			    sys_get_le32(buf + 12) != radio.cfg.bw_hz || buf[16] != radio.cfg.sf ||
 			    buf[18] != radio.cfg.sync_word) {
 				continue;
 			}
-			radio.cb(NULL, buf + ENVELOPE_LEN, buf[19], EMUL_RSSI, EMUL_SNR, radio.user);
+			/* The packet is on the air from now until the end of its airtime. */
+			int64_t end = k_uptime_get() + airtime_ms(&radio.cfg, buf[19]);
+			bool overlap = radio.sending;
+			struct pending *slot = NULL;
+
+			k_mutex_lock(&air_lock, K_FOREVER);
+			for (int i = 0; i < MAX_PENDING; i++) {
+				if (pending[i].used) {
+					pending[i].lost = true; /* two packets at once */
+					overlap = true;
+				} else if (!slot) {
+					slot = &pending[i];
+				}
+			}
+			busy_until = MAX(busy_until, end);
+			if (slot) {
+				slot->used = true;
+				slot->lost = overlap;
+				slot->done = end;
+				slot->len = buf[19];
+				memcpy(slot->data, buf + ENVELOPE_LEN, buf[19]);
+			}
+			k_mutex_unlock(&air_lock);
+		}
+
+		/* Deliver what has been received completely (copied out of the lock). */
+		for (int i = 0; i < MAX_PENDING; i++) {
+			bool finished = false;
+
+			k_mutex_lock(&air_lock, K_FOREVER);
+			if (pending[i].used && pending[i].done <= k_uptime_get()) {
+				done = pending[i];
+				pending[i].used = false;
+				finished = true;
+			}
+			k_mutex_unlock(&air_lock);
+			if (finished && done.lost) {
+				LOG_DBG("packet lost in a collision");
+			} else if (finished) {
+				radio.cb(NULL, done.data, done.len, EMUL_RSSI, EMUL_SNR, radio.user);
+			}
 		}
 	}
 }
@@ -165,6 +265,10 @@ static const struct mesh_radio_api radio_emul_api = {
 static int radio_emul_init(const struct device *dev)
 {
 	ARG_UNUSED(dev);
+	/* native_sim sets options that were not given to UINT32_MAX. */
+	if (opt_port == UINT32_MAX) {
+		opt_port = 4403;
+	}
 	radio_bottom_random(&radio.instance, sizeof(radio.instance));
 	if (opt_off) {
 		LOG_INF("radio switched off (--radio-off)");
