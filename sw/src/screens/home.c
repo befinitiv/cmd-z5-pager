@@ -30,19 +30,19 @@ static void home_draw(struct ui_screen *s, struct gfx *g)
 	(void)s;
 	if (clock_now(&tm)) {
 		snprintf(buf, sizeof(buf), "%02d:%02d", tm.hour, tm.min);
-		gfx_text_aligned(g, gfx_font_large, 0, 13, GFX_WIDTH, GFX_ALIGN_CENTER, buf,
+		gfx_text_aligned(g, gfx_font_large, 0, 11, GFX_WIDTH, GFX_ALIGN_CENTER, buf,
 				 GFX_BLACK);
 		enum lang l = i18n_get();
 
 		/* "Thu 8 Oct 2026" / "Do 8. Okt 2026" */
 		snprintf(buf, sizeof(buf), l == LANG_DE ? "%s %d. %s %d" : "%s %d %s %d",
 			 weekdays[l][tm.wday], tm.day, months[l][tm.month - 1], tm.year);
-		gfx_text_aligned(g, gfx_font_text, 0, 35, GFX_WIDTH, GFX_ALIGN_CENTER, buf,
+		gfx_text_aligned(g, gfx_font_text, 0, 30, GFX_WIDTH, GFX_ALIGN_CENTER, buf,
 				 GFX_BLACK);
 	} else {
-		gfx_text_aligned(g, gfx_font_large, 0, 13, GFX_WIDTH, GFX_ALIGN_CENTER, "--:--",
+		gfx_text_aligned(g, gfx_font_large, 0, 11, GFX_WIDTH, GFX_ALIGN_CENTER, "--:--",
 				 GFX_DARK);
-		gfx_text_aligned(g, gfx_font_text, 0, 35, GFX_WIDTH, GFX_ALIGN_CENTER,
+		gfx_text_aligned(g, gfx_font_text, 0, 30, GFX_WIDTH, GFX_ALIGN_CENTER,
 				 tr("time not set"), GFX_DARK);
 	}
 
