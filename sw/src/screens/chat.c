@@ -181,7 +181,10 @@ static void chat_draw(struct ui_screen *s, struct gfx *g)
 		}
 	}
 	gfx_reset_clip(g);
-	ui_draw_scrollbar(g, y0, area, nrows - 1 - first, area / LINE_H, nrows);
+	/* The scrollbar counts from the top: the oldest row is 0. */
+	int visible = area / LINE_H;
+
+	ui_draw_scrollbar(g, y0, area, MAX(nrows - visible - scroll, 0), visible, nrows);
 }
 
 static bool chat_event(struct ui_screen *s, const struct ui_event *ev)
