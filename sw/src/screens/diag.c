@@ -118,9 +118,14 @@ static void collect(void)
 	if (b.tte_min >= 0) {
 		r = add("Runtime");
 		fmt_duration(r->value, sizeof(r->value), b.tte_min);
-	} else if (b.ttf_min >= 0) {
+	} else if (b.charge == BATTERY_CHARGING) {
+		/* The fuel gauge has no estimate near the end of the example model. */
 		r = add("Full in");
-		fmt_duration(r->value, sizeof(r->value), b.ttf_min);
+		if (b.ttf_min >= 0) {
+			fmt_duration(r->value, sizeof(r->value), b.ttf_min);
+		} else {
+			snprintf(r->value, sizeof(r->value), "-");
+		}
 	}
 	r = add("Temperature");
 	snprintf(r->value, sizeof(r->value), "%d.%d °C", b.temp_dc / 10, abs(b.temp_dc) % 10);

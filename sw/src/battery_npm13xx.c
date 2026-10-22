@@ -197,12 +197,21 @@ void battery_backend_gauge(const struct battery_sample *s, uint32_t dt_ms,
 		return;
 	}
 	out->soc = CLAMP(lroundf(soc), 0, 100);
-	if (raw.i >= 0.0f) {
-		if (nrf_fuel_gauge_tte_get(&t) == 0) {
-			out->tte_min = minutes(t);
+	/*
+	 * Interim, until there is a model of the real cell: the example model
+	 * reaches 99 % while the charger is still in its constant-current
+	 * phase, so show at most 95 % until the constant-voltage phase.
+	 */
+	if (raw.usb && (raw.chg & (CHG_STATUS_TRICKLE | CHG_STATUS_CC))) {
+		out->soc = MIN(out->soc, 95);
+	}
+	/* By the charger state: the measured current can read 0 near either end. */
+	if (raw.usb && (raw.chg & (CHG_STATUS_TRICKLE | CHG_STATUS_CC | CHG_STATUS_CV))) {
+		if (nrf_fuel_gauge_ttf_get(&t) == 0) {
+			out->ttf_min = minutes(t);
 		}
-	} else if (nrf_fuel_gauge_ttf_get(&t) == 0) {
-		out->ttf_min = minutes(t);
+	} else if (!raw.usb && nrf_fuel_gauge_tte_get(&t) == 0) {
+		out->tte_min = minutes(t);
 	}
 }
 
