@@ -4,6 +4,7 @@
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/sys/reboot.h>
 
+#include "battery.h"
 #include "update.h"
 
 #if defined(CONFIG_BOOTLOADER_MCUBOOT) && defined(CONFIG_RETENTION_BOOT_MODE)
@@ -68,6 +69,7 @@ void update_enter_bootloader(void)
 		return;
 	}
 	LOG_WRN("restarting into the bootloader");
+	battery_save();
 	log_flush();
 	sys_reboot(SYS_REBOOT_WARM);
 #else

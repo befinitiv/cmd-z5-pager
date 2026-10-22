@@ -40,6 +40,7 @@ target_sources(app PRIVATE
   src/clock.c
   src/config.c
   src/factory.c
+  src/gauge.c
   src/gps.c
   src/hw.c
   src/i18n.c

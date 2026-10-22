@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 
 #include <zephyr/kernel.h>
@@ -10,6 +11,9 @@ LOG_MODULE_REGISTER(battery, CONFIG_CMDZ5_APP_LOG_LEVEL);
 
 #define SAMPLE_MS 1000
 /* Store the fuel gauge state now and then, so a reset loses little. */
+/* Store the fuel gauge state after this much change, at most every SAVE_MIN_S. */
+#define SAVE_SOC_STEP   2
+#define SAVE_MIN_S      (10 * 60)
 #define SAVE_INTERVAL_S (6 * 3600)
 #define MINUTE          60
 #define HOUR_MINUTES    60
@@ -75,6 +79,7 @@ static void run(void *p1, void *p2, void *p3)
 {
 	int64_t last = k_uptime_get();
 	uint32_t since_save = 0; /* ms */
+	int saved_soc = -1;
 
 	ARG_UNUSED(p1);
 	ARG_UNUSED(p2);
@@ -112,8 +117,12 @@ static void run(void *p1, void *p2, void *p3)
 		status.drawn_uah = drawn_uams / 3600000;
 		status.uptime_s += (dt + 500) / 1000;
 		since_save += dt;
-		if (since_save >= SAVE_INTERVAL_S * 1000U) {
+		/* Changed noticeably (restarts keep it), or the long interval is over. */
+		if ((g.soc >= 0 && abs(g.soc - saved_soc) >= SAVE_SOC_STEP &&
+		     since_save >= SAVE_MIN_S * 1000U) ||
+		    since_save >= SAVE_INTERVAL_S * 1000U) {
 			since_save = 0;
+			saved_soc = g.soc;
 			battery_backend_save();
 		}
 		k_mutex_unlock(&lock);

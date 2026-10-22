@@ -1,10 +1,11 @@
 /*
- * Simulated battery for the emulator, in place of the nPM1300 and nRF Fuel
- * Gauge (which exists only for ARM). The current follows the emulated
- * outputs with the estimates of the power budget; the display is not
- * counted, its consumption is unknown. The readings are quantised like the
- * nPM1300 ADC with a 1 A discharge limit, so the averages behave as on the
- * board.
+ * Simulated battery for the emulator, in place of the nPM1300: a cell as
+ * src/gauge.h assumes it (1000 mAh to 4.2 V, 1 ohm), charged like on the
+ * board (constant current, then constant voltage until 10 %). The current
+ * follows the emulated outputs with the estimates of the power budget; the
+ * display is not counted, its consumption is unknown. The readings are
+ * quantised like the nPM1300 ADC with a 1 A discharge limit and go through
+ * the same fuel gauge (gauge.c) as on the board.
  */
 
 #include <stdlib.h>
@@ -15,12 +16,15 @@
 #include <zephyr/sys/util.h>
 
 #include "../src/battery_backend.h"
+#include "../src/gauge.h"
 #include "emul.h"
 #include "frontpanel.h"
 
-#define CAPACITY_UAH  1000000 /* assumed 1000 mAh cell */
-#define CHARGE_UA     150000  /* charger current, as in the board devicetree */
-#define R_INTERNAL_MO 150     /* internal resistance, mOhm */
+#define CAPACITY_UAH  1000000 /* as gauge.h assumes */
+#define CHARGE_UA     400000  /* charger current, as in the board devicetree */
+#define TERM_UA       (CHARGE_UA / 10)
+#define CV_PERMILLE   850     /* constant voltage from here on */
+#define R_INTERNAL_MO 1000
 /* nPM1300 IBAT: full scale 1.12 x discharge limit, 10 bits. */
 #define IBAT_LSB_UA (1120000 / 1023)
 #define STATE_KEY   "batt/emul"
@@ -34,12 +38,12 @@
 #define I_SPEAKER   60000
 #define I_EARPIECE  15000
 
-static int64_t charge_uams; /* remaining charge, µA·ms */
-static int load_avg_ua;     /* smoothed for the time to empty */
+static int64_t charge_uams; /* true remaining charge, µA·ms */
+static struct gauge gauge;
 
-/* Open-circuit voltage of a Li-ion cell over the state of charge. */
+/* Open-circuit voltage over the state of charge, the curve gauge.c assumes. */
 static const int16_t ocv_mv[] = {
-	3300, 3550, 3650, 3690, 3720, 3750, 3770, 3790, 3820, 3870, 3920, 3980, 4040, 4110, 4180,
+	3400, 3640, 3715, 3762, 3802, 3838, 3890, 3940, 4002, 4075, 4160,
 };
 
 static int soc_permille(void)
@@ -72,15 +76,45 @@ static int load_ua(void)
 	return ua;
 }
 
+static enum gauge_charger charger_state(bool usb)
+{
+	if (!usb) {
+		return GAUGE_DISCHARGING;
+	}
+	if (soc_permille() >= 1000) {
+		return GAUGE_FULL;
+	}
+	return soc_permille() < CV_PERMILLE ? GAUGE_CHARGE_CC : GAUGE_CHARGE_CV;
+}
+
+/* Charge current while charging: constant, then tapering off to the termination. */
+static int charge_ua(void)
+{
+	int p = soc_permille();
+
+	if (p >= 1000) {
+		return 0;
+	}
+	if (p < CV_PERMILLE) {
+		return CHARGE_UA;
+	}
+	return TERM_UA + (CHARGE_UA - TERM_UA) * (1000 - p) / (1000 - CV_PERMILLE);
+}
+
 int battery_backend_init(void)
 {
+	static const struct gauge_params params = {
+		.capacity_uah = CAPACITY_UAH,
+		.r_mohm = R_INTERNAL_MO,
+		.charge_ua = CHARGE_UA,
+	};
 	int32_t permille;
 
 	if (settings_load_one(STATE_KEY, &permille, sizeof(permille)) != sizeof(permille)) {
 		permille = 800;
 	}
 	charge_uams = (int64_t)CLAMP(permille, 0, 1000) * CAPACITY_UAH * 3600;
-	load_avg_ua = load_ua();
+	gauge_init(&gauge, &params, ocv(soc_permille()), 0, permille);
 	return 0;
 }
 
@@ -94,15 +128,21 @@ int battery_backend_read(struct battery_sample *s)
 
 	if (usb) {
 		/* USB supplies the load; the battery charges until full. */
-		ua = soc_permille() < 1000 ? -CHARGE_UA : 0;
+		ua = -charge_ua();
 	}
 	noisy = ua + (int)(sys_rand32_get() % (2 * IBAT_LSB_UA)) - IBAT_LSB_UA;
 	s->current_ua = ua ? noisy / IBAT_LSB_UA * IBAT_LSB_UA : 0;
-	s->voltage_mv = ocv(soc_permille()) - ua / 1000 * R_INTERNAL_MO / 1000;
+	/* The charger holds the cell at 4.2 V at most (constant voltage). */
+	s->voltage_mv = MIN(ocv(soc_permille()) - ua / 1000 * R_INTERNAL_MO / 1000, 4200);
 	s->temp_dc = 250 + (usb ? 30 : 0);
 	s->usb = usb;
 	s->charge = !usb ? BATTERY_DISCHARGING
 		    : soc_permille() < 1000 ? BATTERY_CHARGING : BATTERY_FULL;
+	/* The charger reports complete below the termination current. */
+	if (usb && charge_ua() <= TERM_UA) {
+		charge_uams = (int64_t)CAPACITY_UAH * 3600 * 1000;
+		s->charge = BATTERY_FULL;
+	}
 	return 0;
 }
 
@@ -110,32 +150,23 @@ void battery_backend_gauge(const struct battery_sample *s, uint32_t dt_ms,
 			   struct battery_gauge *out)
 {
 	int64_t full = (int64_t)CAPACITY_UAH * 3600 * 1000;
+	enum gauge_charger ch = charger_state(s->usb);
 
-	/* Integrate the true current (the measured one is quantised). */
+	/* The true charge follows the true current (the measured one is quantised). */
 	if (s->usb) {
-		charge_uams = MIN(charge_uams + (int64_t)CHARGE_UA * dt_ms, full);
+		charge_uams = MIN(charge_uams + (int64_t)charge_ua() * dt_ms, full);
 	} else {
 		charge_uams = MAX(charge_uams - (int64_t)load_ua() * dt_ms, 0);
 	}
-	/* About a 5 min time constant; restarts when USB is unplugged. */
-	if (s->usb) {
-		load_avg_ua = load_ua();
-	} else {
-		load_avg_ua += (s->current_ua - load_avg_ua) / 300;
-	}
-
-	out->soc = (soc_permille() + 5) / 10;
-	out->tte_min = -1;
-	out->ttf_min = -1;
-	if (!s->usb && load_avg_ua > 0) {
-		out->tte_min = charge_uams / 1000 / load_avg_ua / 60;
-	} else if (s->charge == BATTERY_CHARGING) {
-		out->ttf_min = (full - charge_uams) / 1000 / CHARGE_UA / 60;
-	}
+	gauge_update(&gauge, s->voltage_mv, s->current_ua, ch, dt_ms);
+	out->soc = gauge_soc(&gauge, ch);
+	out->tte_min = gauge_tte_min(&gauge, ch);
+	out->ttf_min = gauge_ttf_min(&gauge, ch);
 }
 
 void battery_backend_save(void)
 {
+	/* The true charge: the emulator keeps it over a restart. */
 	int32_t permille = soc_permille();
 
 	settings_save_one(STATE_KEY, &permille, sizeof(permille));

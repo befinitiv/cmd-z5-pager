@@ -109,7 +109,7 @@ sw/
 │   ├── usb/                         # update.sh (firmware update over USB), udev rule
 │   ├── game/                        # level map generator for the jump and run game (1-1, 1-2)
 │   └── lcd_replay/                  # (later) replays ../display .dsl captures through lcd_ctrl_model
-└── tests/                           # emul/ (smoke.txt, run_mesh.sh), textinput/, meshtastic/ and synth/ (host tests: run.sh)
+└── tests/                           # emul/ (smoke.txt, run_mesh.sh), textinput/, meshtastic/, synth/ and gauge/ (host tests: run.sh)
 ```
 
 # Hardware abstraction
@@ -127,7 +127,7 @@ sw/
 | Vibration | `led` API on PWM (P0.07) | display shakes, VIB indicator lit |
 | LoRa SX1262 | `mesh_radio` → `sx1262_mesh` (`cmdz5,sx1262`; Zephyr's `lora` API cannot set the Meshtastic sync word 0x2b), power via nPM1300 BUCK1, TCXO on DIO3, RF switch on DIO2 and P0.09 | UDP multicast between emulator instances (`radio_emul`) |
 | GPS M10N | `gnss` API → `gps_m10` (`cmdz5,gps-m10`; Zephyr's NMEA parser, factory settings: NMEA at 38400 baud on UART0), 5 V boost EN on P1.03 switched with the UART by device PM | Zephyr's `zephyr,gnss-emul`, switched by device PM and fed by `emul/gps_sim.c` |
-| PMIC nPM1300 | `regulator`, `charger` sensor (voltage, current, die temperature, charge and VBUS state), nRF Fuel Gauge | simulated battery (`battery_emul.c`): current from the emulated outputs, USB power from the front panel |
+| PMIC nPM1300 | `regulator`, `charger` sensor (voltage, current, die temperature, charge and VBUS state); fuel gauge in `src/gauge.c` | simulated battery (`battery_emul.c`): current from the emulated outputs, USB power from the front panel |
 | Accelerometer | `sensor` API (`st,lis2dh`), motion trigger | key `A` sends a motion event |
 | Microphone | not used in the first version | – |
 
@@ -278,13 +278,13 @@ On the board the receiver is a TBS M10N (u-blox M10, firmware SPG 5.10, protocol
 
 ### Battery and current measurement (`src/battery.c`)
 
-A thread samples the battery once a second. On the board the nPM1300 charger driver measures battery voltage, current and die temperature (the battery has no NTC, so the die temperature stands in for it), plus the charge and VBUS state. nRF Fuel Gauge turns these into the state of charge and the times to empty and full; its state is stored in the settings (`batt/fg`) every 6 hours and before switching off. The emulator simulates the battery instead (the library exists only for ARM): an assumed 1000 mAh cell whose current follows the emulated outputs with the estimates below (radio RX 4.5 mA, TX 110 mA, backlight 15 mA, vibration 80 mA, speaker 60 mA, earpiece 15 mA; the display is not counted), quantised like the nPM1300 ADC.
+A thread samples the battery once a second. On the board the nPM1300 charger driver measures battery voltage, current and die temperature (the battery has no NTC, so the die temperature stands in for it), plus the charge and VBUS state. The fuel gauge (`src/gauge.c`) turns these into the state of charge and the times to empty and full; its state of charge is stored in the settings (`batt/g`) every 6 hours and before switching off. The emulator simulates the battery instead: a cell as the gauge assumes it, charged like on the board, whose current follows the emulated outputs with the estimates below (radio RX 4.5 mA, TX 110 mA, backlight 15 mA, vibration 80 mA, speaker 60 mA, earpiece 15 mA; the display is not counted), quantised like the nPM1300 ADC and fed through the same gauge.
 
 The current resolution follows the discharge limit in the devicetree: full scale is 1.12 × the limit, 10 bits. With the 1 A limit one step is 1.1 mA, so single readings of the 4.5 mA receive current are coarse; the averages over a minute and an hour smooth this out. The 200 mA limit would give 0.22 mA steps, but the battery could then not supply transmit, loudspeaker, vibration and backlight at the same time. Currents in the µA range (low-power mode) are below the resolution and need an external meter such as the PPK2.
 
 **Diagnostics** (main menu) shows charge, voltage, supply (battery, USB charging, charged, charger error), the latest current, the averages over the last minute and hour, the charge drawn since the start, the time to empty or to full, the temperature and the uptime. The status bar shows the charge and a lightning bolt while USB power is present.
 
-**Battery model:** `src/battery_model.inc` is Nordic's example model from the NCS nPM1300 fuel gauge sample, not the cell in the phone. For a correct state of charge, profile the real cell with the nPM1300 EK and nPM PowerUP and replace the file.
+**Cell and fuel gauge:** the cell is a 1200 mAh / 3.85 V high-voltage Li-ion cell (LiHV, made for 4.35 V) from an old Android phone. It is charged to 4.2 V only (gentler on an old cell, about 85–90 % of its capacity) at 400 mA, until the current falls to 10 % (40 mA). nRF Fuel Gauge would need a model made by profiling the cell with the nPM1300 EK and nPM PowerUP, so `src/gauge.c` is a simple gauge built on assumptions instead: 1000 mAh usable, about 1 Ω internal resistance (measured: the voltage drops 0.17 V when the GPS adds 160 mA) and a typical LiHV open-circuit voltage curve scaled to "full at 4.2 V". It counts the measured current, sets 100 % when the charger reports complete, and pulls the count towards the voltage estimate when the battery has been nearly at rest (< 30 mA) for 5 min: slowly (1 h) and only beyond 5 %, because the curve is flat in the middle, faster near empty. While the charger is in its constant-current phase it shows at most 95 %. The host test (`tests/gauge/run.sh`) runs it against a worse cell (850 mAh, 1.2 Ω, a current offset) over a day with GPS bursts: it overestimates by at most 5 % and is at 0 % when the cell is empty. A discharge cycle on the board, logged to LittleFS, would replace the assumptions with measured values.
 
 ## Storage
 
@@ -514,6 +514,6 @@ Phases 1–3 can run before the boards arrive.
 * The display controller is unknown, and its init sequence has not been tested on real hardware. The emulator models only the behaviour documented in `../display/DOCUMENTATION.md`.
 * Meshtastic protocol changes between releases: the implementation follows firmware 2.7; check new releases (e.g. next-hop routing, signed packets).
 * SX1262 on the board (`drivers/radio/sx1262_mesh.c`): sends on EU_868 LongFast (869.525 MHz, 22 dBm, the chip's maximum); reception from a stock Meshtastic node and the RF switch polarity (P0.09 high while receiving) are still to be tested over the air. BUCK1 stays on while the mesh runs (about 5 mA in RX); switching it off in low-power mode is still to do.
-* Battery model for the real cell (see [Battery and current measurement](#battery-and-current-measurement-srcbatteryc)); the fuel gauge code is untested on hardware.
+* The fuel gauge rests on assumptions about the cell (capacity, voltage curve, internal resistance); see [Battery and current measurement](#battery-and-current-measurement-srcbatteryc). Not yet checked over a full cycle on the board.
 * Radio sharing between Meshtastic and the Zephyr LoRaWAN stack (see [Radio arbiter](#radio-arbiter-meshtastic-and-lorawan-on-one-sx1262)).
 * Licences: no Meshtastic code is used (protocol re-implemented). The language models are CC BY derived works of their corpora (see `lm/README.md`).
