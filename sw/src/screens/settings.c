@@ -290,6 +290,10 @@ static void mesh_action(struct ui_menu *m, int idx)
 	case 3:
 		c.preset = next_in(presets, ARRAY_SIZE(presets), c.preset);
 		break;
+	case 5:
+		mesh_set_relay(!mesh_relay());
+		ui_invalidate();
+		return;
 	default:
 		return;
 	}
@@ -317,6 +321,8 @@ static const char *mesh_value(struct ui_menu *m, int idx, char *buf, size_t len)
 	case 4:
 		snprintf(buf, len, "!%08x", mesh_my_num());
 		return buf;
+	case 5:
+		return tr(mesh_relay() ? "on" : "off");
 	default:
 		return NULL;
 	}
@@ -328,6 +334,7 @@ static const struct ui_menu_item mesh_items[] = {
 	{"Region", NULL, mesh_action},
 	{"Preset", NULL, mesh_action},
 	{"Node", NULL, mesh_action},
+	{"Relay packets", NULL, mesh_action},
 };
 
 struct ui_menu mesh_menu = UI_MENU("Mesh", mesh_items, mesh_value);

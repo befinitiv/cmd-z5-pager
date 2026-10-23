@@ -39,6 +39,22 @@ void mesh_get_config(struct mesh_config *c);
 void mesh_set_config(const struct mesh_config *c);
 
 /*
+ * Rebroadcast other nodes' packets (managed flooding). Stored, default on;
+ * off is Meshtastic's CLIENT_MUTE role: receive and send, but never relay.
+ */
+bool mesh_relay(void);
+void mesh_set_relay(bool on);
+
+/* Counters since the start. */
+struct mesh_stats {
+	uint32_t rx;        /* frames received, duplicates included */
+	uint32_t tx;        /* frames sent: own packets, retries and rebroadcasts */
+	uint32_t relayed;   /* rebroadcasts sent */
+	uint32_t cancelled; /* rebroadcasts dropped: another node relayed first */
+};
+void mesh_get_stats(struct mesh_stats *s);
+
+/*
  * Our position or the sharing setting changed (from the GPS service):
  * broadcast it if it is the first, sharing changed, or we moved far enough.
  */

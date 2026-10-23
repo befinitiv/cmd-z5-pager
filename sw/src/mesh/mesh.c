@@ -73,6 +73,7 @@ K_MSGQ_DEFINE(evq, sizeof(struct evt), 8, 4);
 static K_MUTEX_DEFINE(lock);
 
 static struct mt_router router;
+static bool relay_on = true;
 static struct mt_nodedb nodedb;
 static struct mesh_config cfg = {.region = MT_REGION_EU_868, .preset = MT_PRESET_LONG_FAST};
 static uint32_t my_num;
@@ -119,6 +120,9 @@ static int mesh_set(const char *name, size_t len, settings_read_cb read_cb, void
 {
 	if (strcmp(name, "cfg") == 0 && len == sizeof(cfg)) {
 		return read_cb(cb_arg, &cfg, len) == (ssize_t)len ? 0 : -EIO;
+	}
+	if (strcmp(name, "relay") == 0 && len == sizeof(relay_on)) {
+		return read_cb(cb_arg, &relay_on, len) == (ssize_t)len ? 0 : -EIO;
 	}
 	if (strcmp(name, "num") == 0 && len == sizeof(my_num)) {
 		return read_cb(cb_arg, &my_num, len) == (ssize_t)len ? 0 : -EIO;
@@ -707,6 +711,7 @@ int mesh_init(void)
 
 	mt_router_init(&router, &ops, NULL, my_num, &nodedb);
 	mt_router_set_keys(&router, priv_key);
+	router.rebroadcast = relay_on;
 
 	if (!radio || !device_is_ready(radio)) {
 		LOG_WRN("no mesh radio on this board yet");
@@ -790,6 +795,32 @@ int mesh_send_text(uint32_t to, const char *text)
 		return -ENODEV;
 	}
 	return k_msgq_put(&evq, &e, K_NO_WAIT) == 0 ? 0 : -EBUSY;
+}
+
+bool mesh_relay(void)
+{
+	return relay_on;
+}
+
+void mesh_set_relay(bool on)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	relay_on = on;
+	router.rebroadcast = on;
+	k_mutex_unlock(&lock);
+	settings_save_one("mesh/relay", &relay_on, sizeof(relay_on));
+	LOG_INF("relaying %s", on ? "on" : "off");
+}
+
+void mesh_get_stats(struct mesh_stats *s)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	s->rx = router.rx_packets;
+	s->tx = router.tx_packets;
+	/* tx_relayed counts the queued rebroadcasts, some are cancelled later. */
+	s->cancelled = router.relay_cancelled;
+	s->relayed = router.tx_relayed - router.relay_cancelled;
+	k_mutex_unlock(&lock);
 }
 
 void mesh_lock(void)

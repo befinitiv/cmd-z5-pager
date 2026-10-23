@@ -160,6 +160,10 @@ static const struct translation de[] = {
 	 "gelöscht, und das Gerät erhält einen neuen Schlüssel. CALL = zurücksetzen, "
 	 "C = abbrechen."},
 
+	/* Relaying (Settings -> Mesh, diagnostics) */
+	{"Relay packets", "Weiterleiten"},
+	{"Relayed", "Weitergeleitet"},
+
 	/* Node telemetry */
 	{"Channel", "Kanal"},
 

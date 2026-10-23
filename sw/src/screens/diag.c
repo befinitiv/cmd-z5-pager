@@ -12,10 +12,11 @@
 
 #include "../battery.h"
 #include "../i18n.h"
+#include "../mesh/mesh.h"
 #include "screens.h"
 
 #define LINE_H   8
-#define MAX_ROWS 12
+#define MAX_ROWS 14
 
 struct row {
 	char label[16];
@@ -126,6 +127,13 @@ static void collect(void)
 		} else {
 			snprintf(r->value, sizeof(r->value), "-");
 		}
+	}
+	if (mesh_available()) {
+		struct mesh_stats ms;
+
+		mesh_get_stats(&ms);
+		r = add("Relayed");
+		snprintf(r->value, sizeof(r->value), "%u", ms.relayed);
 	}
 	r = add("Temperature");
 	snprintf(r->value, sizeof(r->value), "%d.%d °C", b.temp_dc / 10, abs(b.temp_dc) % 10);
