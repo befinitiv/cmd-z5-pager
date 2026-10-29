@@ -36,6 +36,8 @@ void about_show(void);
 
 /* Jump and run game (wheel bent down on the home screen). */
 void game_open(void);
+/* "Hexenflug": a witch evading bats, crows, towers and clouds. */
+void witch_open(void);
 
 /* Power key held: ask to release it; then the goodbye message. */
 void poweroff_show(void);

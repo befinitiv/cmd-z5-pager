@@ -20,6 +20,7 @@ static const struct translation de[] = {
 	{"Nodes", "Knoten"},
 	{"Settings", "Einstellungen"},
 	{"Hardware test", "Hardware-Test"},
+	{"Games", "Spiele"},
 	{"Diagnostics", "Diagnose"},
 	{"About", "Info"},
 	{"%s is not implemented yet. It follows in a later phase.",

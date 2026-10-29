@@ -57,6 +57,7 @@ target_sources(app PRIVATE
   src/screens/compose.c
   src/screens/diag.c
   src/screens/game.c
+  src/screens/witch.c
   src/screens/gps.c
   src/screens/home.c
   src/screens/hwtest.c
