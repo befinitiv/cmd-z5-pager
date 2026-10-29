@@ -19,6 +19,7 @@ enum mesh_event {
 	MESH_EV_MESSAGE = 1, /* a new text message */
 	MESH_EV_STATUS,      /* delivery status of a sent message changed */
 	MESH_EV_NODES,       /* node database changed */
+	MESH_EV_FAILED,      /* a sent message failed, or nobody relayed it */
 };
 
 struct mesh_config {

@@ -540,7 +540,7 @@ static void cb_status(void *ctx, uint32_t id, enum mt_tx_status st)
 	known = msgstore_set_status(id, map[st]);
 	msgstore_unlock();
 	if (known) {
-		notify(MESH_EV_STATUS);
+		notify(st == MT_TX_FAILED || st == MT_TX_NO_ACK ? MESH_EV_FAILED : MESH_EV_STATUS);
 	}
 }
 
@@ -642,7 +642,7 @@ static void handle_send(uint16_t local_id)
 	msgstore_lock();
 	msgstore_set_sent(local_id, id, id ? MSG_QUEUED : MSG_FAILED);
 	msgstore_unlock();
-	notify(MESH_EV_STATUS);
+	notify(id ? MESH_EV_STATUS : MESH_EV_FAILED);
 }
 
 static void mesh_thread(void *p1, void *p2, void *p3)

@@ -6,7 +6,8 @@
  * the candidate bar at the bottom (while key 1 is pending: its punctuation
  * choices). Memo opens the symbol picker; '*' switches the wheel between the
  * candidates and moving the (then blinking) cursor.
- * The text is kept as a draft when leaving the screen.
+ * The text is kept as a draft when leaving the screen; after a failed
+ * message, the editor starts with that message to send it again.
  */
 
 #include <stdio.h>
@@ -16,6 +17,7 @@
 
 #include "../i18n.h"
 #include "../mesh/mesh.h"
+#include "../mesh/msgstore.h"
 #include "../textin.h"
 #include "meshtastic/packet.h"
 #include "screens.h"
@@ -51,10 +53,48 @@ static struct {
 
 static bool blink_on = true;
 
+/*
+ * After a failure: start with the failed message, if it is the newest one we
+ * sent in the conversation and the editor is empty. Offered once, so a text
+ * cleared on purpose does not come back.
+ */
+static void offer_failed(uint32_t to)
+{
+	static uint16_t offered;
+	uint32_t conv = to == MT_BROADCAST ? CONV_CHANNEL : to;
+	struct ti_editor *ed = textin_editor();
+	char text[MSG_TEXT_MAX + 1] = "";
+	uint16_t id = 0;
+
+	if (ti_editor_text(ed)[0]) {
+		return;
+	}
+	msgstore_lock();
+	for (int i = msgstore_count() - 1; i >= 0; i--) {
+		const struct msg *m = msgstore_get(i);
+
+		if (m->conv != conv || !m->outgoing) {
+			continue;
+		}
+		if ((m->status == MSG_FAILED || m->status == MSG_NO_ACK) &&
+		    m->local_id != offered) {
+			strcpy(text, m->text);
+			id = m->local_id;
+		}
+		break;
+	}
+	msgstore_unlock();
+	if (text[0]) {
+		offered = id;
+		ti_editor_set_text(ed, text);
+	}
+}
+
 void compose_open_message(uint32_t to)
 {
 	ctx.edit = false;
 	ctx.to = to;
+	offer_failed(to);
 	ui_push(&compose_screen);
 }
 

@@ -165,6 +165,11 @@ static const struct hw_note message_tune[] = {
 	{1568, 80}, {2093, 120},
 };
 
+/* A sent message failed: two low, falling tones. */
+static const struct hw_note failed_tune[] = {
+	{392, 150}, {0, 60}, {294, 350},
+};
+
 static void handle(const struct ui_event *ev)
 {
 	if (ev->type == APP_EV_LID) {
@@ -180,6 +185,12 @@ static void handle(const struct ui_event *ev)
 				hw_vibrate(300);
 			}
 			show_message_toast();
+		} else if (ev->value == MESH_EV_FAILED) {
+			hw_melody(HW_SPEAKER, failed_tune, ARRAY_SIZE(failed_tune),
+				  app_config.volume);
+			if (app_config.vibrate) {
+				hw_vibrate(300);
+			}
 		}
 		ui_invalidate();
 		return;
