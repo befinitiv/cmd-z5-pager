@@ -66,6 +66,8 @@ static const struct translation de[] = {
 	{"Fix", "Fix"},
 	{"sat.", "Sat."},
 	{"Searching", "Suche"},
+	{"in view", "sichtbar"},
+	{"heard", "empf."},
 	{"ago", "her"},
 	{"No position yet", "Noch keine Position"},
 	{"push: settings", "Drücken: Einstellungen"},

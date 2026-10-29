@@ -57,7 +57,11 @@ struct gps_status {
 	bool receiver;   /* the board has a GPS receiver */
 	bool powered;
 	uint32_t on_s;   /* seconds since the receiver was switched on */
-	uint16_t sats;   /* satellites in the latest data */
+	uint16_t sats;   /* satellites used in the latest data */
+	bool has_sky;    /* the receiver reports satellites in view (below) */
+	uint8_t in_view; /* satellites in view, all systems */
+	uint8_t heard;   /* of those with a signal */
+	uint8_t cn0[4];  /* the strongest signals, dB-Hz, 0 = none */
 	bool fixed_now;  /* the latest data has a fix */
 	struct gps_fix last; /* the last good fix (may be old) */
 	uint32_t next_s; /* periodic mode: seconds until the next fix, 0 = now/none */

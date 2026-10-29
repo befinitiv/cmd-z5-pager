@@ -6,6 +6,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/settings/settings.h>
+#include <zephyr/sys/math_extras.h>
 
 #ifdef CONFIG_GNSS
 #include <zephyr/drivers/gnss.h>
@@ -43,6 +44,25 @@ static int good;
 static struct gps_fix last;
 static struct k_work_delayable cycle_work;
 
+#if defined(HAVE_RECEIVER) && defined(CONFIG_GNSS_SATELLITES)
+#define HAVE_SKY 1
+/*
+ * Satellites in view: the receiver reports each system (GPS, Galileo, ...)
+ * in its own set, so the latest set of each is kept and the sets that are
+ * still fresh are summed up.
+ */
+#define SKY_SYSTEMS 12
+#define SKY_SATS    24
+#define SKY_FRESH_MS 3000
+
+static struct {
+	int64_t at; /* uptime ms, 0 = none */
+	uint8_t n;
+	uint8_t nsnr;
+	uint8_t snr[SKY_SATS];
+} sky[SKY_SYSTEMS];
+#endif
+
 static int gps_settings_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
 {
 	if (strcmp(name, "cfg") != 0 || len != sizeof(cfg)) {
@@ -73,6 +93,9 @@ static void power(bool on)
 	}
 #endif
 	powered = on;
+#ifdef HAVE_SKY
+	memset(sky, 0, sizeof(sky));
+#endif
 	sats = 0;
 	fixed_now = false;
 	good = 0;
@@ -205,6 +228,67 @@ static void on_gnss(const struct device *dev, const struct gnss_data *d)
 }
 
 GNSS_DATA_CALLBACK_DEFINE(DEVICE_DT_GET(DT_NODELABEL(gnss)), on_gnss);
+
+#ifdef HAVE_SKY
+static void on_satellites(const struct device *dev, const struct gnss_satellite *s, uint16_t n)
+{
+	uint32_t system = 0;
+	int slot;
+
+	ARG_UNUSED(dev);
+	if (n == 0) {
+		return;
+	}
+	/* The set's system; SBAS satellites come within the GPS set. */
+	for (int i = 0; i < n && !system; i++) {
+		system = s[i].system == GNSS_SYSTEM_SBAS ? 0 : s[i].system;
+	}
+	slot = system ? u32_count_trailing_zeros(system) : u32_count_trailing_zeros(GNSS_SYSTEM_GPS);
+	if (slot >= SKY_SYSTEMS) {
+		return;
+	}
+	k_mutex_lock(&lock, K_FOREVER);
+	if (powered) {
+		sky[slot].at = k_uptime_get();
+		sky[slot].n = MIN(n, SKY_SATS);
+		sky[slot].nsnr = 0;
+		for (int i = 0; i < sky[slot].n; i++) {
+			if (s[i].snr) {
+				sky[slot].snr[sky[slot].nsnr++] = s[i].snr;
+			}
+		}
+	}
+	k_mutex_unlock(&lock);
+}
+
+GNSS_SATELLITES_CALLBACK_DEFINE(DEVICE_DT_GET(DT_NODELABEL(gnss)), on_satellites);
+
+/* Sum up the fresh sets; lock held. */
+static void sky_status(struct gps_status *st, int64_t now)
+{
+	st->has_sky = true;
+	for (int i = 0; i < SKY_SYSTEMS; i++) {
+		if (!sky[i].at || now - sky[i].at > SKY_FRESH_MS) {
+			continue;
+		}
+		st->in_view += sky[i].n;
+		st->heard += sky[i].nsnr;
+		/* Keep the strongest few, sorted. */
+		for (int j = 0; j < sky[i].nsnr; j++) {
+			uint8_t v = sky[i].snr[j];
+
+			for (int k = 0; k < ARRAY_SIZE(st->cn0); k++) {
+				if (v > st->cn0[k]) {
+					uint8_t t = st->cn0[k];
+
+					st->cn0[k] = v;
+					v = t;
+				}
+			}
+		}
+	}
+}
+#endif
 #endif
 
 void gps_init(void)
@@ -254,6 +338,13 @@ void gps_status(struct gps_status *s)
 	s->receiver = false;
 #endif
 	s->powered = powered;
+	s->has_sky = false;
+	s->in_view = 0;
+	s->heard = 0;
+	memset(s->cn0, 0, sizeof(s->cn0));
+#ifdef HAVE_SKY
+	sky_status(s, now);
+#endif
 	s->on_s = powered ? (now - on_since) / 1000 : 0;
 	s->sats = sats;
 	s->fixed_now = fixed_now;
