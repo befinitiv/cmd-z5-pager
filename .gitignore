@@ -1,0 +1,9 @@
+# Python bytecode
+__pycache__/
+
+# KiCad: automatic backups and temporary project files from exports
+*-backups/
+*-unsaved-export-*.kicad_prl
+
+# Scratch files
+trash/
