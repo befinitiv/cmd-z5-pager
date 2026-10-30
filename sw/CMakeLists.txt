@@ -27,6 +27,7 @@ add_subdirectory(lib/ui)
 add_subdirectory(lib/textinput)
 add_subdirectory(lib/meshtastic)
 add_subdirectory(lib/synth)
+add_subdirectory(lib/qrcodegen)
 add_subdirectory(drivers)
 if(CONFIG_CMDZ5_EMUL)
   add_subdirectory(emul)
@@ -58,6 +59,7 @@ target_sources(app PRIVATE
   src/screens/diag.c
   src/screens/game.c
   src/screens/witch.c
+  src/screens/channels.c
   src/screens/gps.c
   src/screens/home.c
   src/screens/hwtest.c

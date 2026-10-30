@@ -1,6 +1,7 @@
 /*
- * Conversation list: the primary channel first, then direct-message
- * conversations by their newest message, with unread counts.
+ * Conversation list: the channels first (the primary one, then the private
+ * ones), then direct-message conversations by their newest message, with
+ * unread counts.
  */
 
 #include <stdio.h>
@@ -22,8 +23,17 @@ static int sel, top;
 
 static void refresh(void)
 {
+	uint32_t chans[MESH_CHANNELS] = {CONV_CHANNEL};
+	int nchans = 1;
+	struct mesh_channel c;
+
+	for (int slot = 1; slot < MESH_CHANNELS; slot++) {
+		if (mesh_get_channel(slot, &c)) {
+			chans[nchans++] = conv_of_channel(slot);
+		}
+	}
 	msgstore_lock();
-	nconvs = msgstore_conversations(convs, MAX_CONVS);
+	nconvs = msgstore_conversations(convs, MAX_CONVS, chans, nchans);
 	for (int i = 0; i < nconvs; i++) {
 		unread[i] = msgstore_unread(convs[i]);
 	}
@@ -71,11 +81,7 @@ static void inbox_draw(struct ui_screen *s, struct gfx *g)
 		enum gfx_color fg = on ? GFX_WHITE : GFX_BLACK;
 		int right = GFX_WIDTH - 2;
 
-		if (convs[idx] == CONV_CHANNEL) {
-			snprintf(name, sizeof(name), "#%s", mesh_channel_name());
-		} else {
-			mesh_node_name(convs[idx], name, sizeof(name));
-		}
+		mesh_conv_name(convs[idx], name, sizeof(name));
 		if (on) {
 			gfx_fill_rect(g, 0, y, GFX_WIDTH, UI_ROW_H, GFX_BLACK);
 		}

@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define MT_MAX_CHANNELS 2
+#define MT_MAX_CHANNELS 4
 #define MT_TXQ_LEN      8
 #define MT_PENDING_LEN  4
 #define MT_SEEN_LEN     64

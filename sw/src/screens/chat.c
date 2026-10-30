@@ -138,11 +138,7 @@ static void chat_draw(struct ui_screen *s, struct gfx *g)
 	char buf[MSG_TEXT_MAX + 1];
 
 	ARG_UNUSED(s);
-	if (conv == CONV_CHANNEL) {
-		snprintf(title, sizeof(title), "#%s", mesh_channel_name());
-	} else {
-		mesh_node_name(conv, title, sizeof(title));
-	}
+	mesh_conv_name(conv, title, sizeof(title));
 	int y0 = ui_draw_title(g, title);
 	int area = GFX_HEIGHT - y0;
 
@@ -199,10 +195,10 @@ static bool chat_event(struct ui_screen *s, const struct ui_event *ev)
 		return true;
 	}
 	if (ui_ev_press(ev, UI_KEY_SELECT) || ui_ev_press(ev, UI_KEY_CALL)) {
-		compose_open_message(conv == CONV_CHANNEL ? MT_BROADCAST : conv);
+		compose_open_message(conv);
 		return true;
 	}
-	if (ui_ev_press(ev, UI_KEY_MEMO) && conv != CONV_CHANNEL) {
+	if (ui_ev_press(ev, UI_KEY_MEMO) && conv_channel(conv) < 0) {
 		node_detail_open(conv);
 		return true;
 	}

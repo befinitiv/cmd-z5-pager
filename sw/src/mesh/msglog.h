@@ -19,3 +19,4 @@ void msglog_load(void);
 void msglog_add(const struct msg *m);
 void msglog_status(uint16_t local_id, uint8_t status);
 void msglog_read(uint32_t conv);
+void msglog_delete(uint32_t conv);

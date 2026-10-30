@@ -169,12 +169,13 @@ struct msg *msgstore_last(uint32_t conv)
 	return NULL;
 }
 
-int msgstore_conversations(uint32_t *convs, int max)
+int msgstore_conversations(uint32_t *convs, int max, const uint32_t *first, int nfirst)
 {
 	int n = 0;
 
-	if (max > 0) {
-		convs[n++] = CONV_CHANNEL;
+	while (n < nfirst && n < max) {
+		convs[n] = first[n];
+		n++;
 	}
 	/* Newest first: walk backwards, skip conversations already listed. */
 	for (int i = count - 1; i >= 0 && n < max; i--) {
@@ -189,4 +190,25 @@ int msgstore_conversations(uint32_t *convs, int max)
 		}
 	}
 	return n;
+}
+
+void msgstore_delete_conv(uint32_t conv)
+{
+	int kept = 0;
+
+	/* Keep the order: move the remaining messages to the front of the ring. */
+	for (int i = 0; i < count; i++) {
+		struct msg *m = &msgs[(head + i) % MSG_MAX];
+
+		if (m->conv != conv) {
+			if (kept != i) {
+				msgs[(head + kept) % MSG_MAX] = *m;
+			}
+			kept++;
+		}
+	}
+	if (kept != count) {
+		count = kept;
+		msglog_delete(conv);
+	}
 }

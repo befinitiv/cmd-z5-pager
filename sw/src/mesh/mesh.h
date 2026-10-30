@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include "meshtastic/nodedb.h"
+#include "msgstore.h"
 
 /* Values of the APP_EV_MESH event. */
 enum mesh_event {
@@ -28,6 +29,53 @@ struct mesh_config {
 	char long_name[40];
 	char short_name[5];
 };
+
+/*
+ * Private channels in slots 1..MESH_CHANNELS-1 (slot 0 is the primary
+ * channel: the preset's name and the default key). They share the primary
+ * channel's frequency and preset; each has its own conversation
+ * (conv_of_channel()).
+ *
+ * Key types:
+ *   number      Meshtastic's 1-byte key: the default key with its last byte
+ *               changed. Easy to set up on both sides, but only 255 values:
+ *               separates groups, does not keep anything secret.
+ *   passphrase  An AES-128 key from SHA-256 of the passphrase; the Meshtastic
+ *               app gets it from the channel's QR code (mesh_channel_url()).
+ */
+#define MESH_CHANNELS     CONV_CHANNELS
+#define MESH_CHANNEL_NAME 11 /* Meshtastic's limit */
+#define MESH_KEY_LEN      16
+
+enum mesh_key_type {
+	MESH_KEY_NUMBER,
+	MESH_KEY_PASSPHRASE,
+};
+
+struct mesh_channel {
+	char name[MESH_CHANNEL_NAME + 1]; /* "" = slot unused */
+	uint8_t key_type;                 /* enum mesh_key_type */
+	uint8_t number;                   /* MESH_KEY_NUMBER: 1..255 */
+	uint8_t key[MESH_KEY_LEN];        /* MESH_KEY_PASSPHRASE */
+};
+
+/* Slot 1..MESH_CHANNELS-1; false if unused. */
+bool mesh_get_channel(int slot, struct mesh_channel *c);
+/* Store and apply; c = NULL deletes the channel and its messages. */
+void mesh_set_channel(int slot, const struct mesh_channel *c);
+/* A free slot, or -1. */
+int mesh_free_channel(void);
+/* "LongFast" for slot 0, the name of a private channel, or "". */
+void mesh_channel_label(int slot, char *buf, size_t size);
+/* Name of a conversation: "#LongFast", "#Family", or the node's name. */
+void mesh_conv_name(uint32_t conv, char *buf, size_t size);
+/* Key from a passphrase (case, extra spaces ignored). */
+void mesh_key_from_passphrase(const char *phrase, uint8_t key[MESH_KEY_LEN]);
+/*
+ * Meshtastic link that adds the channel in the app ("?add=true": the other
+ * channels and the LoRa settings stay). Returns the length, or -1.
+ */
+int mesh_channel_url(int slot, char *buf, size_t size);
 
 int mesh_init(void);
 /* false if the board has no (supported) radio yet. */
@@ -61,8 +109,8 @@ void mesh_get_stats(struct mesh_stats *s);
  */
 void mesh_position_update(void);
 
-/* Store and send a text; to = MT_BROADCAST for the channel. 0 or -errno. */
-int mesh_send_text(uint32_t to, const char *text);
+/* Store and send a text to a conversation (a node or a channel). 0 or -errno. */
+int mesh_send_text(uint32_t conv, const char *text);
 
 /* Node database access from other threads: lock around it. */
 void mesh_lock(void);

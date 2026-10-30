@@ -335,6 +335,7 @@ static const struct ui_menu_item mesh_items[] = {
 	{"Preset", NULL, mesh_action},
 	{"Node", NULL, mesh_action},
 	{"Relay packets", NULL, mesh_action},
+	{"Channels", &channels_menu.screen, NULL},
 };
 
 struct ui_menu mesh_menu = UI_MENU("Mesh", mesh_items, mesh_value);

@@ -152,8 +152,11 @@ static void show_message_toast(void)
 		return;
 	}
 	mesh_node_name(m.from, who, sizeof(who));
-	if (m.conv == CONV_CHANNEL) {
-		snprintf(title, sizeof(title), "%s #%s", who, mesh_channel_name());
+	if (conv_channel(m.conv) >= 0) {
+		char chan[16];
+
+		mesh_conv_name(m.conv, chan, sizeof(chan));
+		snprintf(title, sizeof(title), "%s %s", who, chan);
 	} else {
 		snprintf(title, sizeof(title), "%s", who);
 	}

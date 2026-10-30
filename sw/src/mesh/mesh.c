@@ -14,6 +14,7 @@
 #include "../app.h"
 #include "../clock.h"
 #include "../gps.h"
+#include "meshtastic/crypto.h"
 #include "meshtastic/geo.h"
 #include "meshtastic/router.h"
 #include "mesh.h"
@@ -76,6 +77,10 @@ static struct mt_router router;
 static bool relay_on = true;
 static struct mt_nodedb nodedb;
 static struct mesh_config cfg = {.region = MT_REGION_EU_868, .preset = MT_PRESET_LONG_FAST};
+/* Private channels by slot (slot 0 unused: the primary channel). */
+static struct mesh_channel chans[MESH_CHANNELS];
+/* Router channel index -> slot. */
+static uint8_t router_slot[MT_MAX_CHANNELS];
 static uint32_t my_num;
 static uint8_t priv_key[32];
 static bool have_priv;
@@ -120,6 +125,17 @@ static int mesh_set(const char *name, size_t len, settings_read_cb read_cb, void
 {
 	if (strcmp(name, "cfg") == 0 && len == sizeof(cfg)) {
 		return read_cb(cb_arg, &cfg, len) == (ssize_t)len ? 0 : -EIO;
+	}
+	if (strcmp(name, "ch") == 0 && len == sizeof(chans)) {
+		if (read_cb(cb_arg, chans, len) != (ssize_t)len) {
+			memset(chans, 0, sizeof(chans));
+			return -EIO;
+		}
+		for (int i = 0; i < MESH_CHANNELS; i++) {
+			chans[i].name[MESH_CHANNEL_NAME] = '\0';
+		}
+		memset(&chans[0], 0, sizeof(chans[0]));
+		return 0;
 	}
 	if (strcmp(name, "relay") == 0 && len == sizeof(relay_on)) {
 		return read_cb(cb_arg, &relay_on, len) == (ssize_t)len ? 0 : -EIO;
@@ -431,7 +447,9 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 	switch (d->portnum) {
 	case MT_PORT_TEXT: {
 		struct msg m = {
-			.conv = rx->h.to == MT_BROADCAST ? CONV_CHANNEL : rx->h.from,
+			.conv = rx->h.to != MT_BROADCAST		 ? rx->h.from
+				: rx->channel_index < router.nchannels ? conv_of_channel(router_slot[rx->channel_index])
+								       : CONV_CHANNEL,
 			.from = rx->h.from,
 			.packet_id = rx->h.id,
 			.time = now_time(),
@@ -441,9 +459,6 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 
 		memcpy(m.text, d->payload, n);
 		m.text[n] = '\0';
-		if (rx->h.to == MT_BROADCAST && rx->channel_index != 0) {
-			break; /* only the primary channel is shown for now */
-		}
 		msgstore_lock();
 		msgstore_add(&m);
 		msgstore_unlock();
@@ -576,7 +591,23 @@ static void apply_radio(void)
 	struct mt_radio_params p;
 
 	mt_channel_init(&router.channels[0], "", cfg.preset, &default_psk, 1);
+	router_slot[0] = 0;
 	router.nchannels = 1;
+	for (int slot = 1; slot < MESH_CHANNELS && router.nchannels < MT_MAX_CHANNELS; slot++) {
+		const struct mesh_channel *c = &chans[slot];
+
+		if (!c->name[0]) {
+			continue;
+		}
+		if (c->key_type == MESH_KEY_PASSPHRASE) {
+			mt_channel_init(&router.channels[router.nchannels], c->name, cfg.preset, c->key,
+					sizeof(c->key));
+		} else {
+			mt_channel_init(&router.channels[router.nchannels], c->name, cfg.preset,
+					&c->number, 1);
+		}
+		router_slot[router.nchannels++] = slot;
+	}
 	if (mt_radio_params(cfg.region, cfg.preset, mt_channel_name(&router.channels[0], cfg.preset),
 			    &p) != 0) {
 		cfg.region = MT_REGION_EU_868;
@@ -635,10 +666,19 @@ static void handle_send(uint16_t local_id)
 	if (!m) {
 		return;
 	}
-	uint32_t to = copy.conv == CONV_CHANNEL ? MT_BROADCAST : copy.conv;
+	int slot = conv_channel(copy.conv);
+	uint32_t to = slot < 0 ? copy.conv : MT_BROADCAST;
+	int ch = slot < 0 ? 0 : -1;
 
-	id = mt_router_send(&router, to, 0, MT_PORT_TEXT, copy.text, strlen(copy.text), true, false,
-			    0);
+	/* A channel message goes out on that channel's router index. */
+	for (int i = 0; i < router.nchannels && ch < 0; i++) {
+		if (router_slot[i] == slot) {
+			ch = i;
+		}
+	}
+	id = ch < 0 ? 0
+		    : mt_router_send(&router, to, ch, MT_PORT_TEXT, copy.text, strlen(copy.text),
+				     true, false, 0);
 	msgstore_lock();
 	msgstore_set_sent(local_id, id, id ? MSG_QUEUED : MSG_FAILED);
 	msgstore_unlock();
@@ -755,6 +795,174 @@ const char *mesh_channel_name(void)
 	return mt_preset_name(cfg.preset);
 }
 
+/* Channels ------------------------------------------------------------------ */
+
+bool mesh_get_channel(int slot, struct mesh_channel *c)
+{
+	bool used;
+
+	if (slot < 1 || slot >= MESH_CHANNELS) {
+		return false;
+	}
+	k_mutex_lock(&lock, K_FOREVER);
+	*c = chans[slot];
+	used = c->name[0] != '\0';
+	k_mutex_unlock(&lock);
+	return used;
+}
+
+void mesh_set_channel(int slot, const struct mesh_channel *c)
+{
+	struct evt e = {.type = EVT_RECONFIG};
+
+	if (slot < 1 || slot >= MESH_CHANNELS) {
+		return;
+	}
+	k_mutex_lock(&lock, K_FOREVER);
+	if (c) {
+		chans[slot] = *c;
+		chans[slot].name[MESH_CHANNEL_NAME] = '\0';
+	} else {
+		memset(&chans[slot], 0, sizeof(chans[slot]));
+	}
+	k_mutex_unlock(&lock);
+	settings_save_one("mesh/ch", chans, sizeof(chans));
+	if (!c) {
+		/* A new channel in this slot must not inherit the old conversation. */
+		msgstore_lock();
+		msgstore_delete_conv(conv_of_channel(slot));
+		msgstore_unlock();
+		notify(MESH_EV_STATUS);
+	}
+	if (available) {
+		k_msgq_put(&evq, &e, K_NO_WAIT);
+	}
+}
+
+int mesh_free_channel(void)
+{
+	int slot = -1;
+
+	k_mutex_lock(&lock, K_FOREVER);
+	for (int i = 1; i < MESH_CHANNELS && slot < 0; i++) {
+		if (!chans[i].name[0]) {
+			slot = i;
+		}
+	}
+	k_mutex_unlock(&lock);
+	return slot;
+}
+
+void mesh_channel_label(int slot, char *buf, size_t size)
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	if (slot == 0) {
+		snprintf(buf, size, "%s", mt_preset_name(cfg.preset));
+	} else if (slot > 0 && slot < MESH_CHANNELS) {
+		snprintf(buf, size, "%s", chans[slot].name);
+	} else if (size) {
+		buf[0] = '\0';
+	}
+	k_mutex_unlock(&lock);
+}
+
+void mesh_conv_name(uint32_t conv, char *buf, size_t size)
+{
+	int slot = conv_channel(conv);
+
+	if (slot < 0) {
+		mesh_node_name(conv, buf, size);
+		return;
+	}
+	char label[MESH_CHANNEL_NAME + 1];
+
+	mesh_channel_label(slot, label, sizeof(label));
+	snprintf(buf, size, "#%s", label);
+}
+
+void mesh_key_from_passphrase(const char *phrase, uint8_t key[MESH_KEY_LEN])
+{
+	/*
+	 * Typed with predictive text, the same phrase may come out with other
+	 * capitals or spaces: hash it in lower case, single-spaced and trimmed.
+	 */
+	char norm[MSG_TEXT_MAX + 1];
+	size_t n = 0;
+	uint8_t digest[32];
+
+	for (const char *p = phrase; *p && n < sizeof(norm) - 1; p++) {
+		char ch = *p >= 'A' && *p <= 'Z' ? *p - 'A' + 'a' : *p;
+
+		if (ch == ' ' && (n == 0 || norm[n - 1] == ' ')) {
+			continue;
+		}
+		norm[n++] = ch;
+	}
+	while (n && norm[n - 1] == ' ') {
+		n--;
+	}
+	mt_sha256(norm, n, digest);
+	memcpy(key, digest, MESH_KEY_LEN);
+}
+
+/* Base64url without padding, as in Meshtastic links. */
+static int base64url(const uint8_t *in, size_t len, char *out, size_t size)
+{
+	static const char abc[] =
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+	size_t n = 0;
+
+	for (size_t i = 0; i < len; i += 3) {
+		uint32_t v = in[i] << 16 | (i + 1 < len ? in[i + 1] << 8 : 0) |
+			     (i + 2 < len ? in[i + 2] : 0);
+		int chars = len - i >= 3 ? 4 : (int)(len - i) + 1;
+
+		for (int k = 0; k < chars; k++) {
+			if (n + 1 >= size) {
+				return -1;
+			}
+			out[n++] = abc[(v >> (18 - 6 * k)) & 0x3f];
+		}
+	}
+	out[n] = '\0';
+	return n;
+}
+
+int mesh_channel_url(int slot, char *buf, size_t size)
+{
+	static const char prefix[] = "https://meshtastic.org/e/?add=true#";
+	struct mesh_channel c;
+	/* ChannelSet { settings (1) = ChannelSettings { psk (2), name (3) } } */
+	uint8_t pb[4 + 2 + MESH_KEY_LEN + 2 + MESH_CHANNEL_NAME];
+	size_t name_len, n = 0;
+	int ret;
+
+	if (!mesh_get_channel(slot, &c) || size < sizeof(prefix)) {
+		return -1;
+	}
+	name_len = strlen(c.name);
+	pb[n++] = 0x0a; /* field 1, length-delimited */
+	pb[n++] = 0;    /* length, set below */
+	pb[n++] = 0x12; /* psk */
+	if (c.key_type == MESH_KEY_PASSPHRASE) {
+		pb[n++] = MESH_KEY_LEN;
+		memcpy(pb + n, c.key, MESH_KEY_LEN);
+		n += MESH_KEY_LEN;
+	} else {
+		pb[n++] = 1;
+		pb[n++] = c.number;
+	}
+	pb[n++] = 0x1a; /* name */
+	pb[n++] = name_len;
+	memcpy(pb + n, c.name, name_len);
+	n += name_len;
+	pb[1] = n - 2;
+
+	strcpy(buf, prefix);
+	ret = base64url(pb, n, buf + sizeof(prefix) - 1, size - (sizeof(prefix) - 1));
+	return ret < 0 ? -1 : (int)(sizeof(prefix) - 1) + ret;
+}
+
 void mesh_get_config(struct mesh_config *c)
 {
 	k_mutex_lock(&lock, K_FOREVER);
@@ -775,10 +983,10 @@ void mesh_set_config(const struct mesh_config *c)
 	}
 }
 
-int mesh_send_text(uint32_t to, const char *text)
+int mesh_send_text(uint32_t conv, const char *text)
 {
 	struct msg m = {
-		.conv = to == MT_BROADCAST ? CONV_CHANNEL : to,
+		.conv = conv,
 		.from = my_num,
 		.time = now_time(),
 		.outgoing = true,

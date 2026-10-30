@@ -22,6 +22,7 @@ enum rec_type {
 	REC_MSG = 1,
 	REC_STATUS = 2,
 	REC_READ = 3,
+	REC_DELETE = 4, /* u32 conv: all its messages deleted */
 };
 
 /* REC_MSG: u16 local id, u32 conv, u32 from, u32 packet id, u32 time,
@@ -123,6 +124,14 @@ void msglog_read(uint32_t conv)
 	append(rec, sizeof(rec));
 }
 
+void msglog_delete(uint32_t conv)
+{
+	uint8_t rec[5] = {REC_DELETE};
+
+	sys_put_le32(conv, rec + 1);
+	append(rec, sizeof(rec));
+}
+
 static int read_exact(struct fs_file_t *f, void *buf, size_t len)
 {
 	return fs_read(f, buf, len) == (ssize_t)len ? 0 : -EIO;
@@ -183,6 +192,11 @@ void msglog_load(void)
 				break;
 			}
 			msgstore_mark_read(sys_get_le32(buf + 1));
+		} else if (buf[0] == REC_DELETE) {
+			if (read_exact(&f, buf + 1, 4) != 0) {
+				break;
+			}
+			msgstore_delete_conv(sys_get_le32(buf + 1));
 		} else {
 			LOG_WRN("corrupt message log after %d records", records);
 			break;

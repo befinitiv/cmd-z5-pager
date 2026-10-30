@@ -43,13 +43,13 @@ static const enum ti_ekey digit_keys[] = {
 /* What the text is for: a message, or editing a setting (e.g. the node name). */
 static struct {
 	bool edit;
-	uint32_t to;
+	uint32_t conv; /* a node or a channel (conv_of_channel()) */
 	char title[24];
 	size_t max_len;
 	void (*done)(const char *text);
 	/* The message draft, kept while a setting is edited. */
 	char draft[TI_TEXT_MAX + 1];
-} ctx = {.to = MT_BROADCAST};
+} ctx = {.conv = CONV_CHANNEL};
 
 static bool blink_on = true;
 
@@ -58,10 +58,9 @@ static bool blink_on = true;
  * sent in the conversation and the editor is empty. Offered once, so a text
  * cleared on purpose does not come back.
  */
-static void offer_failed(uint32_t to)
+static void offer_failed(uint32_t conv)
 {
 	static uint16_t offered;
-	uint32_t conv = to == MT_BROADCAST ? CONV_CHANNEL : to;
 	struct ti_editor *ed = textin_editor();
 	char text[MSG_TEXT_MAX + 1] = "";
 	uint16_t id = 0;
@@ -90,11 +89,11 @@ static void offer_failed(uint32_t to)
 	}
 }
 
-void compose_open_message(uint32_t to)
+void compose_open_message(uint32_t conv)
 {
 	ctx.edit = false;
-	ctx.to = to;
-	offer_failed(to);
+	ctx.conv = conv;
+	offer_failed(conv);
 	ui_push(&compose_screen);
 }
 
@@ -153,7 +152,7 @@ static void finish(void)
 	if (!text[0]) {
 		return;
 	}
-	if (mesh_send_text(ctx.to, text) != 0) {
+	if (mesh_send_text(ctx.conv, text) != 0) {
 		ui_message("New message", "The radio is not available.");
 		return;
 	}
@@ -439,10 +438,12 @@ static void compose_draw(struct ui_screen *s, struct gfx *g)
 	gfx_text(g, gfx_font_small, 1, HEADER_Y, buf, GFX_DARK);
 	if (ctx.edit) {
 		snprintf(buf, sizeof(buf), "%s", tr(ctx.title));
-	} else if (ctx.to != MT_BROADCAST) {
+	} else if (conv_channel(ctx.conv) != 0) {
 		char name[16];
 
-		snprintf(buf, sizeof(buf), "> %s", mesh_node_name(ctx.to, name, sizeof(name)));
+		/* Not the public channel: show where it goes. */
+		mesh_conv_name(ctx.conv, name, sizeof(name));
+		snprintf(buf, sizeof(buf), "> %s", name);
 	} else {
 		snprintf(buf, sizeof(buf), "%u/%u", (unsigned)strlen(ti_editor_text(ed)), TI_TEXT_MAX);
 	}

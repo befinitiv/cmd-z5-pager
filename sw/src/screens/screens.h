@@ -17,12 +17,13 @@ extern struct ui_screen compose_screen;
 extern struct ui_screen inbox_screen;
 extern struct ui_screen nodes_screen;
 extern struct ui_menu mesh_menu;
+extern struct ui_menu channels_menu;
 extern struct ui_menu position_menu;
 extern struct ui_screen gps_screen;
 extern struct ui_screen diag_screen;
 
-/* Write a message to a node, or to the channel (MT_BROADCAST). */
-void compose_open_message(uint32_t to);
+/* Write a message to a conversation: a node, or a channel (conv_of_channel()). */
+void compose_open_message(uint32_t conv);
 /* Edit a text setting; done() gets the result (cut to max_len bytes). */
 void compose_open_edit(const char *title, const char *text, size_t max_len,
 		       void (*done)(const char *text));

@@ -13,8 +13,24 @@
 
 #define MSG_MAX       40
 #define MSG_TEXT_MAX  200
-/* Conversation id of the primary channel; direct messages use the node number. */
+/*
+ * Conversation ids: direct messages use the node number, channels the ids
+ * from CONV_CHANNEL downwards (CONV_CHANNEL itself is the primary channel,
+ * then the private channel slots 1..CONV_CHANNELS-1).
+ */
 #define CONV_CHANNEL  0xffffffffu
+#define CONV_CHANNELS 4
+
+static inline uint32_t conv_of_channel(int slot)
+{
+	return CONV_CHANNEL - (uint32_t)slot;
+}
+
+/* The channel slot of a conversation, or -1 for a direct message. */
+static inline int conv_channel(uint32_t conv)
+{
+	return conv > CONV_CHANNEL - CONV_CHANNELS ? (int)(CONV_CHANNEL - conv) : -1;
+}
 
 enum msg_status {
 	MSG_RECEIVED,
@@ -57,8 +73,13 @@ void msgstore_set_sent(uint16_t local_id, uint32_t packet_id, enum msg_status st
 
 int msgstore_unread(uint32_t conv); /* conv = 0: all conversations */
 void msgstore_mark_read(uint32_t conv);
-/* Conversations, the channel first, then by the newest message. */
-int msgstore_conversations(uint32_t *convs, int max);
+/*
+ * Conversations: the given ones first (the channels), then the others by
+ * their newest message.
+ */
+int msgstore_conversations(uint32_t *convs, int max, const uint32_t *first, int nfirst);
+/* Delete all messages of a conversation (a deleted channel). */
+void msgstore_delete_conv(uint32_t conv);
 /* Newest unread message of all conversations, or NULL. */
 struct msg *msgstore_newest_unread(void);
 /* Newest message of a conversation, or NULL. */
