@@ -63,6 +63,7 @@ target_sources(app PRIVATE
   src/screens/gps.c
   src/screens/home.c
   src/screens/hwtest.c
+  src/screens/noise.c
   src/screens/inbox.c
   src/screens/menu.c
   src/screens/nodes.c

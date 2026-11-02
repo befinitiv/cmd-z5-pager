@@ -208,6 +208,7 @@ static const struct ui_menu_item hwtest_items[] = {
 	{"Melody earpiece", NULL, hwtest_action},
 	{"Key test", NULL, hwtest_action},
 	{"Display test", NULL, hwtest_action},
+	{"Radio noise", &noise_screen, NULL},
 };
 
 struct ui_menu hwtest_menu = UI_MENU("Hardware test", hwtest_items, NULL);

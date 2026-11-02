@@ -23,6 +23,7 @@
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/random/random.h>
 #include <zephyr/sys/byteorder.h>
 
 #include <cmdline.h>
@@ -256,10 +257,46 @@ static void rx_thread(void *p1, void *p2, void *p3)
 K_THREAD_DEFINE(radio_emul_rx, CONFIG_ARCH_POSIX_RECOMMENDED_STACK_SIZE, rx_thread, NULL, NULL,
 		NULL, K_PRIO_PREEMPT(5), 0, 0);
 
+/* A plausible noise floor for LongFast that wanders a little. */
+static int radio_emul_noise(const struct device *dev, int16_t *dbm)
+{
+	ARG_UNUSED(dev);
+	if (!radio.open || !radio.configured || radio.sending) {
+		return -EBUSY;
+	}
+	*dbm = -118 + (int16_t)(sys_rand32_get() % 4);
+	return 0;
+}
+
+static int radio_emul_regulator_dcdc(const struct device *dev, bool dcdc)
+{
+	ARG_UNUSED(dev);
+	ARG_UNUSED(dcdc);
+	return 0; /* nothing to switch */
+}
+
+static int radio_emul_reset_released(const struct device *dev, bool released)
+{
+	ARG_UNUSED(dev);
+	ARG_UNUSED(released);
+	return 0; /* no line */
+}
+
+static int radio_emul_rx_path_blocked(const struct device *dev, bool blocked)
+{
+	ARG_UNUSED(dev);
+	ARG_UNUSED(blocked);
+	return 0; /* no switch */
+}
+
 static const struct mesh_radio_api radio_emul_api = {
 	.configure = radio_emul_configure,
 	.send = radio_emul_send,
 	.receive = radio_emul_receive,
+	.noise = radio_emul_noise,
+	.regulator_dcdc = radio_emul_regulator_dcdc,
+	.reset_released = radio_emul_reset_released,
+	.rx_path_blocked = radio_emul_rx_path_blocked,
 };
 
 static int radio_emul_init(const struct device *dev)

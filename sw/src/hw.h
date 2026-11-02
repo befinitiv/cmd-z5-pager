@@ -56,6 +56,16 @@ void hw_audio_stop(void);
  * return.
  */
 FUNC_NORETURN void hw_power_off(void);
+/*
+ * Supply noise test (radio noise screen): the nRF52840's DC/DC regulator
+ * (off: its LDO) and forced PWM on one of the nPM1300's bucks (1: radio,
+ * 2: main rail; off: automatic PWM/PFM). Not stored; the defaults are the
+ * LDO (devicetree) and automatic.
+ */
+void hw_supply_dcdc(bool on);
+bool hw_supply_dcdc_on(void);
+int hw_supply_pwm(int buck, bool forced);
+bool hw_supply_pwm_on(int buck);
 /* USB power present (board: VBUS seen by the nRF52840). */
 bool hw_usb_power(void);
 /*

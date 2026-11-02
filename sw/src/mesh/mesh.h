@@ -100,8 +100,24 @@ struct mesh_stats {
 	uint32_t tx;        /* frames sent: own packets, retries and rebroadcasts */
 	uint32_t relayed;   /* rebroadcasts sent */
 	uint32_t cancelled; /* rebroadcasts dropped: another node relayed first */
+	/* The last frame from the radio, decodable or not (last_rx_ms 0: none). */
+	int64_t last_rx_ms; /* k_uptime_get() */
+	int16_t last_rssi;
+	int8_t last_snr;
 };
 void mesh_get_stats(struct mesh_stats *s);
+
+/* The radio's noise floor in dBm now; -EAGAIN/-EBUSY: try again later. */
+int mesh_noise_floor(int16_t *dbm);
+/* The radio chip's own regulator: DC/DC (default) or LDO. For noise tests. */
+int mesh_radio_dcdc(bool dcdc);
+bool mesh_radio_dcdc_on(void);
+/* Drive the radio's reset line (default) or leave it to the chip's pull-up (noise tests). */
+int mesh_radio_reset_line(bool driven);
+bool mesh_radio_reset_driven(void);
+/* The RF switch's receive path while receiving: on (default) or held off (noise tests). */
+int mesh_radio_rx_path(bool on);
+bool mesh_radio_rx_path_on(void);
 
 /*
  * Our position or the sharing setting changed (from the GPS service):

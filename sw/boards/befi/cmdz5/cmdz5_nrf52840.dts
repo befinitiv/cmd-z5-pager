@@ -158,12 +158,13 @@
 };
 
 /*
- * REG1 in DC/DC mode (DCC -> 10 uH -> 15 nH -> DEC4). On the first board the
- * chip locked up a few milliseconds after switching to DC/DC until L3 was
- * replaced; NRF5X_REG_MODE_LDO is the fallback if that comes back.
+ * REG1 in LDO mode: with its DC/DC (DCC -> 10 uH -> 15 nH -> DEC4) the
+ * radio's noise floor was 4 dB higher (Hardware test > Radio noise, which
+ * can still switch it on). On the first board the chip also locked up a few
+ * milliseconds after switching to DC/DC until L3 was replaced.
  */
 &reg1 {
-	regulator-initial-mode = <NRF5X_REG_MODE_DCDC>;
+	regulator-initial-mode = <NRF5X_REG_MODE_LDO>;
 };
 
 &uicr {
@@ -240,7 +241,7 @@
 			};
 
 			/* Main 3.0 V rail (nRF52840, LIS2DH12), set by VSET2. */
-			BUCK2 {
+			main_supply: BUCK2 {
 				regulator-min-microvolt = <3000000>;
 				regulator-max-microvolt = <3000000>;
 				regulator-boot-on;

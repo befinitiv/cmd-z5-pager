@@ -17,6 +17,12 @@ enum power_state {
 static enum power_state state = POWER_OFF;
 static int64_t last_activity;
 static bool lid_closed;
+static bool light_blocked; /* backlight held off (radio noise test) */
+
+static uint8_t light_level(enum power_state s)
+{
+	return s == POWER_ACTIVE && !light_blocked ? app_config.backlight_level : 0;
+}
 
 static void enter(enum power_state s)
 {
@@ -34,7 +40,7 @@ static void enter(enum power_state s)
 			hw_display_contrast(app_config.contrast);
 			ui_invalidate();
 		}
-		hw_backlight(s == POWER_ACTIVE ? app_config.backlight_level : 0);
+		hw_backlight(light_level(s));
 	}
 	state = s;
 }
@@ -75,8 +81,26 @@ void power_lid(bool closed)
 void power_settings_changed(void)
 {
 	if (state == POWER_ACTIVE) {
-		hw_backlight(app_config.backlight_level);
+		hw_backlight(light_level(state));
 	}
+}
+
+void power_display_off(void)
+{
+	enter(POWER_OFF);
+}
+
+void power_block_backlight(bool off)
+{
+	light_blocked = off;
+	if (state != POWER_OFF) {
+		hw_backlight(light_level(state));
+	}
+}
+
+bool power_backlight_on(void)
+{
+	return light_level(state) > 0;
 }
 
 void power_update(void)

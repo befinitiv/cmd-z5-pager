@@ -85,6 +85,11 @@ static uint32_t my_num;
 static uint8_t priv_key[32];
 static bool have_priv;
 static bool available;
+/* The last frame from the radio (mesh_stats); the lock is the radio thread's. */
+static struct k_spinlock last_rx_lock;
+static int64_t last_rx_ms;
+static int16_t last_rssi;
+static int8_t last_snr;
 static uint32_t rng;
 
 /* Frames produced while the lock is held, sent afterwards. */
@@ -575,6 +580,11 @@ static void on_rx(const struct device *dev, const uint8_t *data, size_t len, int
 
 	ARG_UNUSED(dev);
 	ARG_UNUSED(user_data);
+	K_SPINLOCK(&last_rx_lock) {
+		last_rx_ms = k_uptime_get();
+		last_rssi = rssi;
+		last_snr = snr;
+	}
 	if (len > MT_MAX_FRAME) {
 		return;
 	}
@@ -1029,6 +1039,11 @@ void mesh_get_stats(struct mesh_stats *s)
 	s->cancelled = router.relay_cancelled;
 	s->relayed = router.tx_relayed - router.relay_cancelled;
 	k_mutex_unlock(&lock);
+	K_SPINLOCK(&last_rx_lock) {
+		s->last_rx_ms = last_rx_ms;
+		s->last_rssi = last_rssi;
+		s->last_snr = last_snr;
+	}
 }
 
 void mesh_lock(void)
@@ -1069,4 +1084,75 @@ const char *mesh_node_name(uint32_t num, char *buf, int size)
 uint32_t mesh_uptime_s(void)
 {
 	return k_uptime_get_32() / 1000;
+}
+
+int mesh_noise_floor(int16_t *dbm)
+{
+	if (!available) {
+		return -ENODEV;
+	}
+	return mesh_radio_noise(radio, dbm);
+}
+
+static bool radio_ldo;
+
+int mesh_radio_dcdc(bool dcdc)
+{
+	int ret;
+
+	if (!available) {
+		return -ENODEV;
+	}
+	ret = mesh_radio_regulator_dcdc(radio, dcdc);
+	if (ret == 0) {
+		radio_ldo = !dcdc;
+	}
+	return ret;
+}
+
+bool mesh_radio_dcdc_on(void)
+{
+	return !radio_ldo;
+}
+
+static bool reset_released;
+
+int mesh_radio_reset_line(bool driven)
+{
+	int ret;
+
+	if (!available) {
+		return -ENODEV;
+	}
+	ret = mesh_radio_reset_released(radio, !driven);
+	if (ret == 0) {
+		reset_released = !driven;
+	}
+	return ret;
+}
+
+bool mesh_radio_reset_driven(void)
+{
+	return !reset_released;
+}
+
+static bool rx_path_off;
+
+int mesh_radio_rx_path(bool on)
+{
+	int ret;
+
+	if (!available) {
+		return -ENODEV;
+	}
+	ret = mesh_radio_rx_path_blocked(radio, !on);
+	if (ret == 0) {
+		rx_path_off = !on;
+	}
+	return ret;
+}
+
+bool mesh_radio_rx_path_on(void)
+{
+	return !rx_path_off;
 }

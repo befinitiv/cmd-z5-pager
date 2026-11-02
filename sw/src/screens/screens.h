@@ -21,6 +21,7 @@ extern struct ui_menu channels_menu;
 extern struct ui_menu position_menu;
 extern struct ui_screen gps_screen;
 extern struct ui_screen diag_screen;
+extern struct ui_screen noise_screen;
 
 /* Write a message to a conversation: a node, or a channel (conv_of_channel()). */
 void compose_open_message(uint32_t conv);

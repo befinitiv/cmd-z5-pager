@@ -26,6 +26,8 @@ static const struct device *const pmic = DEVICE_DT_GET(DT_NODELABEL(pmic));
 #define NPM1300_SHIP_BASE            0x0B
 #define NPM1300_TASK_ENTER_SHIP_MODE 0x02
 #include <hal/nrf_power.h>
+#include <zephyr/drivers/regulator.h>
+#include <zephyr/dt-bindings/regulator/npm13xx.h>
 /*
  * GPREGRET2 (kept over a reset): switched off while on USB power, see
  * hw_boot_off(). GPREGRET1 holds MCUboot's boot mode.
@@ -204,6 +206,62 @@ void hw_audio_stop(void)
 		k_mutex_unlock(&audio[i].lock);
 		audio_out_stop(audio[i].dev);
 	}
+}
+
+/* Supply noise test ----------------------------------------------------------- */
+
+static bool supply_pwm[2];
+#ifndef HAVE_PMIC
+static bool supply_dcdc = true;
+#endif
+
+void hw_supply_dcdc(bool on)
+{
+#ifdef HAVE_PMIC
+	/* REG1 may switch between DC/DC and LDO at any time. */
+	nrf_power_dcdcen_set(NRF_POWER, on);
+#else
+	supply_dcdc = on;
+#endif
+}
+
+bool hw_supply_dcdc_on(void)
+{
+#ifdef HAVE_PMIC
+	return nrf_power_dcdcen_get(NRF_POWER);
+#else
+	return supply_dcdc;
+#endif
+}
+
+int hw_supply_pwm(int buck, bool forced)
+{
+	int ret = 0;
+
+	if (buck < 1 || buck > ARRAY_SIZE(supply_pwm)) {
+		return -EINVAL;
+	}
+#ifdef HAVE_PMIC
+	static const struct device *const bucks[] = {
+		DEVICE_DT_GET(DT_NODELABEL(radio_supply)),
+		DEVICE_DT_GET(DT_NODELABEL(main_supply)),
+	};
+
+	ret = regulator_set_mode(bucks[buck - 1],
+				 forced ? NPM13XX_BUCK_MODE_PWM : NPM13XX_BUCK_MODE_AUTO);
+	if (ret != 0) {
+		LOG_WRN("buck %d mode: %d", buck, ret);
+	}
+#endif
+	if (ret == 0) {
+		supply_pwm[buck - 1] = forced;
+	}
+	return ret;
+}
+
+bool hw_supply_pwm_on(int buck)
+{
+	return buck >= 1 && buck <= ARRAY_SIZE(supply_pwm) && supply_pwm[buck - 1];
 }
 
 bool hw_usb_power(void)

@@ -32,3 +32,8 @@ void power_settings_changed(void);
 void power_update(void);
 
 bool power_display_on(void);
+/* Switch the display off now, as the screen timeout does; input wakes it. */
+void power_display_off(void);
+/* Keep the backlight off until called with false (radio noise test). */
+void power_block_backlight(bool off);
+bool power_backlight_on(void);

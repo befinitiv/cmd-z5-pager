@@ -61,6 +61,7 @@ LOG_MODULE_REGISTER(sx1262, CONFIG_CMDZ5_RADIO_LOG_LEVEL);
 #define OP_GET_IRQ_STATUS        0x12
 #define OP_GET_RX_BUFFER_STATUS  0x13
 #define OP_GET_PACKET_STATUS     0x14
+#define OP_GET_RSSI_INST         0x15
 #define OP_GET_DEVICE_ERRORS     0x17
 #define OP_READ_REGISTER         0x1D
 #define OP_READ_BUFFER           0x1E
@@ -78,6 +79,7 @@ LOG_MODULE_REGISTER(sx1262, CONFIG_CMDZ5_RADIO_LOG_LEVEL);
 /* Interrupt flags */
 #define IRQ_TX_DONE      BIT(0)
 #define IRQ_RX_DONE      BIT(1)
+#define IRQ_PREAMBLE     BIT(2)
 #define IRQ_HEADER_VALID BIT(4)
 #define IRQ_HEADER_ERR   BIT(5)
 #define IRQ_CRC_ERR      BIT(6)
@@ -87,7 +89,7 @@ LOG_MODULE_REGISTER(sx1262, CONFIG_CMDZ5_RADIO_LOG_LEVEL);
 
 #define IRQ_DIO1 (IRQ_TX_DONE | IRQ_RX_DONE | IRQ_HEADER_ERR | IRQ_CRC_ERR | IRQ_CAD_DONE | \
 		  IRQ_TIMEOUT)
-#define IRQ_ALL  (IRQ_DIO1 | IRQ_HEADER_VALID | IRQ_CAD_DETECTED)
+#define IRQ_ALL  (IRQ_DIO1 | IRQ_PREAMBLE | IRQ_HEADER_VALID | IRQ_CAD_DETECTED)
 
 #define BUSY_TIMEOUT_MS 100
 /* Listen before talk: backoff of 0..BACKOFF_SLOTS-1 slots of SLOT_SYMBOLS symbols. */
@@ -95,6 +97,8 @@ LOG_MODULE_REGISTER(sx1262, CONFIG_CMDZ5_RADIO_LOG_LEVEL);
 #define SLOT_SYMBOLS  4
 /* Send anyway after this many busy channel checks. */
 #define LBT_MAX_TRIES 20
+/* Noise floor: RSSI samples per reading, about 0.6 ms apart. */
+#define NOISE_SAMPLES 32
 
 enum mode {
 	MODE_STANDBY,
@@ -125,6 +129,8 @@ struct sx1262_data {
 	struct gpio_callback dio1_cb;
 	atomic_t mode;
 	uint16_t done_irq; /* flags that ended the TX or CAD */
+	atomic_t irqs;     /* interrupt rounds handled, to notice traffic */
+	bool rx_blocked;   /* receive path held off (noise test) */
 	struct mesh_radio_config cfg;
 	bool configured;
 	mesh_radio_rx_cb cb;
@@ -292,9 +298,10 @@ static int standby(const struct device *dev)
 static void rx_switch(const struct device *dev, bool on)
 {
 	const struct sx1262_config *cfg = dev->config;
+	struct sx1262_data *data = dev->data;
 
 	if (cfg->rx_enable.port) {
-		gpio_pin_set_dt(&cfg->rx_enable, on);
+		gpio_pin_set_dt(&cfg->rx_enable, on && !data->rx_blocked);
 	}
 }
 
@@ -412,6 +419,7 @@ static void irq_thread(void *p1, void *p2, void *p3)
 				break;
 			}
 			irq_clear(dev, irq);
+			atomic_inc(&data->irqs);
 
 			enum mode mode = atomic_get(&data->mode);
 
@@ -623,10 +631,100 @@ static int sx1262_receive(const struct device *dev, mesh_radio_rx_cb cb, void *u
 	return ret;
 }
 
+/*
+ * Noise floor: the median of instantaneous RSSI samples while receiving. A
+ * reading that overlaps a packet (a preamble, a header or any interrupt seen
+ * meanwhile) is refused with -EAGAIN; while sending or busy -EBUSY.
+ */
+static int sx1262_noise(const struct device *dev, int16_t *dbm)
+{
+	struct sx1262_data *data = dev->data;
+	uint8_t s[NOISE_SAMPLES];
+	uint16_t irq = 0;
+	int ret = 0;
+
+	if (k_mutex_lock(&data->op_lock, K_NO_WAIT) != 0) {
+		return -EBUSY;
+	}
+	if (atomic_get(&data->mode) != MODE_RX) {
+		k_mutex_unlock(&data->op_lock);
+		return -EBUSY;
+	}
+	atomic_val_t irqs = atomic_get(&data->irqs);
+
+	irq_clear(dev, IRQ_PREAMBLE);
+	for (int i = 0; i < NOISE_SAMPLES && ret == 0; i++) {
+		ret = cmd_read(dev, OP_GET_RSSI_INST, &s[i], 1);
+		k_busy_wait(500);
+	}
+	ret = ret ?: irq_get(dev, &irq);
+	k_mutex_unlock(&data->op_lock);
+	if (ret != 0) {
+		return -EIO;
+	}
+	if ((irq & (IRQ_PREAMBLE | IRQ_HEADER_VALID)) || atomic_get(&data->irqs) != irqs) {
+		return -EAGAIN;
+	}
+	/* Insertion sort; the value is -RSSI in half dB. */
+	for (int i = 1; i < NOISE_SAMPLES; i++) {
+		uint8_t v = s[i];
+		int j = i;
+
+		for (; j > 0 && s[j - 1] > v; j--) {
+			s[j] = s[j - 1];
+		}
+		s[j] = v;
+	}
+	*dbm = -(int16_t)((s[NOISE_SAMPLES / 2] + 1) / 2);
+	return 0;
+}
+
+/* SetRegulatorMode in standby, then back to receiving. */
+static int sx1262_regulator_dcdc(const struct device *dev, bool dcdc)
+{
+	struct sx1262_data *data = dev->data;
+	int ret;
+
+	k_mutex_lock(&data->op_lock, K_FOREVER);
+	standby(dev);
+	ret = CMD(dev, OP_SET_REGULATOR_MODE, dcdc ? 0x01 : 0x00);
+	ret |= idle(dev);
+	k_mutex_unlock(&data->op_lock);
+	return ret ? -EIO : 0;
+}
+
+/* NRESET has a pull-up in the SX1262: undriven it stays high. */
+static int sx1262_reset_released(const struct device *dev, bool released)
+{
+	const struct sx1262_config *cfg = dev->config;
+
+	return gpio_pin_configure_dt(&cfg->reset,
+				     released ? GPIO_INPUT : GPIO_OUTPUT_INACTIVE);
+}
+
+static int sx1262_rx_path_blocked(const struct device *dev, bool blocked)
+{
+	const struct sx1262_config *cfg = dev->config;
+	struct sx1262_data *data = dev->data;
+
+	if (!cfg->rx_enable.port) {
+		return -ENOTSUP;
+	}
+	k_mutex_lock(&data->op_lock, K_FOREVER);
+	data->rx_blocked = blocked;
+	rx_switch(dev, atomic_get(&data->mode) == MODE_RX);
+	k_mutex_unlock(&data->op_lock);
+	return 0;
+}
+
 static const struct mesh_radio_api sx1262_api = {
 	.configure = sx1262_configure,
 	.send = sx1262_send,
 	.receive = sx1262_receive,
+	.noise = sx1262_noise,
+	.regulator_dcdc = sx1262_regulator_dcdc,
+	.reset_released = sx1262_reset_released,
+	.rx_path_blocked = sx1262_rx_path_blocked,
 };
 
 /* Init ----------------------------------------------------------------------------- */
