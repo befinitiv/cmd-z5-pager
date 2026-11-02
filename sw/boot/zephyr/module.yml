@@ -1,0 +1,5 @@
+# MCUboot hooks for the CMD-Z5 (screen and exit from USB recovery); added to
+# the MCUboot image only, by sysbuild/CMakeLists.txt.
+name: cmdz5_boot
+build:
+  cmake: .

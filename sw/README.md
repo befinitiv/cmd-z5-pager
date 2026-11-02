@@ -475,7 +475,7 @@ The board build uses sysbuild (`sysbuild.conf`, `sysbuild/`): MCUboot and the ap
 
 * the 1200-baud touch: open the application's port at 1200 baud (`stty -F /dev/ttyACM0 1200`), as for Arduino and Meshtastic nRF52 boards; `src/update.c` sets the boot mode (GPREGRET1) and restarts,
 * Settings → Firmware update on the device,
-* the power key still held 2 s after switching on (MCUboot reads P1.06),
+* the power key still held 10 s after switching on (MCUboot reads P1.06; the long delay keeps the ~1 s wake-up press from ship mode out of recovery, and MCUboot only waits while the key is held),
 * no valid application in the slot.
 
 `tools/usb/update.sh [image]` does the touch, uploads `build-board/sw/zephyr/zephyr.signed.bin` with `smpmgr` (`pipx install smpmgr`) and restarts, about 25 s in all; its `ENOTSUP` messages (a parameter query MCUboot does not answer) are harmless. MCUboot leaves recovery only with an SMP reset (`smpmgr --port … os reset`) or a power cycle. Images are signed with MCUboot's default development key (the build warns about it): MCUboot rejects images that are not signed, but anyone can sign with that key. On Linux, ModemManager probes new serial ports and can swallow the first boot messages; `tools/usb/99-cmdz5.rules` keeps it away.

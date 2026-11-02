@@ -5,7 +5,7 @@
 #   tools/usb/update.sh [image]    default: build-board/sw/zephyr/zephyr.signed.bin
 #
 # A running application is switched to the bootloader with the 1200-baud
-# touch. If the application does not run, hold the power key for 2 s after
+# touch. If the application does not run, hold the power key for 10 s after
 # switching on, or use Settings -> Firmware update.
 set -e
 img=${1:-build-board/sw/zephyr/zephyr.signed.bin}
