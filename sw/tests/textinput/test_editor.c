@@ -148,11 +148,29 @@ static void test_punctuation(void)
 	CHECK_TEXT(&ed, "Hallo,");
 	type("_0");
 	CHECK_TEXT(&ed, "Hallo, ");
-	/* Punctuation after an accepted word replaces the automatic space. */
+	/* A sentence end after an accepted word replaces the automatic space. */
 	reset();
 	type("425560");
 	type("1");
 	CHECK_TEXT(&ed, "Hallo.");
+	/* Other punctuation keeps it; stepping on and back takes it again. */
+	type("1");
+	CHECK_TEXT(&ed, "Hallo ,");
+	type("1");
+	CHECK_TEXT(&ed, "Hallo?");
+	ti_editor_wheel(&ed, -1, now);
+	CHECK_TEXT(&ed, "Hallo!");
+	ti_editor_wheel(&ed, -1, now);
+	CHECK_TEXT(&ed, "Hallo '");
+	/* Deleting the pending character brings the space back. */
+	ti_editor_wheel(&ed, 1, now);
+	type("C");
+	CHECK_TEXT(&ed, "Hallo ");
+	/* "Hallo :)" */
+	reset();
+	type("425560");
+	type("1111111_1111111111");
+	CHECK_TEXT(&ed, "Hallo :)");
 	/* After a sentence end the next word starts with a capital. */
 	reset();
 	type("42556");
@@ -222,39 +240,17 @@ static void test_leaving_the_lexicon(void)
 {
 	int typed;
 
-	/* "Funk" + r: no word fits; Funk stays, the rest is multitap. */
+	/* "Funk" + r: no word fits; the key is ignored. */
 	reset();
 	type("3865");
+	CHECK(!ed.rejected, "rejected after a known word");
+	type("7");
+	CHECK(ed.rejected && ed.nkeys == 4, "rejected %d, %d keys", ed.rejected, ed.nkeys);
 	CHECK(strcmp(ti_editor_composing(&ed, &typed), "Funk") == 0, "'%s'",
 	      ti_editor_composing(&ed, &typed));
-	type("777_");
-	CHECK_TEXT(&ed, "Funkr");
-	CHECK(strcmp(ti_editor_mode_label(&ed), "Abc") == 0, "label %s",
-	      ti_editor_mode_label(&ed));
-	type("2_88_7777_222_44_33_66_0");
-	CHECK_TEXT(&ed, "Funkrauschen ");
-	CHECK(strcmp(ti_editor_mode_label(&ed), "T9 Abc") == 0, "label %s after 0",
-	      ti_editor_mode_label(&ed));
-	/* Learned: predictive mode offers it now. */
-	type("386572872436");
-	CHECK(strcmp(ti_editor_composing(&ed, &typed), "Funkrauschen") == 0, "learned: '%s'",
-	      ti_editor_composing(&ed, &typed));
-
-	/* Punctuation ends the multitap rest. */
-	reset();
-	type("38657_1");
-	CHECK_TEXT(&ed, "Funkp.");
-	type("_2");
-	CHECK(ed.nkeys == 1 && strcmp(ti_editor_mode_label(&ed), "T9 Abc") == 0,
-	      "predictive after punctuation: %d keys, %s", ed.nkeys, ti_editor_mode_label(&ed));
-
-	/* Deleting back to the start of the word: predictive again. */
-	reset();
-	type("38657_");
-	type("CCCCC");
-	CHECK_TEXT(&ed, "");
-	type("2");
-	CHECK(ed.nkeys == 1, "predictive after deleting: %d keys", ed.nkeys);
+	type("0");
+	CHECK(!ed.rejected, "rejected after 0");
+	CHECK_TEXT(&ed, "Funk ");
 }
 
 static void test_long_press_and_123(void)
@@ -267,6 +263,16 @@ static void test_long_press_and_123(void)
 	type("42");
 	CHECK_TEXT(&ed, "742");
 	/* Long C deletes the last word. */
+	ti_editor_key(&ed, TI_EK_CLEAR, true, now);
+	CHECK_TEXT(&ed, "");
+
+	/* While a word is being typed, long C deletes only that word. */
+	reset();
+	type("4240"); /* "Ich " */
+	type("246");
+	ti_editor_key(&ed, TI_EK_CLEAR, true, now);
+	CHECK(ed.nkeys == 0, "%d keys left", ed.nkeys);
+	CHECK_TEXT(&ed, "Ich ");
 	ti_editor_key(&ed, TI_EK_CLEAR, true, now);
 	CHECK_TEXT(&ed, "");
 }

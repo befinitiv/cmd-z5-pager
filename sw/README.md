@@ -337,7 +337,7 @@ A small retained-mode toolkit: a screen stack with `on_enter`, `on_event`, `rend
 | `#` | – | input mode: T9 → multitap → 123 (long: input language) |
 | `*` | – | cursor mode on/off: the cursor blinks and the wheel moves it (typing or push ends it); long: case Abc / abc / ABC |
 | `0` | – | accept the word and add a space (long: `0`) |
-| `1` | – | punctuation `. , ? ! ' - : ; ( ) @ /`, press again for the next one; replaces the space after an accepted word |
+| `1` | – | punctuation `. , ? ! ' - : ; ( ) @ /`, press again for the next one; `. ! ?` replace the space after an accepted word, the others keep it (`hallo :)`) |
 
 In text entry the keys act when released, so that a long press can do something else.
 
@@ -371,7 +371,7 @@ Implemented in phase 2. `lib/textinput` is plain C without Zephyr or dynamic mem
 * **Predictive (T9):** one key press per letter. The candidate bar shows the exact matches and completions (longer words) ranked by context; the word being typed shows the first candidate, with the not yet typed part of a completion in gray. German letters map to their base key (ä→2, ö→6, ü→8, ß→7).
 * **Next-word prediction:** after a space the bar shows the likely next words. Turning the wheel selects one, push accepts it.
 * **Multitap (abc):** classic letter cycling with a 1 s timeout, including ä ö ü ß on the German keys. Words spelled this way are learned and offered in predictive mode from then on.
-* **Words not in the lexicon:** a key after which no word fits switches to multitap for the rest of the word: the word shown so far stays (only its typed part, without a completion), the key is the first multitap press, and the mode label shows "Abc" until the word ends (0, punctuation, `#`, `*`, or deleting back to its start). Like multitap words, the finished word is learned. Compound splitting and a letter n-gram guess were tried first: on German held-out words not in the lexicon, keeping the last word and continuing in multitap gives the right word in 55 % of the cases, compounds (28–41 %) and the letter model (35 %) less, because a T9 sequence can nearly always be split into some words.
+* **Words not in the lexicon:** a key after which no word fits is ignored, with a short low tone; such words are typed in multitap (`#`) and learned, so predictive mode offers them next time. Switching to multitap for the rest of the word, compound splitting and a letter n-gram guess were tried and did not work out in use.
 * **Numeric (123)**, **punctuation** on key 1 and a **symbol picker** (Memo) with accented letters and smileys. While a key 1 character is pending, the bar at the bottom lists all its choices with the current one highlighted, like the word suggestions; pressing 1 again or turning the wheel moves through them, push accepts.
 * **Case:** Abc (capital at the start of a sentence), abc (as typed or as in the lexicon, so German nouns keep their capital), ABC.
 * **Cursor:** `*` switches the wheel from the candidates to moving the cursor through the text (the cursor blinks). Text is inserted and deleted at the cursor; predictions use the words before it.

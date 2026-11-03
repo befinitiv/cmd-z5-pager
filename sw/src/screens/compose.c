@@ -15,6 +15,8 @@
 
 #include <zephyr/kernel.h>
 
+#include "../config.h"
+#include "../hw.h"
 #include "../i18n.h"
 #include "../mesh/mesh.h"
 #include "../mesh/msgstore.h"
@@ -32,6 +34,9 @@
 #define BLINK_MS  400
 /* C held after its long press: one more word every CLEAR_REPEAT_MS. */
 #define CLEAR_REPEAT_MS 350
+/* A key the editor ignored (no word fits): a short low tone. */
+#define ERROR_HZ 200
+#define ERROR_MS 80
 
 static const enum ti_ekey digit_keys[] = {
 	[UI_KEY_0] = TI_EK_0,     [UI_KEY_1] = TI_EK_0 + 1, [UI_KEY_2] = TI_EK_0 + 2,
@@ -196,6 +201,9 @@ static bool compose_event(struct ui_screen *s, const struct ui_event *ev)
 		/* Keys act on release, so a long press can mean something else. */
 		if (ev->value == 0 && editor_key(ev->key, &key)) {
 			used = ti_editor_key(ed, key, false, now);
+			if (ed->rejected) {
+				hw_tone(HW_SPEAKER, ERROR_HZ, ERROR_MS, app_config.volume);
+			}
 		} else if (ev->value && editor_key(ev->key, &key)) {
 			used = true; /* the long press was handled already */
 		}
