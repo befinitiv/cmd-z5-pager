@@ -1,5 +1,6 @@
 /*
- * Main menu (the About screen is in about.c).
+ * Main menu (the About screen is in about.c) and the games menu (the wheel
+ * bent down on the home screen).
  */
 
 #include <stdio.h>
@@ -44,7 +45,7 @@ static const struct ui_menu_item game_items[] = {
 	{"Hexenflug", NULL, witch_action},
 };
 
-static struct ui_menu games_menu = UI_MENU("Games", game_items, NULL);
+struct ui_menu games_menu = UI_MENU("Games", game_items, NULL);
 
 static const struct ui_menu_item main_items[] = {
 	{"Messages", &inbox_screen, NULL},
@@ -52,7 +53,6 @@ static const struct ui_menu_item main_items[] = {
 	{"GPS", &gps_screen, NULL},
 	{"LoRaWAN", NULL, not_yet},
 	{"Settings", &settings_menu.screen, NULL},
-	{"Games", &games_menu.screen, NULL},
 	{"Diagnostics", &diag_screen, NULL},
 	{"Hardware test", &hwtest_menu.screen, NULL},
 	{"About", NULL, about_action},

@@ -1,6 +1,8 @@
 /*
  * Known nodes: names, public keys, position and radio statistics. Fixed size;
- * the least recently heard node is replaced when the table is full.
+ * when the table is full a node is replaced: one without user info if there
+ * is one, else the least recently heard (by last_heard, then heard_unix).
+ * Nodes the application keeps (keep()) are replaced only if all are kept.
  */
 
 #pragma once
@@ -23,6 +25,8 @@ struct mt_node {
 	bool has_position;
 	struct mt_position position;
 	uint32_t last_heard; /* seconds (wall clock if known, else uptime) */
+	/* Wall-clock time last heard, 0 if unknown; kept by the application across restarts. */
+	uint32_t heard_unix;
 	int16_t rssi;
 	int8_t snr;
 	uint8_t hops_away;   /* 0 = direct */
@@ -36,11 +40,16 @@ struct mt_node {
 struct mt_nodedb {
 	struct mt_node nodes[MT_MAX_NODES];
 	int count;
+	/* Optional: nodes not to replace while others can be; ctx is passed. */
+	bool (*keep)(void *ctx, const struct mt_node *n);
+	/* Optional: a node is about to be replaced. */
+	void (*evicted)(void *ctx, const struct mt_node *n);
+	void *ctx;
 };
 
 void mt_nodedb_init(struct mt_nodedb *db);
 struct mt_node *mt_nodedb_find(struct mt_nodedb *db, uint32_t num);
-/* Find or create (replacing the least recently heard node). */
+/* Find or create (replacing a node when full, see above). */
 struct mt_node *mt_nodedb_get(struct mt_nodedb *db, uint32_t num, uint32_t now);
 /* Set a node's user info; invalidates the cached key if the public key changed. */
 void mt_nodedb_set_user(struct mt_node *n, const struct mt_user *u);

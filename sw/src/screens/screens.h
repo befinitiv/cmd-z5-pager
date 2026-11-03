@@ -11,6 +11,7 @@ void statusbar_draw(struct gfx *g);
 
 extern struct ui_screen home_screen;
 extern struct ui_menu main_menu;
+extern struct ui_menu games_menu;
 extern struct ui_menu settings_menu;
 extern struct ui_menu hwtest_menu;
 extern struct ui_screen compose_screen;
@@ -36,7 +37,7 @@ void node_detail_open(uint32_t num);
 
 void about_show(void);
 
-/* Jump and run game (wheel bent down on the home screen). */
+/* Jump and run game (in the games menu: the wheel bent down on the home screen). */
 void game_open(void);
 /* "Hexenflug": a witch evading bats, crows, towers and clouds. */
 void witch_open(void);

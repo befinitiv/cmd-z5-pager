@@ -1,11 +1,14 @@
 /*
  * One conversation: the newest messages at the bottom, each with a small
- * header (sender and time, for own messages the delivery status). The wheel
- * scrolls; push or CALL writes a reply.
+ * header (sender and time, for own messages the delivery status). For
+ * received messages the time alternates every second with how the message
+ * arrived: RSSI and SNR if it came directly, else the hop count (RSSI and SNR
+ * would be the last relay's). The wheel scrolls; push or CALL writes a reply.
  */
 
 #include <stdio.h>
 
+#include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
 #include <string.h>
 
@@ -24,6 +27,7 @@
 
 static uint32_t conv;
 static int scroll; /* rows scrolled up from the bottom */
+static bool show_radio; /* received messages: radio data instead of the time */
 
 struct ui_screen chat_screen;
 
@@ -111,11 +115,28 @@ static const char *status_text(const struct msg *m)
 	}
 }
 
+/* How a received message arrived; "" if unknown. */
+static void radio_text(const struct msg *m, char *buf, size_t size)
+{
+	if (!m->has_radio) {
+		buf[0] = '\0';
+	} else if (m->hops == 0) {
+		snprintf(buf, size, "%ddBm %ddB", m->rssi, m->snr);
+	} else if (m->hops != MSG_HOPS_UNKNOWN) {
+		snprintf(buf, size, "%u %s", m->hops, tr(m->hops == 1 ? "hop" : "hops"));
+	} else {
+		snprintf(buf, size, "? %s", tr("hops"));
+	}
+}
+
 static void draw_header(struct gfx *g, int y, const struct msg *m)
 {
-	char who[20], line[40], when[8] = "";
+	char who[20], line[40], when[24] = "";
 
-	if (m->time) {
+	if (!m->outgoing && (show_radio || !m->time)) {
+		radio_text(m, when, sizeof(when));
+	}
+	if (!when[0] && m->time) {
 		struct clock_tm tm;
 
 		clock_local(m->time, &tm);
@@ -126,9 +147,13 @@ static void draw_header(struct gfx *g, int y, const struct msg *m)
 		gfx_text_aligned(g, gfx_font_small, 0, y, GFX_WIDTH - 2, GFX_ALIGN_RIGHT, line,
 				 m->status == MSG_FAILED ? GFX_BLACK : GFX_DARK);
 	} else {
+		/* The time or radio data on the right, the sender's name before it. */
+		int w = when[0] ? gfx_text_width(gfx_font_small, when, -1) + 4 : 0;
+
 		mesh_node_name(m->from, who, sizeof(who));
-		snprintf(line, sizeof(line), "%s %s", who, when);
-		gfx_text_fit(g, gfx_font_small, 1, y, GFX_WIDTH - 3, line, GFX_DARK);
+		gfx_text_fit(g, gfx_font_small, 1, y, GFX_WIDTH - 3 - w, who, GFX_DARK);
+		gfx_text_aligned(g, gfx_font_small, 0, y, GFX_WIDTH - 2, GFX_ALIGN_RIGHT, when,
+				 GFX_DARK);
 	}
 }
 
@@ -205,6 +230,17 @@ static bool chat_event(struct ui_screen *s, const struct ui_event *ev)
 	return false;
 }
 
+static void chat_poll(struct ui_screen *s)
+{
+	bool radio = (k_uptime_get() / 1000) & 1;
+
+	ARG_UNUSED(s);
+	if (radio != show_radio) {
+		show_radio = radio;
+		ui_invalidate();
+	}
+}
+
 static void chat_enter(struct ui_screen *s)
 {
 	ARG_UNUSED(s);
@@ -215,4 +251,5 @@ struct ui_screen chat_screen = {
 	.event = chat_event,
 	.draw = chat_draw,
 	.enter = chat_enter,
+	.poll = chat_poll,
 };

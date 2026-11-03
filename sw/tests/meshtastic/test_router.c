@@ -178,6 +178,28 @@ void test_router(void)
 	CHECK(nodes[1].texts == 1 && !nodes[1].text_pki, "legacy DM");
 	CHECK(nodes[0].status == MT_TX_ACKED, "legacy DM ACK");
 
+	/* Whether a DM can use PKI. */
+	CHECK(!mt_router_has_key(&nodes[0].r, 0x1001), "key known without NodeInfo");
+	exchange_keys();
+	CHECK(mt_router_has_key(&nodes[0].r, 0x1001), "key unknown after NodeInfo");
+
+	/* A NAK because the destination lacks our key has its own status. */
+	setup();
+	link(0, 1);
+	id = mt_router_send(&nodes[0].r, 0x1001, 0, MT_PORT_TEXT, "who?", 4, true, false, 0);
+	in_range[1][0] = false; /* B's ACK is lost; B answers with the NAK below */
+	run(500);
+	in_range[1][0] = true;
+	{
+		uint8_t nak[8];
+		int n = mt_routing_encode(MT_ROUTING_PKI_UNKNOWN_PUBKEY, nak, sizeof(nak));
+
+		mt_router_send(&nodes[1].r, 0x1000, 0, MT_PORT_ROUTING, nak, n, false, false, id);
+	}
+	run(2000);
+	CHECK(nodes[0].status_id == id && nodes[0].status == MT_TX_NO_PUBKEY, "NAK status %d",
+	      nodes[0].status);
+
 	/* Unreachable destination: 3 retries, then FAILED. */
 	setup();
 	link(0, 1);
@@ -224,4 +246,48 @@ void test_router(void)
 	mt_router_send(&nodes[0].r, MT_BROADCAST, 0, MT_PORT_TEXT, "x", 1, false, false, 0);
 	run(20000);
 	CHECK(nodes[1].texts == 0 && nodes[2].texts == 1, "foreign channel relay");
+}
+
+static bool keep_odd(void *ctx, const struct mt_node *n)
+{
+	(void)ctx;
+	return n->num & 1;
+}
+
+static uint32_t evicted_num;
+
+static void note_evicted(void *ctx, const struct mt_node *n)
+{
+	(void)ctx;
+	evicted_num = n->num;
+}
+
+/* Which node a full table replaces. */
+void test_nodedb(void)
+{
+	static struct mt_nodedb db;
+	struct mt_user u = {0};
+
+	mt_nodedb_init(&db);
+	db.keep = keep_odd;
+	db.evicted = note_evicted;
+	for (uint32_t i = 0; i < MT_MAX_NODES; i++) {
+		struct mt_node *n = mt_nodedb_get(&db, 100 + i, 0);
+
+		mt_nodedb_set_user(n, &u);
+		n->heard_unix = 1000 + i;
+	}
+	/* Loaded nodes (last_heard 0): the one heard longest ago, not kept. */
+	db.nodes[0].heard_unix = 5000;
+	mt_nodedb_get(&db, 900, 10);
+	CHECK(evicted_num == 102, "evicted %u, expected 102", evicted_num);
+	/* A node without user info goes first. */
+	mt_nodedb_get(&db, 901, 20);
+	CHECK(evicted_num == 900, "evicted %u, expected 900 (no user)", evicted_num);
+	/* Nodes heard since the start come after the loaded ones. */
+	CHECK(mt_nodedb_find(&db, 100) != NULL, "100 evicted before older nodes");
+	/* All kept: the oldest of all goes. */
+	db.keep = NULL;
+	mt_nodedb_get(&db, 902, 30);
+	CHECK(evicted_num == 901, "evicted %u, expected 901 (no user)", evicted_num);
 }

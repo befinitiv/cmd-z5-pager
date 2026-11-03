@@ -5,7 +5,40 @@
 
 void mt_nodedb_init(struct mt_nodedb *db)
 {
-	memset(db, 0, sizeof(*db));
+	memset(db->nodes, 0, sizeof(db->nodes));
+	db->count = 0;
+}
+
+/* True if a should be replaced before b. */
+static bool replace_first(const struct mt_node *a, const struct mt_node *b)
+{
+	if (a->has_user != b->has_user) {
+		return !a->has_user;
+	}
+	if (a->last_heard != b->last_heard) {
+		return a->last_heard < b->last_heard;
+	}
+	return a->heard_unix < b->heard_unix;
+}
+
+static struct mt_node *victim(struct mt_nodedb *db)
+{
+	struct mt_node *n = NULL;
+
+	/* First among the nodes not kept, then among all. */
+	for (int pass = 0; pass < 2 && !n; pass++) {
+		for (int i = 0; i < db->count; i++) {
+			struct mt_node *c = &db->nodes[i];
+
+			if (pass == 0 && db->keep && db->keep(db->ctx, c)) {
+				continue;
+			}
+			if (!n || replace_first(c, n)) {
+				n = c;
+			}
+		}
+	}
+	return n;
 }
 
 struct mt_node *mt_nodedb_find(struct mt_nodedb *db, uint32_t num)
@@ -28,11 +61,9 @@ struct mt_node *mt_nodedb_get(struct mt_nodedb *db, uint32_t num, uint32_t now)
 	if (db->count < MT_MAX_NODES) {
 		n = &db->nodes[db->count++];
 	} else {
-		n = &db->nodes[0];
-		for (int i = 1; i < db->count; i++) {
-			if (db->nodes[i].last_heard < n->last_heard) {
-				n = &db->nodes[i];
-			}
+		n = victim(db);
+		if (db->evicted) {
+			db->evicted(db->ctx, n);
 		}
 	}
 	memset(n, 0, sizeof(*n));

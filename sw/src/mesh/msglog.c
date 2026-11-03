@@ -23,12 +23,18 @@ enum rec_type {
 	REC_STATUS = 2,
 	REC_READ = 3,
 	REC_DELETE = 4, /* u32 conv: all its messages deleted */
+	REC_MSG2 = 5,
+	REC_TIME = 6, /* u16 local id, u32 time: set when the clock became valid */
 };
 
-/* REC_MSG: u16 local id, u32 conv, u32 from, u32 packet id, u32 time,
+/*
+ * REC_MSG: u16 local id, u32 conv, u32 from, u32 packet id, u32 time,
  * u8 flags (bit 0 outgoing, bit 1 read), u8 status, u8 text length, text.
+ * REC_MSG2 (written now): the same, flags bit 2 radio data, and before the
+ * text i16 RSSI, i8 SNR, u8 hops.
  */
-#define MSG_HEAD 22 /* bytes before the text, including the type */
+#define MSG_HEAD  22 /* bytes before the text, including the type */
+#define MSG2_HEAD 26
 
 static bool ok;  /* file system available */
 static bool replaying;
@@ -37,17 +43,20 @@ static int encode_msg(const struct msg *m, uint8_t *buf)
 {
 	size_t n = strlen(m->text);
 
-	buf[0] = REC_MSG;
+	buf[0] = REC_MSG2;
 	sys_put_le16(m->local_id, buf + 1);
 	sys_put_le32(m->conv, buf + 3);
 	sys_put_le32(m->from, buf + 7);
 	sys_put_le32(m->packet_id, buf + 11);
 	sys_put_le32(m->time, buf + 15);
-	buf[19] = (m->outgoing ? 1 : 0) | (m->read ? 2 : 0);
+	buf[19] = (m->outgoing ? 1 : 0) | (m->read ? 2 : 0) | (m->has_radio ? 4 : 0);
 	buf[20] = m->status;
 	buf[21] = n;
-	memcpy(buf + MSG_HEAD, m->text, n);
-	return MSG_HEAD + n;
+	sys_put_le16(m->rssi, buf + 22);
+	buf[24] = m->snr;
+	buf[25] = m->hops;
+	memcpy(buf + MSG2_HEAD, m->text, n);
+	return MSG2_HEAD + n;
 }
 
 static void append(const uint8_t *rec, size_t len);
@@ -56,7 +65,7 @@ static void append(const uint8_t *rec, size_t len);
 static void compact(void)
 {
 	struct fs_file_t f;
-	uint8_t buf[MSG_HEAD + MSG_TEXT_MAX];
+	uint8_t buf[MSG2_HEAD + MSG_TEXT_MAX];
 
 	fs_file_t_init(&f);
 	if (fs_open(&f, NEW_PATH, FS_O_CREATE | FS_O_WRITE | FS_O_TRUNC) != 0) {
@@ -102,7 +111,7 @@ static void append(const uint8_t *rec, size_t len)
 
 void msglog_add(const struct msg *m)
 {
-	uint8_t buf[MSG_HEAD + MSG_TEXT_MAX];
+	uint8_t buf[MSG2_HEAD + MSG_TEXT_MAX];
 
 	append(buf, encode_msg(m, buf));
 }
@@ -113,6 +122,15 @@ void msglog_status(uint16_t local_id, uint8_t status)
 
 	sys_put_le16(local_id, rec + 1);
 	rec[3] = status;
+	append(rec, sizeof(rec));
+}
+
+void msglog_time(uint16_t local_id, uint32_t time)
+{
+	uint8_t rec[7] = {REC_TIME};
+
+	sys_put_le16(local_id, rec + 1);
+	sys_put_le32(time, rec + 3);
 	append(rec, sizeof(rec));
 }
 
@@ -141,7 +159,7 @@ void msglog_load(void)
 {
 	struct fs_file_t f;
 	struct fs_statvfs vfs;
-	uint8_t buf[MSG_HEAD + MSG_TEXT_MAX];
+	uint8_t buf[MSG2_HEAD + MSG_TEXT_MAX];
 	int records = 0;
 
 	ok = fs_statvfs("/lfs", &vfs) == 0;
@@ -161,12 +179,19 @@ void msglog_load(void)
 	}
 	replaying = true;
 	while (read_exact(&f, buf, 1) == 0) {
-		if (buf[0] == REC_MSG) {
+		if (buf[0] == REC_MSG || buf[0] == REC_MSG2) {
 			struct msg m = {0};
+			size_t head = buf[0] == REC_MSG2 ? MSG2_HEAD : MSG_HEAD;
 
-			if (read_exact(&f, buf + 1, MSG_HEAD - 1) != 0 ||
+			if (read_exact(&f, buf + 1, head - 1) != 0 ||
 			    read_exact(&f, m.text, buf[21]) != 0) {
 				break; /* truncated last record (power loss): ignore */
+			}
+			if (buf[0] == REC_MSG2) {
+				m.has_radio = buf[19] & 4;
+				m.rssi = (int16_t)sys_get_le16(buf + 22);
+				m.snr = (int8_t)buf[24];
+				m.hops = buf[25];
 			}
 			m.local_id = sys_get_le16(buf + 1);
 			m.conv = sys_get_le32(buf + 3);
@@ -186,6 +211,15 @@ void msglog_load(void)
 
 			if (m) {
 				m->status = buf[3];
+			}
+		} else if (buf[0] == REC_TIME) {
+			if (read_exact(&f, buf + 1, 6) != 0) {
+				break;
+			}
+			struct msg *m = msgstore_find_local(sys_get_le16(buf + 1));
+
+			if (m) {
+				m->time = sys_get_le32(buf + 3);
 			}
 		} else if (buf[0] == REC_READ) {
 			if (read_exact(&f, buf + 1, 4) != 0) {

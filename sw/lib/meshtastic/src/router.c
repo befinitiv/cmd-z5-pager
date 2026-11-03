@@ -129,6 +129,11 @@ static bool shared_key(struct mt_router *r, struct mt_node *n)
 	return n->has_shared_key;
 }
 
+bool mt_router_has_key(struct mt_router *r, uint32_t num)
+{
+	return shared_key(r, mt_nodedb_find(r->db, num));
+}
+
 static bool decode(struct mt_router *r, const struct mt_header *h, const uint8_t *payload,
 		   size_t len, struct mt_rx *rx)
 {
@@ -313,7 +318,10 @@ void mt_router_receive(struct mt_router *r, const uint8_t *frame, size_t len, in
 			mt_routing_decode(d->payload, d->payload_len, &err);
 			if (p) {
 				p->used = false;
-				r->ops->status(r->ctx, d->request_id, err ? MT_TX_FAILED : MT_TX_ACKED);
+				r->ops->status(r->ctx, d->request_id,
+					       !err ? MT_TX_ACKED
+					       : err == MT_ROUTING_PKI_UNKNOWN_PUBKEY ? MT_TX_NO_PUBKEY
+										 : MT_TX_FAILED);
 			}
 		}
 		if (h.to == r->my_num || h.to == MT_BROADCAST) {

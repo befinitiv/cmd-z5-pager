@@ -35,6 +35,7 @@ static const struct translation de[] = {
 	{"Delete", "Löschen"},
 	{"Delete channel", "Kanal löschen"},
 	{"Delete the channel and its messages?", "Kanal und seine Nachrichten löschen?"},
+	{"Delete all messages of this conversation?", "Alle Nachrichten dieser Unterhaltung löschen?"},
 	{"Too short: at least 8 characters.", "Zu kurz: mindestens 8 Zeichen."},
 	{"new", "neu"},
 	{"Diagnostics", "Diagnose"},

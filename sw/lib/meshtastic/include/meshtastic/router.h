@@ -42,6 +42,7 @@ enum mt_tx_status {
 	MT_TX_ACKED,    /* acknowledged (explicitly or implicitly) */
 	MT_TX_NO_ACK,   /* broadcast: nobody relayed it */
 	MT_TX_FAILED,   /* direct message: no ACK, or a NAK */
+	MT_TX_NO_PUBKEY, /* direct message: NAK, the destination lacks our public key */
 };
 
 /* A decoded packet for us (or a broadcast). */
@@ -123,6 +124,9 @@ uint32_t mt_router_send(struct mt_router *r, uint32_t to, uint8_t channel_index,
 
 void mt_router_receive(struct mt_router *r, const uint8_t *frame, size_t len, int16_t rssi,
 		       int8_t snr, uint32_t now);
+
+/* True if direct messages to `num` can be PKI-encrypted (its public key is known). */
+bool mt_router_has_key(struct mt_router *r, uint32_t num);
 
 /* Transmit what is due; returns the ms until the next event (UINT32_MAX: none). */
 uint32_t mt_router_poll(struct mt_router *r, uint32_t now);

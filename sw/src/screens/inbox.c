@@ -1,7 +1,8 @@
 /*
  * Conversation list: the channels first (the primary one, then the private
  * ones), then direct-message conversations by their newest message, with
- * unread counts.
+ * unread counts. Bending the wheel down offers to delete the selected
+ * conversation's messages (a channel stays in the list, empty).
  */
 
 #include <stdio.h>
@@ -20,6 +21,7 @@ static uint32_t convs[MAX_CONVS];
 static int unread[MAX_CONVS];
 static int nconvs;
 static int sel, top;
+static uint32_t to_delete;
 
 static void refresh(void)
 {
@@ -48,6 +50,14 @@ static int visible(void)
 	return (GFX_HEIGHT - UI_CONTENT_Y - UI_TITLE_H) / UI_ROW_H;
 }
 
+static void delete_yes(void)
+{
+	msgstore_lock();
+	msgstore_delete_conv(to_delete);
+	msgstore_unlock();
+	ui_invalidate();
+}
+
 static bool inbox_event(struct ui_screen *s, const struct ui_event *ev)
 {
 	ARG_UNUSED(s);
@@ -58,6 +68,12 @@ static bool inbox_event(struct ui_screen *s, const struct ui_event *ev)
 	}
 	if ((ui_ev_press(ev, UI_KEY_SELECT) || ui_ev_press(ev, UI_KEY_CALL)) && nconvs) {
 		chat_open(convs[sel]);
+		return true;
+	}
+	if (ui_ev_press(ev, UI_KEY_DOWN) && nconvs) {
+		to_delete = convs[sel];
+		ui_confirm("Delete", "Delete all messages of this conversation?",
+			   delete_yes);
 		return true;
 	}
 	return false;

@@ -118,6 +118,8 @@ struct mt_telemetry {
 int mt_telemetry_decode(const uint8_t *buf, size_t len, struct mt_telemetry *t);
 
 /* Routing message: error_reason (0 = none, i.e. an ACK). */
+#define MT_ROUTING_NO_CHANNEL         6  /* also: a DM without PKI, refused */
+#define MT_ROUTING_PKI_UNKNOWN_PUBKEY 35 /* the destination lacks our public key */
 int mt_routing_encode(uint32_t error_reason, uint8_t *buf, size_t size);
 int mt_routing_decode(const uint8_t *buf, size_t len, uint32_t *error_reason);
 

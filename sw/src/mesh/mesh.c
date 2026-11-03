@@ -30,6 +30,18 @@ LOG_MODULE_REGISTER(mesh, CONFIG_CMDZ5_APP_LOG_LEVEL);
 #define NODEINFO_FIRST_MS    5000
 #define NODEINFO_REPLY_MS    (10 * 60 * 1000)  /* answer one node at most every 10 min */
 #define MAX_WAIT_MS          1000
+/*
+ * Current Meshtastic firmware refuses direct messages that are not
+ * PKI-encrypted ("legacy DM", NAK NO_CHANNEL). A DM to a node whose public
+ * key we lack waits for the key: the node is asked for its NodeInfo, the
+ * message goes out when the key arrives, after KEY_WAIT_MS without PKI
+ * (older firmware still takes that). A NAK because the node lacks our key
+ * sends it our NodeInfo and the message again after KEY_RETRY_MS, once per
+ * node every NODEINFO_REPLY_MS.
+ */
+#define KEY_WAIT_MS          30000
+#define KEY_RETRY_MS         3000
+#define KEY_WAITS            4
 /* Position broadcasts, as the Meshtastic defaults (position_broadcast_secs and
  * smart broadcast): every 15 min, and after moving 100 m, at most every 30 s. */
 #define POSITION_INTERVAL_MS (15 * 60 * 1000)
@@ -92,6 +104,25 @@ static int16_t last_rssi;
 static int8_t last_snr;
 static uint32_t rng;
 
+/* Direct messages waiting for a public key (see KEY_WAIT_MS). */
+static struct key_wait {
+	bool used;
+	bool ready; /* the key arrived: send now */
+	uint16_t local_id;
+	uint32_t to;
+	uint32_t until;
+} key_waits[KEY_WAITS];
+
+/* A node's public key arrived: its held messages can go. */
+static void key_arrived(uint32_t num)
+{
+	for (int i = 0; i < KEY_WAITS; i++) {
+		if (key_waits[i].used && key_waits[i].to == num) {
+			key_waits[i].ready = true;
+		}
+	}
+}
+
 /* Frames produced while the lock is held, sent afterwards. */
 static struct {
 	uint8_t len;
@@ -106,6 +137,8 @@ struct reply_slot {
 };
 
 static struct reply_slot replied[8];
+/* Nodes asked for their key, and nodes sent ours after a NAK. */
+static struct reply_slot key_asked[4], key_sent[4];
 static struct reply_slot replied_pos[8];
 
 /* The position we sent last (as sent, i.e. rounded), for smart broadcasts. */
@@ -118,13 +151,29 @@ static struct {
 
 /* Settings ------------------------------------------------------------------ */
 
-/* Node as stored: what we learned from NodeInfo and Position packets. */
+/*
+ * Node as stored: what we learned from NodeInfo and Position packets, and
+ * when it was last heard (wall clock, stored again at most once a day).
+ * At most MT_MAX_NODES are stored: a node replaced in the table is deleted
+ * (see nodedb.h for which; nodes with a direct-message conversation stay).
+ */
 struct stored_node {
 	uint32_t num;
 	struct mt_user user;
 	bool has_position;
 	struct mt_position position;
+	uint32_t heard_unix; /* not in the first version */
 };
+
+#define STORED_NODE_V1 offsetof(struct stored_node, heard_unix)
+BUILD_ASSERT(STORED_NODE_V1 == 152, "first version of the stored node");
+
+#define DAY_S (24 * 3600)
+
+/* While loading: stored nodes that did not fit, deleted afterwards. */
+static bool loading_nodes;
+static uint32_t drop_nodes[64];
+static int ndrop;
 
 static int mesh_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
 {
@@ -152,8 +201,9 @@ static int mesh_set(const char *name, size_t len, settings_read_cb read_cb, void
 		have_priv = read_cb(cb_arg, priv_key, len) == (ssize_t)len;
 		return 0;
 	}
-	if (strncmp(name, "n/", 2) == 0 && len == sizeof(struct stored_node)) {
-		struct stored_node sn;
+	if (strncmp(name, "n/", 2) == 0 &&
+	    (len == sizeof(struct stored_node) || len == STORED_NODE_V1)) {
+		struct stored_node sn = {0};
 
 		if (read_cb(cb_arg, &sn, len) == (ssize_t)len) {
 			struct mt_node *n = mt_nodedb_get(&nodedb, sn.num, 0);
@@ -162,6 +212,7 @@ static int mesh_set(const char *name, size_t len, settings_read_cb read_cb, void
 			n->has_position = sn.has_position;
 			n->position = sn.position;
 			n->last_heard = 0; /* unknown after a restart */
+			n->heard_unix = sn.heard_unix;
 		}
 		return 0;
 	}
@@ -173,11 +224,48 @@ SETTINGS_STATIC_HANDLER_DEFINE(mesh, "mesh", NULL, mesh_set, NULL, NULL);
 static void save_node(const struct mt_node *n)
 {
 	struct stored_node sn = {.num = n->num, .user = n->user, .has_position = n->has_position,
-				 .position = n->position};
+				 .position = n->position, .heard_unix = n->heard_unix};
 	char key[24];
 
 	snprintf(key, sizeof(key), "mesh/n/%08x", n->num);
-	settings_save_one(key, &sn, sizeof(sn));
+	int err = settings_save_one(key, &sn, sizeof(sn));
+
+	if (err) {
+		LOG_WRN("node %08x not stored: %d", n->num, err);
+	}
+}
+
+static void delete_node(uint32_t num)
+{
+	char key[24];
+
+	snprintf(key, sizeof(key), "mesh/n/%08x", num);
+	settings_delete(key);
+}
+
+/* Node database hooks: keep the nodes we have a direct conversation with. */
+static bool keep_node(void *ctx, const struct mt_node *n)
+{
+	bool keep;
+
+	ARG_UNUSED(ctx);
+	msgstore_lock();
+	keep = msgstore_has_conv(n->num);
+	msgstore_unlock();
+	return keep;
+}
+
+static void node_evicted(void *ctx, const struct mt_node *n)
+{
+	ARG_UNUSED(ctx);
+	if (!n->has_user) {
+		return; /* never stored */
+	}
+	if (!loading_nodes) {
+		delete_node(n->num);
+	} else if (ndrop < (int)ARRAY_SIZE(drop_nodes)) {
+		drop_nodes[ndrop++] = n->num; /* not while the settings are read */
+	}
 }
 
 /* Identity ------------------------------------------------------------------- */
@@ -324,6 +412,31 @@ static uint32_t now_time(void)
 	return clock_valid() ? (uint32_t)clock_unix() : 0;
 }
 
+/* For messages without time: when they came, to date them once the clock is set. */
+static uint32_t uptime_mark(void)
+{
+	return clock_valid() ? 0 : (uint32_t)(k_uptime_get() / 1000) + 1;
+}
+
+/* Messages of this boot may still lack their time. */
+static bool untimed = true;
+
+static void date_messages(void)
+{
+	bool changed;
+
+	if (!untimed || !clock_valid()) {
+		return;
+	}
+	untimed = false;
+	msgstore_lock();
+	changed = msgstore_set_times((uint32_t)clock_unix(), (uint32_t)(k_uptime_get() / 1000));
+	msgstore_unlock();
+	if (changed) {
+		notify(MESH_EV_STATUS);
+	}
+}
+
 /* Our position as we may share it; false if there is none or sharing is off. */
 static bool make_position(struct mt_position *p, struct gps_fix *f, uint8_t *share)
 {
@@ -447,9 +560,27 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 {
 	const struct mt_data *d = &rx->d;
 	struct mt_node *node = mt_nodedb_find(&nodedb, rx->h.from);
+	uint32_t t = now_time();
 
 	ARG_UNUSED(ctx);
+	if (node && t) {
+		bool new_day = node->heard_unix / DAY_S != t / DAY_S;
+
+		node->heard_unix = t;
+		if (node->has_user && new_day) {
+			save_node(node);
+		}
+	}
 	switch (d->portnum) {
+	case MT_PORT_ROUTING: {
+		uint32_t err = 0;
+
+		mt_routing_decode(d->payload, d->payload_len, &err);
+		if (err) {
+			LOG_INF("NAK from %08x for %08x: error %u", rx->h.from, d->request_id, err);
+		}
+		break;
+	}
 	case MT_PORT_TEXT: {
 		struct msg m = {
 			.conv = rx->h.to != MT_BROADCAST		 ? rx->h.from
@@ -458,7 +589,15 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 			.from = rx->h.from,
 			.packet_id = rx->h.id,
 			.time = now_time(),
+			.uptime_s = uptime_mark(),
 			.status = MSG_RECEIVED,
+			.has_radio = true,
+			/* hop_start 0: firmware before 2.3 does not tell. */
+			.hops = rx->h.hop_start && rx->h.hop_start >= rx->h.hop_limit
+					? rx->h.hop_start - rx->h.hop_limit
+					: MSG_HOPS_UNKNOWN,
+			.rssi = rx->rssi,
+			.snr = rx->snr,
 		};
 		size_t n = MIN(d->payload_len, MSG_TEXT_MAX);
 
@@ -480,6 +619,9 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 			mt_nodedb_set_user(node, &u);
 			if (changed) {
 				save_node(node);
+			}
+			if (u.has_public_key) {
+				key_arrived(rx->h.from);
 			}
 			notify(MESH_EV_NODES);
 		}
@@ -545,6 +687,8 @@ static void cb_deliver(void *ctx, const struct mt_rx *rx)
 	}
 }
 
+static bool resend_with_our_key(uint32_t packet_id);
+
 static void cb_status(void *ctx, uint32_t id, enum mt_tx_status st)
 {
 	static const uint8_t map[] = {
@@ -556,6 +700,13 @@ static void cb_status(void *ctx, uint32_t id, enum mt_tx_status st)
 	bool known;
 
 	ARG_UNUSED(ctx);
+	if (st == MT_TX_NO_PUBKEY) {
+		if (resend_with_our_key(id)) {
+			notify(MESH_EV_STATUS);
+			return;
+		}
+		st = MT_TX_FAILED;
+	}
 	msgstore_lock();
 	known = msgstore_set_status(id, map[st]);
 	msgstore_unlock();
@@ -661,19 +812,25 @@ static void flush_tx(void)
 	}
 }
 
-static void handle_send(uint16_t local_id)
+static bool load_msg(uint16_t local_id, struct msg *copy)
 {
-	struct msg copy;
 	struct msg *m;
-	uint32_t id;
 
 	msgstore_lock();
 	m = msgstore_find_local(local_id);
 	if (m) {
-		copy = *m;
+		*copy = *m;
 	}
 	msgstore_unlock();
-	if (!m) {
+	return m != NULL;
+}
+
+static void send_now(uint16_t local_id)
+{
+	struct msg copy;
+	uint32_t id;
+
+	if (!load_msg(local_id, &copy)) {
 		return;
 	}
 	int slot = conv_channel(copy.conv);
@@ -693,6 +850,86 @@ static void handle_send(uint16_t local_id)
 	msgstore_set_sent(local_id, id, id ? MSG_QUEUED : MSG_FAILED);
 	msgstore_unlock();
 	notify(id ? MESH_EV_STATUS : MESH_EV_FAILED);
+}
+
+/* Hold a message until `until`; false if all places are taken. */
+static bool hold(uint16_t local_id, uint32_t to, uint32_t until)
+{
+	for (int i = 0; i < KEY_WAITS; i++) {
+		struct key_wait *w = &key_waits[i];
+
+		if (!w->used) {
+			*w = (struct key_wait){.used = true, .local_id = local_id, .to = to,
+					       .until = until};
+			return true;
+		}
+	}
+	return false;
+}
+
+static void handle_send(uint16_t local_id)
+{
+	struct msg copy;
+	uint32_t now = k_uptime_get_32();
+
+	if (!load_msg(local_id, &copy)) {
+		return;
+	}
+	/* A DM without the destination's key: ask for it first. */
+	if (conv_channel(copy.conv) < 0 && router.has_keys &&
+	    !mt_router_has_key(&router, copy.conv) && hold(local_id, copy.conv, now + KEY_WAIT_MS)) {
+		LOG_INF("DM to %08x waits for its public key", copy.conv);
+		if (reply_allowed(key_asked, ARRAY_SIZE(key_asked), copy.conv, KEY_WAIT_MS)) {
+			send_nodeinfo(copy.conv, true);
+		}
+		return;
+	}
+	send_now(local_id);
+}
+
+/* Send the held messages that got their key or waited long enough. */
+static void send_held(uint32_t now)
+{
+	for (int i = 0; i < KEY_WAITS; i++) {
+		struct key_wait *w = &key_waits[i];
+
+		if (w->used && (w->ready || (int32_t)(now - w->until) >= 0)) {
+			w->used = false;
+			send_now(w->local_id);
+		}
+	}
+}
+
+/*
+ * The destination of a DM lacks our public key: send it our NodeInfo and
+ * the message again shortly after. False if that is not possible (then the
+ * message failed).
+ */
+static bool resend_with_our_key(uint32_t packet_id)
+{
+	uint16_t local_id = 0;
+	uint32_t to = 0;
+
+	msgstore_lock();
+	for (int i = 0; i < msgstore_count(); i++) {
+		struct msg *m = msgstore_get(i);
+
+		if (m->outgoing && m->packet_id == packet_id && conv_channel(m->conv) < 0) {
+			local_id = m->local_id;
+			to = m->conv;
+		}
+	}
+	msgstore_unlock();
+	if (!to || !reply_allowed(key_sent, ARRAY_SIZE(key_sent), to, NODEINFO_REPLY_MS) ||
+	    !hold(local_id, to, k_uptime_get_32() + KEY_RETRY_MS)) {
+		return false;
+	}
+	LOG_INF("%08x lacks our public key: NodeInfo, then the DM again", to);
+	send_nodeinfo(to, false);
+	msgstore_lock();
+	msgstore_set_sent(local_id, packet_id, MSG_QUEUED);
+	msgstore_unlock();
+	return true;
 }
 
 static void mesh_thread(void *p1, void *p2, void *p3)
@@ -731,6 +968,9 @@ static void mesh_thread(void *p1, void *p2, void *p3)
 				break;
 			}
 		}
+		router.now = now;
+		send_held(now);
+		date_messages();
 		if ((int32_t)(now - next_nodeinfo) >= 0) {
 			router.now = now;
 			send_nodeinfo(MT_BROADCAST, false);
@@ -756,7 +996,17 @@ int mesh_init(void)
 {
 	msgstore_init();
 	mt_nodedb_init(&nodedb);
+	nodedb.keep = keep_node;
+	nodedb.evicted = node_evicted;
+	loading_nodes = true;
 	settings_load_subtree("mesh");
+	loading_nodes = false;
+	for (int i = 0; i < ndrop; i++) {
+		delete_node(drop_nodes[i]);
+	}
+	if (ndrop) {
+		LOG_INF("%d stored nodes beyond %d deleted", ndrop, MT_MAX_NODES);
+	}
 	init_identity();
 
 	mt_router_init(&router, &ops, NULL, my_num, &nodedb);
@@ -999,6 +1249,7 @@ int mesh_send_text(uint32_t conv, const char *text)
 		.conv = conv,
 		.from = my_num,
 		.time = now_time(),
+		.uptime_s = uptime_mark(),
 		.outgoing = true,
 		.read = true,
 		.status = available ? MSG_QUEUED : MSG_FAILED,

@@ -87,6 +87,23 @@ struct msg *msgstore_find_local(uint16_t local_id)
 	return NULL;
 }
 
+bool msgstore_set_times(uint32_t unix_now, uint32_t uptime_now_s)
+{
+	bool changed = false;
+
+	for (int i = 0; i < count; i++) {
+		struct msg *m = msgstore_get(i);
+
+		if (!m->time && m->uptime_s) {
+			m->time = unix_now - (uptime_now_s - (m->uptime_s - 1));
+			m->uptime_s = 0;
+			msglog_time(m->local_id, m->time);
+			changed = true;
+		}
+	}
+	return changed;
+}
+
 bool msgstore_set_status(uint32_t packet_id, enum msg_status status)
 {
 	for (int i = 0; i < count; i++) {
@@ -99,6 +116,16 @@ bool msgstore_set_status(uint32_t packet_id, enum msg_status status)
 				m->status = status;
 				msglog_status(m->local_id, status);
 			}
+			return true;
+		}
+	}
+	return false;
+}
+
+bool msgstore_has_conv(uint32_t conv)
+{
+	for (int i = 0; i < count; i++) {
+		if (msgstore_get(i)->conv == conv) {
 			return true;
 		}
 	}

@@ -47,11 +47,20 @@ struct msg {
 	uint32_t packet_id;
 	uint16_t local_id;
 	uint32_t time; /* unix time, or 0 if the clock was not set */
+	/* Without time: seconds since boot + 1 (0: from before this boot, not stored). */
+	uint32_t uptime_s;
 	bool outgoing;
 	bool read;
 	uint8_t status;
+	/* Received: how it arrived (RSSI and SNR of the last hop). */
+	bool has_radio;
+	uint8_t hops; /* MSG_HOPS_UNKNOWN: the sender's firmware does not tell */
+	int16_t rssi;
+	int8_t snr;
 	char text[MSG_TEXT_MAX + 1];
 };
+
+#define MSG_HOPS_UNKNOWN 0xff
 
 void msgstore_lock(void);
 void msgstore_unlock(void);
@@ -71,6 +80,14 @@ bool msgstore_set_status(uint32_t packet_id, enum msg_status status);
 /* Set packet id and status of an outgoing message by its local id. */
 void msgstore_set_sent(uint16_t local_id, uint32_t packet_id, enum msg_status status);
 
+/*
+ * The clock became valid: give the messages of this boot that had no time
+ * theirs (unix_now at uptime_now_s). Returns true if any changed.
+ */
+bool msgstore_set_times(uint32_t unix_now, uint32_t uptime_now_s);
+
+/* True if a conversation has messages. */
+bool msgstore_has_conv(uint32_t conv);
 int msgstore_unread(uint32_t conv); /* conv = 0: all conversations */
 void msgstore_mark_read(uint32_t conv);
 /*
