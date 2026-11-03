@@ -19,11 +19,10 @@
 
 /*
  * Open-circuit voltage at 0, 10, ... 100 % of the charge between empty and
- * "full at 4.2 V": a typical LiHV (4.35 V) cell curve, whose first ~88 %
- * this range covers.
+ * full at 4.2 V: a typical LiPo (3.7 V / 4.2 V) cell curve.
  */
 static const int16_t ocv_mv[] = {
-	3400, 3640, 3715, 3762, 3802, 3838, 3890, 3940, 4002, 4075, 4160,
+	3300, 3600, 3670, 3710, 3750, 3790, 3830, 3890, 3970, 4060, 4170,
 };
 #define OCV_STEPS ((int)(sizeof(ocv_mv) / sizeof(ocv_mv[0])) - 1)
 

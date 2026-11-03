@@ -1,6 +1,6 @@
 /*
  * Fuel gauge against a simulated cell that is worse than the gauge assumes
- * (850 instead of 1000 mAh, 1.2 instead of 1.0 ohm) and a current
+ * (950 instead of 1100 mAh, 240 instead of 200 mOhm) and a current
  * measurement with an offset, over a realistic day: radio receiving and
  * display (8 mA), the GPS for 120 s every 17 min (165 mA), now and then a
  * transmission.
@@ -24,8 +24,8 @@ static int failures;
 	} while (0)
 
 /* The simulated cell: true charge and voltage. */
-#define TRUE_UAH  850000
-#define TRUE_MOHM 1200
+#define TRUE_UAH  950000
+#define TRUE_MOHM 240
 #define OFFSET_UA 500
 
 static int64_t true_uams;
@@ -38,7 +38,7 @@ static int true_permille(void)
 /* Same curve shape as the gauge's table, over the true capacity. */
 static int true_ocv(void)
 {
-	static const int ocv[] = {3400, 3640, 3715, 3762, 3802, 3838, 3890, 3940, 4002, 4075, 4160};
+	static const int ocv[] = {3300, 3600, 3670, 3710, 3750, 3790, 3830, 3890, 3970, 4060, 4170};
 	int pos = true_permille() * 10;
 	int i = pos / 1000 >= 10 ? 9 : pos / 1000;
 
@@ -46,8 +46,8 @@ static int true_ocv(void)
 }
 
 static const struct gauge_params params = {
-	.capacity_uah = 1000000,
-	.r_mohm = 1000,
+	.capacity_uah = 1100000,
+	.r_mohm = 200,
 	.charge_ua = 400000,
 };
 
@@ -83,10 +83,10 @@ int main(void)
 	int worst_over = 0, at_true_empty = -1;
 
 	/* OCV table round trip. */
-	CHECK(gauge_ocv_permille(3400) == 0 && gauge_ocv_permille(4160) == 1000 &&
-		      gauge_ocv_permille(3838) == 500,
-	      "ocv table %d %d %d", gauge_ocv_permille(3400), gauge_ocv_permille(4160),
-	      gauge_ocv_permille(3838));
+	CHECK(gauge_ocv_permille(3300) == 0 && gauge_ocv_permille(4170) == 1000 &&
+		      gauge_ocv_permille(3790) == 500,
+	      "ocv table %d %d %d", gauge_ocv_permille(3300), gauge_ocv_permille(4170),
+	      gauge_ocv_permille(3790));
 
 	/* Start at rest, half full: from the voltage, within a few percent. */
 	true_uams = TRUE_UAH * 3600000LL / 2;
@@ -119,7 +119,7 @@ int main(void)
 	CHECK(gauge_soc(&g, GAUGE_FULL) == 100, "full: %d %%", gauge_soc(&g, GAUGE_FULL));
 
 	/*
-	 * Discharge over a day. The gauge assumes 1000 mAh, the cell has 850: the
+	 * Discharge over a day. The gauge assumes 1100 mAh, the cell has 950: the
 	 * count runs ahead of the truth and the voltage correction has to catch
 	 * up, at the latest near empty.
 	 */

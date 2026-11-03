@@ -1,6 +1,6 @@
 /*
  * Simulated battery for the emulator, in place of the nPM1300: a cell as
- * src/gauge.h assumes it (1000 mAh to 4.2 V, 1 ohm), charged like on the
+ * src/gauge.h assumes it (1100 mAh to 4.2 V, 200 mOhm), charged like on the
  * board (constant current, then constant voltage until 10 %). The current
  * follows the emulated outputs with the estimates of the power budget; the
  * display is not counted, its consumption is unknown. The readings are
@@ -20,11 +20,11 @@
 #include "emul.h"
 #include "frontpanel.h"
 
-#define CAPACITY_UAH  1000000 /* as gauge.h assumes */
+#define CAPACITY_UAH  1100000 /* as gauge.h assumes */
 #define CHARGE_UA     400000  /* charger current, as in the board devicetree */
 #define TERM_UA       (CHARGE_UA / 10)
 #define CV_PERMILLE   850     /* constant voltage from here on */
-#define R_INTERNAL_MO 1000
+#define R_INTERNAL_MO 200
 /* nPM1300 IBAT: full scale 1.12 x discharge limit, 10 bits. */
 #define IBAT_LSB_UA (1120000 / 1023)
 #define STATE_KEY   "batt/emul"
@@ -43,7 +43,7 @@ static struct gauge gauge;
 
 /* Open-circuit voltage over the state of charge, the curve gauge.c assumes. */
 static const int16_t ocv_mv[] = {
-	3400, 3640, 3715, 3762, 3802, 3838, 3890, 3940, 4002, 4075, 4160,
+	3300, 3600, 3670, 3710, 3750, 3790, 3830, 3890, 3970, 4060, 4170,
 };
 
 static int soc_permille(void)

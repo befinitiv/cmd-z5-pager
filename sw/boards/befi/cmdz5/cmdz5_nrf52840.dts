@@ -263,7 +263,7 @@
 		charger: charger {
 			compatible = "nordic,npm1300-charger";
 			term-microvolt = <4200000>;
-			/* 1200 mAh LiHV cell charged to 4.2 V only, ~0.33 C (src/gauge.h). */
+			/* 603450 LiPo, 1250 mAh, 4.2 V; ~0.33 C (src/gauge.h). */
 			current-microamp = <400000>;
 			dischg-limit-microamp = <1000000>;
 			vbus-limit-microamp = <500000>;

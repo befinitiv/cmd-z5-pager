@@ -94,8 +94,8 @@ int battery_backend_init(void)
 {
 	struct sensor_value val;
 	struct gauge_params params = {
-		.capacity_uah = 1000000,
-		.r_mohm = 1000,
+		.capacity_uah = 1100000,
+		.r_mohm = 200,
 	};
 	int32_t saved = -1;
 	int ret;

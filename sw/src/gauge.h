@@ -4,10 +4,10 @@
  * nearly at rest. Plain C (host tests in tests/gauge/), used by the board
  * backend and by the emulator's simulated battery.
  *
- * The cell is a 1200 mAh / 3.85 V high-voltage Li-ion cell from an Android
- * phone, charged to 4.2 V only: assumed 1000 mAh usable, about 1 ohm
- * internal resistance (measured with the GPS switched on), and a typical
- * LiHV open-circuit voltage curve scaled to "full at 4.2 V". These are
+ * The cell is a 603450 LiPo (3.7 V, charged to 4.2 V, 1250 mAh nominal,
+ * 1100 mAh typical, with protection circuit), wired to J8: assumed 1100 mAh
+ * usable, about 200 mOhm internal resistance with the protection circuit
+ * and wires, and a typical LiPo open-circuit voltage curve. These are
  * assumptions, not a measured profile.
  */
 
