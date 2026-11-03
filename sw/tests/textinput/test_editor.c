@@ -218,6 +218,45 @@ static void test_multitap_and_learning(void)
 	CHECK_TEXT(&ed, "Ä");
 }
 
+static void test_leaving_the_lexicon(void)
+{
+	int typed;
+
+	/* "Funk" + r: no word fits; Funk stays, the rest is multitap. */
+	reset();
+	type("3865");
+	CHECK(strcmp(ti_editor_composing(&ed, &typed), "Funk") == 0, "'%s'",
+	      ti_editor_composing(&ed, &typed));
+	type("777_");
+	CHECK_TEXT(&ed, "Funkr");
+	CHECK(strcmp(ti_editor_mode_label(&ed), "Abc") == 0, "label %s",
+	      ti_editor_mode_label(&ed));
+	type("2_88_7777_222_44_33_66_0");
+	CHECK_TEXT(&ed, "Funkrauschen ");
+	CHECK(strcmp(ti_editor_mode_label(&ed), "T9 Abc") == 0, "label %s after 0",
+	      ti_editor_mode_label(&ed));
+	/* Learned: predictive mode offers it now. */
+	type("386572872436");
+	CHECK(strcmp(ti_editor_composing(&ed, &typed), "Funkrauschen") == 0, "learned: '%s'",
+	      ti_editor_composing(&ed, &typed));
+
+	/* Punctuation ends the multitap rest. */
+	reset();
+	type("38657_1");
+	CHECK_TEXT(&ed, "Funkp.");
+	type("_2");
+	CHECK(ed.nkeys == 1 && strcmp(ti_editor_mode_label(&ed), "T9 Abc") == 0,
+	      "predictive after punctuation: %d keys, %s", ed.nkeys, ti_editor_mode_label(&ed));
+
+	/* Deleting back to the start of the word: predictive again. */
+	reset();
+	type("38657_");
+	type("CCCCC");
+	CHECK_TEXT(&ed, "");
+	type("2");
+	CHECK(ed.nkeys == 1, "predictive after deleting: %d keys", ed.nkeys);
+}
+
 static void test_long_press_and_123(void)
 {
 	reset();
@@ -334,6 +373,7 @@ int main(void)
 	test_prediction();
 	test_punctuation();
 	test_multitap_and_learning();
+	test_leaving_the_lexicon();
 	test_long_press_and_123();
 	test_cursor();
 	test_no_model();

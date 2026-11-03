@@ -220,7 +220,7 @@ static void refresh(struct ti_editor *ed)
 	context_at(ed, ed->cursor, &ed->p2, &ed->p1);
 	ed->ncands = 0;
 	ed->sel = -1;
-	if (ed->mode != TI_MODE_T9 || ed->pend_len || ed->symbols || !ed->eng) {
+	if (ed->mode != TI_MODE_T9 || ed->tail || ed->pend_len || ed->symbols || !ed->eng) {
 		return;
 	}
 	ed->keys[ed->nkeys] = '\0';
@@ -270,6 +270,24 @@ static void finish_word(struct ti_editor *ed)
 		ed->nkeys = 0;
 	}
 	finish_pending(ed);
+	ed->tail = false;
+}
+
+/* Insert the typed part of the selected candidate (a completion is cut). */
+static void keep_typed(struct ti_editor *ed)
+{
+	const char *p = ed->cand_text[ed->sel];
+	char word[TI_WORD_BYTES];
+	int n;
+
+	for (int i = 0; i < ed->nkeys && *p; i++) {
+		ti_utf8_next(&p);
+	}
+	n = p - ed->cand_text[ed->sel];
+	memcpy(word, ed->cand_text[ed->sel], n);
+	word[n] = '\0';
+	append(ed, word);
+	ed->nkeys = 0;
 }
 
 /* Multitap ----------------------------------------------------------------- */
@@ -372,6 +390,7 @@ void ti_editor_set_engine(struct ti_editor *ed, struct ti_engine *eng, const cha
 		ed->mode = TI_MODE_ABC;
 	}
 	ed->nkeys = 0;
+	ed->tail = false;
 	finish_pending(ed);
 	refresh(ed);
 }
@@ -382,6 +401,7 @@ void ti_editor_clear(struct ti_editor *ed)
 	ed->cursor = 0;
 	ed->text[0] = '\0';
 	ed->nkeys = 0;
+	ed->tail = false;
 	ed->symbols = false;
 	ed->cursor_mode = false;
 	finish_pending(ed);
@@ -409,6 +429,7 @@ void ti_editor_set_text(struct ti_editor *ed, const char *text)
 	ed->len = n;
 	ed->cursor = n;
 	ed->nkeys = 0;
+	ed->tail = false;
 	ed->symbols = false;
 	ed->cursor_mode = false;
 	finish_pending(ed);
@@ -455,6 +476,10 @@ static bool key_clear(struct ti_editor *ed, bool long_press)
 		delete_char(ed);
 	} else if (!ed->len) {
 		return false; /* empty text: the screen may go back */
+	}
+	/* Deleted back to the start of the word: predictive again. */
+	if (ed->tail && (!ed->cursor || !is_word_char(char_before(ed->text, ed->cursor)))) {
+		ed->tail = false;
 	}
 	refresh(ed);
 	return true;
@@ -518,9 +543,16 @@ bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint
 		return true;
 	}
 
-	if (ed->mode == TI_MODE_ABC || digit == '1') {
-		if (ed->mode == TI_MODE_T9 && ed->nkeys) {
-			finish_word(ed);
+	if (ed->tail && digit == '0') {
+		/* The end of the word: back to predictive mode. */
+		finish_word(ed);
+		append_sep(ed, " ");
+		refresh(ed);
+		return true;
+	}
+	if (ed->mode == TI_MODE_ABC || digit == '1' || ed->tail) {
+		if (ed->mode == TI_MODE_T9 && (ed->nkeys || (ed->tail && digit == '1'))) {
+			finish_word(ed); /* punctuation also ends a multitap rest */
 		}
 		multitap(ed, digit, now_ms);
 		refresh(ed);
@@ -548,6 +580,17 @@ bool ti_editor_key(struct ti_editor *ed, enum ti_ekey key, bool long_press, uint
 		ed->keys[ed->nkeys++] = digit;
 	}
 	refresh(ed);
+	if (!ed->ncands) {
+		/* No word fits any more: keep the word so far, the rest is multitap. */
+		ed->nkeys--;
+		if (ed->nkeys) {
+			refresh(ed);
+			keep_typed(ed);
+		}
+		ed->tail = true;
+		multitap(ed, digit, now_ms);
+		refresh(ed);
+	}
 	return true;
 }
 
@@ -702,5 +745,5 @@ const char *ti_editor_mode_label(const struct ti_editor *ed)
 		{"123", "123", "123"},
 	};
 
-	return labels[ed->mode][ed->shift];
+	return labels[ed->tail ? TI_MODE_ABC : ed->mode][ed->shift];
 }

@@ -19,6 +19,13 @@
  *   wheel  move through the candidates; push accepts (with a space)
  *
  * Typing ends cursor mode; the cursor stays where it was placed.
+ *
+ * A key after which no word in the lexicon fits leaves predictive mode for
+ * the rest of the word: the word so far stays (the typed part of the shown
+ * candidate) and that key and the following ones are multitap letters,
+ * until the word ends (0, punctuation, '#', '*', ...). The mode label shows
+ * "abc" meanwhile. The finished word is learned, so predictive mode offers
+ * it next time.
  */
 
 #pragma once
@@ -77,6 +84,9 @@ struct ti_editor {
 	char cand_text[TI_EDIT_CANDS][TI_WORD_BYTES];
 	uint8_t ncands;
 	int8_t sel; /* -1: no candidate selected (predictions only) */
+
+	/* The keys left the lexicon: the rest of the word is multitap. */
+	bool tail;
 
 	/* Multitap: the last pend_len bytes of text are still changeable. */
 	char pend_key;
