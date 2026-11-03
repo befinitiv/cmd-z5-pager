@@ -211,6 +211,7 @@ static const struct translation de[] = {
 	{"Power off", "Ausschalten"},
 	{"Release the key to switch off.", "Taste loslassen zum Ausschalten."},
 	{"Goodbye", "Auf Wiedersehen"},
+	{"Battery empty, switching off.", "Akku leer, schalte aus."},
 };
 
 static const struct translation *const tables[LANG_COUNT] = {

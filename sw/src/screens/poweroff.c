@@ -1,6 +1,7 @@
 /*
  * Shown while the power key is held long: "release to switch off", then a
- * goodbye message while the device shuts down.
+ * goodbye message while the device shuts down, or the reason when the
+ * battery is empty.
  */
 
 #include <string.h>
@@ -57,5 +58,14 @@ void poweroff_show(void)
 void poweroff_goodbye(void)
 {
 	message = "Goodbye";
+	ui_invalidate();
+}
+
+void poweroff_empty(void)
+{
+	message = "Battery empty, switching off.";
+	if (ui_top() != &poweroff) {
+		ui_push(&poweroff);
+	}
 	ui_invalidate();
 }

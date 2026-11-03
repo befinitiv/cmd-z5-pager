@@ -80,6 +80,7 @@ static void run(void *p1, void *p2, void *p3)
 	int64_t last = k_uptime_get();
 	uint32_t since_save = 0; /* ms */
 	int saved_soc = -1;
+	int low_s = 0;
 
 	ARG_UNUSED(p1);
 	ARG_UNUSED(p2);
@@ -116,6 +117,8 @@ static void run(void *p1, void *p2, void *p3)
 		status.ttf_min = g.ttf_min;
 		status.drawn_uah = drawn_uams / 3600000;
 		status.uptime_s += (dt + 500) / 1000;
+		low_s = !s.usb && s.voltage_mv < BATTERY_EMPTY_MV ? low_s + 1 : 0;
+		status.empty = low_s >= BATTERY_EMPTY_S;
 		since_save += dt;
 		/* Changed noticeably (restarts keep it), or the long interval is over. */
 		if ((g.soc >= 0 && abs(g.soc - saved_soc) >= SAVE_SOC_STEP &&

@@ -81,16 +81,24 @@ static void render(void)
 	}
 }
 
-static FUNC_NORETURN void switch_off(void)
+/* Empty battery: the message stays this long, to be read. */
+#define EMPTY_MS 3000
+
+static FUNC_NORETURN void switch_off(bool empty)
 {
-	LOG_INF("switching off");
+	LOG_INF("switching off%s", empty ? ": battery empty" : "");
 	k_timer_stop(&tick_timer);
-	poweroff_goodbye();
+	if (empty) {
+		power_user_activity(false);
+		poweroff_empty();
+	} else {
+		poweroff_goodbye();
+	}
 	render();
 	hw_melody(HW_SPEAKER, goodbye_tune, ARRAY_SIZE(goodbye_tune), app_config.volume);
 	battery_save();
 	/* Let the arpeggio finish (and its last note fade out). */
-	k_msleep(GOODBYE_MS + 200);
+	k_msleep(empty ? EMPTY_MS : GOODBYE_MS + 200);
 	hw_power_off();
 }
 
@@ -199,6 +207,12 @@ static void handle(const struct ui_event *ev)
 		return;
 	}
 	if (ev->type == UI_EV_TICK) {
+		struct battery_status b;
+
+		battery_get(&b);
+		if (b.empty) {
+			switch_off(true);
+		}
 		if (power_display_on()) {
 			ui_dispatch(ev);
 		}
@@ -231,7 +245,7 @@ static void handle(const struct ui_event *ev)
 			poweroff_show();
 		} else if (ev->type == UI_EV_KEY_RELEASE) {
 			/* Released after a long press. */
-			switch_off();
+			switch_off(false);
 		}
 		return;
 	}

@@ -44,3 +44,5 @@ void witch_open(void);
 /* Power key held: ask to release it; then the goodbye message. */
 void poweroff_show(void);
 void poweroff_goodbye(void);
+/* Shown instead of the goodbye when the battery is empty. */
+void poweroff_empty(void);

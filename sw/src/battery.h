@@ -33,7 +33,16 @@ struct battery_status {
 	int ttf_min;     /* time to full in minutes, -1 = unknown */
 	uint32_t drawn_uah; /* charge drawn from the battery since the start */
 	uint32_t uptime_s;  /* time covered by the samples */
+	bool empty; /* below BATTERY_EMPTY_MV for BATTERY_EMPTY_S without USB: switch off */
 };
+
+/*
+ * Empty: the cell is at 0 % (gauge.c) below this voltage, and the protection
+ * circuit would only cut it off at 2.75 V, deep enough to wear it. A while
+ * of samples, so that a transmission or the GPS starting does not count.
+ */
+#define BATTERY_EMPTY_MV 3300
+#define BATTERY_EMPTY_S  10
 
 /* Start sampling. Call after settings are available. */
 void battery_init(void);
