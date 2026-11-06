@@ -55,6 +55,11 @@ struct msg {
 	/* Received: how it arrived (RSSI and SNR of the last hop). */
 	bool has_radio;
 	uint8_t hops; /* MSG_HOPS_UNKNOWN: the sender's firmware does not tell */
+	/*
+	 * MeshCore, along a known route: the message does not tell its hops;
+	 * hops is the length of our route to the sender (the way back).
+	 */
+	bool route_hops;
 	int16_t rssi;
 	int8_t snr;
 	char text[MSG_TEXT_MAX + 1];

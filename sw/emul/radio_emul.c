@@ -11,7 +11,8 @@
  * activity detection does on the board). Packets overlapping at a receiver
  * are lost, and the radio cannot receive while it transmits (half-duplex).
  *
- * Options: --radio-port=<n> (default 4403), --radio-off, --node-num=<hex>.
+ * Options: --radio-port=<n> (default 4403), --radio-off, --node-num=<hex>,
+ * --meshcore (the MeshCore protocol instead of the stored choice).
  */
 
 #define DT_DRV_COMPAT cmdz5_radio_emul
@@ -48,6 +49,7 @@ LOG_MODULE_REGISTER(radio_emul, CONFIG_CMDZ5_EMUL_LOG_LEVEL);
 static uint32_t opt_port = 4403;
 static bool opt_off;
 static char *opt_node_num;
+static bool opt_meshcore;
 
 static struct {
 	bool open;
@@ -74,6 +76,11 @@ static int64_t busy_until; /* the channel is busy (others or us) until then */
 void emul_random(void *buf, size_t len)
 {
 	radio_bottom_random(buf, len);
+}
+
+bool emul_meshcore(void)
+{
+	return opt_meshcore;
 }
 
 uint32_t emul_node_num(void)
@@ -327,6 +334,8 @@ static void add_options(void)
 		 .descript = "Do not connect the emulated LoRa radio"},
 		{.option = "node-num", .name = "hex", .type = 's', .dest = &opt_node_num,
 		 .descript = "Mesh node number (hex), instead of a random one"},
+		{.option = "meshcore", .is_switch = true, .type = 'b', .dest = &opt_meshcore,
+		 .descript = "Use the MeshCore protocol"},
 		ARG_TABLE_ENDMARKER,
 	};
 

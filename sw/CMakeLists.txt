@@ -26,6 +26,7 @@ add_subdirectory(lib/gfx)
 add_subdirectory(lib/ui)
 add_subdirectory(lib/textinput)
 add_subdirectory(lib/meshtastic)
+add_subdirectory(lib/meshcore)
 add_subdirectory(lib/synth)
 add_subdirectory(lib/qrcodegen)
 add_subdirectory(drivers)
@@ -51,6 +52,7 @@ target_sources(app PRIVATE
   src/textin.c
   src/update.c
   src/mesh/mesh.c
+  src/mesh/meshcore.c
   src/mesh/msglog.c
   src/mesh/msgstore.c
   src/screens/about.c

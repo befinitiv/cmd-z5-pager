@@ -6,6 +6,8 @@
 #include <stdlib.h>
 
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log_ctrl.h>
+#include <zephyr/sys/reboot.h>
 
 #include "../clock.h"
 #include "../config.h"
@@ -271,6 +273,29 @@ static void short_done(const char *text)
 	mesh_set_config(&c);
 }
 
+/* The other protocol, after a restart. */
+static void switch_protocol(void)
+{
+	mesh_set_protocol(mesh_protocol() == MESH_PROTO_MESHCORE ? MESH_PROTO_MESHTASTIC
+								 : MESH_PROTO_MESHCORE);
+	log_flush();
+	sys_reboot(SYS_REBOOT_COLD);
+}
+
+static void protocol_action(void)
+{
+	ui_confirm("Protocol",
+		   mesh_protocol() == MESH_PROTO_MESHCORE
+			   ? "Switch to Meshtastic? The device restarts. CALL = switch, C = cancel."
+			   : "Switch to MeshCore? The device restarts. CALL = switch, C = cancel.",
+		   switch_protocol);
+}
+
+static const char *protocol_name(void)
+{
+	return mesh_protocol() == MESH_PROTO_MESHCORE ? "MeshCore" : "Meshtastic";
+}
+
 static void mesh_action(struct ui_menu *m, int idx)
 {
 	struct mesh_config c;
@@ -293,6 +318,9 @@ static void mesh_action(struct ui_menu *m, int idx)
 	case 5:
 		mesh_set_relay(!mesh_relay());
 		ui_invalidate();
+		return;
+	case 7:
+		protocol_action();
 		return;
 	default:
 		return;
@@ -323,6 +351,8 @@ static const char *mesh_value(struct ui_menu *m, int idx, char *buf, size_t len)
 		return buf;
 	case 5:
 		return tr(mesh_relay() ? "on" : "off");
+	case 7:
+		return protocol_name();
 	default:
 		return NULL;
 	}
@@ -336,9 +366,114 @@ static const struct ui_menu_item mesh_items[] = {
 	{"Node", NULL, mesh_action},
 	{"Relay packets", NULL, mesh_action},
 	{"Channels", &channels_menu.screen, NULL},
+	{"Protocol", NULL, mesh_action},
 };
 
-struct ui_menu mesh_menu = UI_MENU("Mesh", mesh_items, mesh_value);
+/* MeshCore: its presets, a region (scope) for floods, adverts. */
+static void scope_done(const char *text)
+{
+	struct mesh_mc_config c;
+	size_t n = 0;
+
+	mesh_mc_get_config(&c);
+	/* "#de-sh" or "DE-SH" as "de-sh": regions are lower case. */
+	for (const char *p = text[0] == '#' ? text + 1 : text; *p && n < sizeof(c.scope) - 1;
+	     p++) {
+		if (*p != ' ') {
+			c.scope[n++] = *p >= 'A' && *p <= 'Z' ? *p - 'A' + 'a' : *p;
+		}
+	}
+	c.scope[n] = '\0';
+	mesh_mc_set_config(&c);
+}
+
+static void mc_action(struct ui_menu *m, int idx)
+{
+	struct mesh_mc_config c;
+	struct mesh_config mc;
+
+	ARG_UNUSED(m);
+	mesh_mc_get_config(&c);
+	mesh_get_config(&mc);
+	switch (idx) {
+	case 0:
+		compose_open_edit("Name", mc.long_name, sizeof(mc.long_name) - 1, name_done);
+		return;
+	case 1:
+		c.preset = (c.preset + 1) % mesh_mc_presets();
+		mesh_mc_set_config(&c);
+		break;
+	case 2:
+		compose_open_edit("Region", c.scope, sizeof(c.scope) - 1, scope_done);
+		return;
+	case 4:
+		mesh_send_advert();
+		ui_toast("Advert", "Sent to the mesh.", NULL, NULL);
+		return;
+	case 6:
+		protocol_action();
+		return;
+	default:
+		return;
+	}
+	ui_invalidate();
+}
+
+static const char *mc_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	struct mesh_mc_config c;
+	struct mesh_config mc;
+
+	ARG_UNUSED(m);
+	mesh_mc_get_config(&c);
+	switch (idx) {
+	case 0:
+		mesh_get_config(&mc);
+		snprintf(buf, len, "%s", mc.long_name);
+		return buf;
+	case 1:
+		return mesh_mc_preset_name(c.preset);
+	case 2:
+		snprintf(buf, len, "%s", c.scope[0] ? c.scope : "-");
+		return buf;
+	case 3:
+		snprintf(buf, len, "%08x", mesh_my_num());
+		return buf;
+	case 6:
+		return protocol_name();
+	default:
+		return NULL;
+	}
+}
+
+static const struct ui_menu_item mc_items[] = {
+	{"Name", NULL, mc_action},
+	{"Preset", NULL, mc_action},
+	{"Region", NULL, mc_action},
+	{"Node", NULL, mc_action},
+	{"Send advert", NULL, mc_action},
+	{"Channels", &channels_menu.screen, NULL},
+	{"Protocol", NULL, mc_action},
+};
+
+/* The items of the protocol in use. */
+static void mesh_enter(struct ui_screen *s)
+{
+	struct ui_menu *m = CONTAINER_OF(s, struct ui_menu, screen);
+	bool mc = mesh_protocol() == MESH_PROTO_MESHCORE;
+
+	m->items = mc ? mc_items : mesh_items;
+	m->count = mc ? ARRAY_SIZE(mc_items) : ARRAY_SIZE(mesh_items);
+	m->value = mc ? mc_value : mesh_value;
+}
+
+struct ui_menu mesh_menu = {
+	.screen = {.title = "Mesh", .enter = mesh_enter, .event = ui_menu_event,
+		   .draw = ui_menu_draw},
+	.items = mesh_items,
+	.count = ARRAY_SIZE(mesh_items),
+	.value = mesh_value,
+};
 
 /* Position ------------------------------------------------------------------ */
 

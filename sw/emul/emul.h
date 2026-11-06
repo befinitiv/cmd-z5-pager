@@ -10,6 +10,8 @@
 void emul_random(void *buf, size_t len);
 /* Node number given with --node-num, or 0. */
 uint32_t emul_node_num(void);
+/* --meshcore: the MeshCore protocol. */
+bool emul_meshcore(void);
 /* Radio state for the simulated battery: receiving, and transmitting. */
 bool emul_radio_rx(void);
 bool emul_radio_tx(void);

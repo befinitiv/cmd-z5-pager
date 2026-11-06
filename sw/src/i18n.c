@@ -187,6 +187,30 @@ static const struct translation de[] = {
 	 "gelöscht, und das Gerät erhält einen neuen Schlüssel. CALL = zurücksetzen, "
 	 "C = abbrechen."},
 
+	/* Conversation menu */
+	{"Silence", "Stumm"},
+	{"Delete messages", "Nachrichten löschen"},
+	{"Too many silenced conversations.", "Zu viele stumme Unterhaltungen."},
+
+	/* Protocol, MeshCore */
+	{"Protocol", "Protokoll"},
+	{"Switch to MeshCore? The device restarts. CALL = switch, C = cancel.",
+	 "Zu MeshCore wechseln? Das Gerät startet neu. CALL = wechseln, C = abbrechen."},
+	{"Switch to Meshtastic? The device restarts. CALL = switch, C = cancel.",
+	 "Zu Meshtastic wechseln? Das Gerät startet neu. CALL = wechseln, C = abbrechen."},
+	{"Send advert", "Advert senden"},
+	{"Advert", "Advert"},
+	{"Sent to the mesh.", "Ins Mesh gesendet."},
+	{"Key", "Schlüssel"},
+	{"#name", "#Name"},
+	{"Repeater", "Repeater"},
+	{"Room server", "Raum-Server"},
+	{"Sensor", "Sensor"},
+	{"Route", "Route"},
+	{"flood", "Flutung"},
+	{"direct", "direkt"},
+	{"route", "Route"},
+
 	/* Relaying (Settings -> Mesh, diagnostics) */
 	{"Relay packets", "Weiterleiten"},
 	{"Relayed", "Weitergeleitet"},

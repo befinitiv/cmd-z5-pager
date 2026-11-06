@@ -210,8 +210,9 @@ static void detail_draw(struct ui_screen *s, struct gfx *g)
 
 	int y = ui_draw_title(g, mt_node_name(&copy, tmp, sizeof(tmp)));
 
-	snprintf(lines[n++], 32, "!%08x %s", copy.num,
-		 copy.has_user ? copy.user.short_name : "");
+	/* MeshCore: the start of the key, then the hash used in routes. */
+	snprintf(lines[n++], 32, "%s%08x %s", mesh_protocol() == MESH_PROTO_MESHCORE ? "" : "!",
+		 copy.num, copy.has_user ? copy.user.short_name : "");
 	format_age(copy.last_heard, age, sizeof(age));
 	snprintf(lines[n++], 32, "%s: %s", tr("Heard"), age);
 	if (copy.last_heard) {
@@ -259,9 +260,7 @@ static void detail_draw(struct ui_screen *s, struct gfx *g)
 			snprintf(lines[n++], 32, "%s: %s", tr("Position"), age);
 		}
 	}
-	snprintf(lines[n++], 32, "%s", tr(copy.has_user && copy.user.has_public_key
-						  ? "Encrypted DMs"
-						  : "No key (channel DMs)"));
+	n += mesh_node_lines(&copy, &lines[n], ARRAY_SIZE(lines) - n);
 	/* The wheel scrolls when the lines do not fit. */
 	int rows = (GFX_HEIGHT - 8 - y) / 8;
 	int y0 = y;

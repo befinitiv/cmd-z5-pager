@@ -144,7 +144,7 @@ static void finish(void)
 	char text[TI_TEXT_MAX + 1];
 
 	ti_editor_commit(ed);
-	final_text(ed, text, ctx.edit ? ctx.max_len : TI_TEXT_MAX);
+	final_text(ed, text, ctx.edit ? ctx.max_len : MIN(mesh_text_max(ctx.conv), TI_TEXT_MAX));
 	if (ctx.edit) {
 		void (*done)(const char *) = ctx.done;
 
@@ -453,7 +453,8 @@ static void compose_draw(struct ui_screen *s, struct gfx *g)
 		mesh_conv_name(ctx.conv, name, sizeof(name));
 		snprintf(buf, sizeof(buf), "> %s", name);
 	} else {
-		snprintf(buf, sizeof(buf), "%u/%u", (unsigned)strlen(ti_editor_text(ed)), TI_TEXT_MAX);
+		snprintf(buf, sizeof(buf), "%u/%u", (unsigned)strlen(ti_editor_text(ed)),
+			 (unsigned)MIN(mesh_text_max(ctx.conv), TI_TEXT_MAX));
 	}
 	gfx_text_aligned(g, gfx_font_small, 0, HEADER_Y, GFX_WIDTH - 1, GFX_ALIGN_RIGHT, buf,
 			 GFX_DARK);

@@ -66,14 +66,14 @@ static void home_draw(struct ui_screen *s, struct gfx *g)
 	if (have_newest) {
 		/* Preview: sender and count, then the start of the newest unread text. */
 		char who[24], count[16];
+		const char *text = mesh_msg_text(&newest, who, sizeof(who));
 
-		mesh_node_name(newest.from, who, sizeof(who));
 		snprintf(count, sizeof(count), tr("%d new"), unread);
 		int cw = gfx_text_width(gfx_font_small, count, -1);
 
 		gfx_text_fit(g, gfx_font_small, 2, 48, GFX_WIDTH - cw - 6, who, GFX_BLACK);
 		gfx_text(g, gfx_font_small, GFX_WIDTH - 2 - cw, 48, count, GFX_BLACK);
-		gfx_text_fit(g, gfx_font_text, 2, 55, GFX_WIDTH - 4, newest.text, GFX_BLACK);
+		gfx_text_fit(g, gfx_font_text, 2, 55, GFX_WIDTH - 4, text, GFX_BLACK);
 	} else {
 		if (!mesh_available()) {
 			snprintf(buf, sizeof(buf), "%s", tr("Mesh off"));

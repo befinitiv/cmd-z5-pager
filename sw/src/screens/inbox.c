@@ -1,8 +1,9 @@
 /*
  * Conversation list: the channels first (the primary one, then the private
  * ones), then direct-message conversations by their newest message, with
- * unread counts. Bending the wheel down offers to delete the selected
- * conversation's messages (a channel stays in the list, empty).
+ * unread counts. Bending the wheel down opens a menu for the selected
+ * conversation: silence it (marked with a crossed speaker) or delete its
+ * messages (a channel stays in the list, empty).
  */
 
 #include <stdio.h>
@@ -21,7 +22,8 @@ static uint32_t convs[MAX_CONVS];
 static int unread[MAX_CONVS];
 static int nconvs;
 static int sel, top;
-static uint32_t to_delete;
+static uint32_t chosen; /* the conversation of the menu */
+static char menu_title[24];
 
 static void refresh(void)
 {
@@ -53,10 +55,36 @@ static int visible(void)
 static void delete_yes(void)
 {
 	msgstore_lock();
-	msgstore_delete_conv(to_delete);
+	msgstore_delete_conv(chosen);
 	msgstore_unlock();
+	ui_pop(); /* the menu, back to the list */
 	ui_invalidate();
 }
+
+static void conv_action(struct ui_menu *m, int idx)
+{
+	ARG_UNUSED(m);
+	if (idx == 0) {
+		if (!mesh_set_muted(chosen, !mesh_muted(chosen))) {
+			ui_message("Silence", "Too many silenced conversations.");
+		}
+	} else {
+		ui_confirm("Delete", "Delete all messages of this conversation?", delete_yes);
+	}
+}
+
+static const char *conv_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	ARG_UNUSED(m);
+	return idx == 0 ? tr(mesh_muted(chosen) ? "on" : "off") : NULL;
+}
+
+static const struct ui_menu_item conv_items[] = {
+	{"Silence", NULL, conv_action},
+	{"Delete messages", NULL, conv_action},
+};
+
+static struct ui_menu conv_menu = UI_MENU("", conv_items, conv_value);
 
 static bool inbox_event(struct ui_screen *s, const struct ui_event *ev)
 {
@@ -71,9 +99,12 @@ static bool inbox_event(struct ui_screen *s, const struct ui_event *ev)
 		return true;
 	}
 	if (ui_ev_press(ev, UI_KEY_DOWN) && nconvs) {
-		to_delete = convs[sel];
-		ui_confirm("Delete", "Delete all messages of this conversation?",
-			   delete_yes);
+		chosen = convs[sel];
+		mesh_conv_name(chosen, menu_title, sizeof(menu_title));
+		conv_menu.screen.title = menu_title;
+		conv_menu.sel = 0;
+		conv_menu.top = 0;
+		ui_push(&conv_menu.screen);
 		return true;
 	}
 	return false;
@@ -100,6 +131,10 @@ static void inbox_draw(struct ui_screen *s, struct gfx *g)
 		mesh_conv_name(convs[idx], name, sizeof(name));
 		if (on) {
 			gfx_fill_rect(g, 0, y, GFX_WIDTH, UI_ROW_H, GFX_BLACK);
+		}
+		if (mesh_muted(convs[idx])) {
+			right -= 9;
+			gfx_draw_icon(g, right + 1, y + 2, &gfx_icon_muted, fg);
 		}
 		if (unread[idx]) {
 			snprintf(count, sizeof(count), "%d", unread[idx]);

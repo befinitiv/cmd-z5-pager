@@ -16,9 +16,11 @@ void factory_reset(void)
 
 	LOG_WRN("factory reset");
 
-	/* Messages (the file system itself stays). */
+	/* Messages, Meshtastic's and MeshCore's (the file system itself stays). */
 	fs_unlink("/lfs/msgs.log");
 	fs_unlink("/lfs/msgs.new");
+	fs_unlink("/lfs/mcmsgs.log");
+	fs_unlink("/lfs/mcmsgs.new");
 
 	/*
 	 * All settings: erase the whole storage partition. The settings

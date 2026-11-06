@@ -1,6 +1,6 @@
 This document proposes the software architecture for the CMD-Z5 replacement board described in `../board/README.md`. The firmware turns the phone into a standalone Meshtastic and LoRaWAN (TTN) messenger with its own UI and predictive text input. The same code also builds for the PC, where an emulator window stands in for the phone hardware.
 
-Status: phases 1 to 3 are implemented (board definition, emulator, graphics, UI toolkit, menus, hardware test; predictive text with language models for German and English; Meshtastic messaging, tested in the emulator). See [Build and run](#build-and-run) and [Development plan](#development-plan).
+Status: phases 1 to 3 are implemented (board definition, emulator, graphics, UI toolkit, menus, hardware test; predictive text with language models for German and English; Meshtastic messaging, tested in the emulator); MeshCore as the other protocol. See [Build and run](#build-and-run) and [Development plan](#development-plan).
 
 # Decisions
 
@@ -86,6 +86,7 @@ sw/
 │   ├── ui/                          # screen stack, events, menu, slider, text view
 │   ├── textinput/                   # model reader, prediction engine, user model, editor
 │   ├── meshtastic/                  # packet codec, crypto (AES, CCM, SHA-256, X25519), channels, router, nodedb
+│   ├── meshcore/                    # MeshCore: packets, adverts, Ed25519/SHA-512, client (DMs, ACKs, routes, channels)
 │   └── synth/                       # software synthesiser: voices, waveforms, envelopes, melody sequencer
 ├── src/
 │   ├── main.c                       # UI thread and event loop
@@ -96,7 +97,7 @@ sw/
 │   ├── i18n.c                       # menu language (English, German)
 │   ├── textin.c                     # models, engines and user models per language
 │   ├── clock.c  config.c  statusbar.c
-│   ├── mesh/                        # mesh service (router thread, identity, nodes) and message store
+│   ├── mesh/                        # mesh service (router thread, identity, nodes), MeshCore mode (meshcore.c), message store
 │   ├── services/                    # (later) radio_arbiter, lorawan_svc, gps_svc, notify_svc
 │   └── screens/                     # home, menu, settings, hardware test, power off, compose, conversations, chat, nodes; (later) inbox, chat, compose, nodes
 ├── lm/                              # language models de.lm, en.lm (+ sources and licences)
@@ -109,7 +110,7 @@ sw/
 │   ├── usb/                         # update.sh (firmware update over USB), udev rule
 │   ├── game/                        # level map generator for the jump and run game (1-1, 1-2)
 │   └── lcd_replay/                  # (later) replays ../display .dsl captures through lcd_ctrl_model
-└── tests/                           # emul/ (smoke.txt, run_mesh.sh), textinput/, meshtastic/, synth/ and gauge/ (host tests: run.sh)
+└── tests/                           # emul/ (smoke.txt, run_mesh.sh, run_meshcore.sh), textinput/, meshtastic/, meshcore/, synth/ and gauge/ (host tests: run.sh)
 ```
 
 # Hardware abstraction
@@ -246,6 +247,31 @@ Tested on the host (`tests/meshtastic/run.sh`): crypto against FIPS-197 and RFC 
 
 Not yet: secondary channels, position requests from the UI, sending telemetry, traceroute, next-hop routing (packets are flooded), duty-cycle accounting, the PhoneAPI.
 
+## MeshCore (`lib/meshcore`, `src/mesh/meshcore.c`)
+
+The other protocol: Settings → Mesh → Protocol switches between Meshtastic and MeshCore (stored under `mesh/proto`; the device restarts). The two do not run at the same time. Each protocol has its own identity, nodes, channels and messages (MeshCore's under `mc/` in the settings and in `/lfs/mcmsgs.log`); the name is shared. The device is a MeshCore companion: it sends and receives, but never repeats. The protocol details follow the MeshCore sources (companion 1.18: `Mesh.cpp`, `BaseChatMesh.cpp`, the companion firmware); no MeshCore code is used.
+
+| Part | Contents |
+|---|---|
+| `packet` | Header (route type, payload type, version), transport codes, path (1–3-byte hashes), payload; packet hash (SHA-256 of type and payload) for duplicates; region scopes: transport code = HMAC-SHA256 with SHA-256 of `#region`; channel keys: Public, hashtag channels (SHA-256 of `#name`) |
+| `advert` | Public key, time, Ed25519 signature, type (companion, repeater, room server, sensor), position (1e-6 degrees) and name in 32 bytes |
+| `crypto` | SHA-512 and Ed25519 (after TweetNaCl, keys in orlp/ed25519's format as MeshCore stores them), shared secret by X25519 with the Edwards key converted to Montgomery form; AES-128-ECB with a 2-byte HMAC-SHA256 ("encrypt then MAC"). AES, SHA-256 and X25519 come from `lib/meshtastic` |
+| `mesh` | The client: duplicate table, transmit queue with delays, DMs with ACK (SHA-256 of time, flags, text and the sender's key), up to 3 attempts (the last by flood), paths learned from PATH packets (with the ACK in them) and returned, group messages ("name: text") and their repeat as delivery check, adverts (zero-hop or flood) |
+
+The mesh service runs it in its own thread (`meshcore.c`):
+
+* **Radio:** the MeshCore app's presets (Settings → Mesh → Preset): EU narrow (869.618 MHz, 62.5 kHz, SF8, CR 4/5, the default), EU long and medium (869.525 MHz, 250 kHz, SF11/SF10), US narrow (910.525 MHz, 62.5 kHz, SF7); sync word 0x12, preamble 32 symbols up to SF8 (else 16), 22 dBm.
+* **Region** (Settings → Mesh → Region, e.g. `de-sh`): floods carry the region's transport code. Repeaters set up with regions forward only floods of regions they serve; without a region a flood may not get far.
+* **Contacts** come from adverts (signature checked, older adverts of a node ignored) into the node database: number = the first 4 bytes of the public key, short name = the hash byte that stands for the node in paths, role = advert type. They are stored with their route (`mc/n/<num>`). Node details show the type and the route (flood, direct or the repeater hashes).
+* **Adverts:** our own (name, position as set under Position → Share) is flooded 10–15 s after the start (once the clock is set, at most 2 min later), every 12 hours, and from Settings → Mesh → Send advert. Advert and message times rise even without a clock (from the last advert's time).
+* **Messages:** DMs go along the known route, else by flood; "delivered" when the ACK comes. Channel messages: Public and up to three channels: hashtag channels (`#ping`: the key from the lower-case name, as in the app) or private ones with a passphrase; Settings → Mesh → Channels → Key shows the key in hex for the app. A channel message counts as delivered when a repeater is heard sending it on ("no relay" otherwise). The sender's name of channel messages is in the text; the chat shows it as the header. Texts are limited to 160 bytes (channels: minus the name).
+* **Hops** in the chat header: messages by flood show the repeaters they passed ("2 hops"); messages along a route do not tell, so the header shows the length of our route back to the sender instead ("route 1 hop", "direct").
+* **Time:** from messages and companions' adverts (at most 3 hops), as for Meshtastic.
+
+Tested on the host (`tests/meshcore/run.sh`): SHA-512 (FIPS 180-4), Ed25519 (RFC 8032 and vectors from Python `cryptography`), shared secrets (Python, and MeshCore's own test key pair), AES decryption (FIPS-197), HMAC (RFC 4231); the Public channel hash (0x11), the `#ping` key and a `de-sh` transport code; advert round trip and forgery; a simulated A–repeater–B network: adverts, flooded DM with PATH/ACK and learned routes in both directions, direct DM, 160-byte limit, channel message and its repeat, retries with a broken route ending in a flood, failure, scoped and unscoped floods at a regional repeater, hashtag channels. In the emulator, `tests/emul/run_meshcore.sh` lets two instances (`--meshcore`) exchange adverts, a channel message and an acknowledged DM.
+
+Not yet: logins to repeaters and room servers, CLI commands, telemetry requests, traces, a channel QR code for the app.
+
 ## LoRaWAN (`lorawan_svc`)
 
 Uses the Zephyr LoRaWAN subsystem (OTAA, EU868, class A). DevEUI, JoinEUI and AppKey are entered in the settings or over the USB shell and stored with the settings subsystem. The DevNonce is kept persistently because LoRaWAN 1.0.4 requires it. Uplinks: Cayenne LPP for position and battery (so TTN decodes them without a custom formatter), and port 10 for UTF-8 text. Downlinks appear in the inbox as a "TTN" conversation.
@@ -329,7 +355,7 @@ A small retained-mode toolkit: a screen stack with `on_enter`, `on_event`, `rend
 | Wheel rotate | move selection, scroll | move through the candidates (also into the next-word predictions); in cursor mode: move the cursor (up = back) |
 | Wheel push | select / open | accept the selected candidate, with a space |
 | Wheel bend up | back (long: home screen), same as C | back; the draft is kept |
-| Wheel bend down | page down; on the home screen: the games menu (Z5 Jump, Hexenflug); in Messages: delete the selected conversation (asks first) | still open |
+| Wheel bend down | page down; on the home screen: the games menu (Z5 Jump, Hexenflug); in Messages: a menu for the selected conversation: silence it (no sound, vibration, pop-up or wake-up; marked with a crossed speaker; stored per protocol, up to 8) or delete its messages (asks first) | still open |
 | CALL | send / confirm | send message (phase 3) |
 | C | back (long: home screen) | delete a key or the character before the cursor (long: the word before it, and while held one more word every 350 ms); back when the text is empty |
 | Memo | context menu | symbol and smiley picker |

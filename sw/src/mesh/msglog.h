@@ -1,5 +1,6 @@
 /*
- * Persistent message log in LittleFS (/lfs/msgs.log): new messages, status
+ * Persistent message log in LittleFS (/lfs/msgs.log, MeshCore's in
+ * /lfs/mcmsgs.log): new messages, status
  * changes and "read" marks are appended as small records and replayed at
  * startup. When the log grows too large it is rewritten with the current
  * messages only (compaction).
@@ -9,10 +10,13 @@
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "msgstore.h"
 
+/* The log of MeshCore's messages instead of Meshtastic's (before msglog_load()). */
+void msglog_select(bool meshcore);
 /* Replay the log into the message store (at startup). */
 void msglog_load(void);
 

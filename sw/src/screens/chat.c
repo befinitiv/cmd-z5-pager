@@ -78,7 +78,9 @@ static void load(void)
 	nrows = 0;
 	for (int m = 0; m < nshown && nrows < MAX_ROWS; m++) {
 		const char *t = shown[m].text;
-		const char *p = t;
+		char who[2];
+		/* Without the sender's name where MeshCore puts it into the text. */
+		const char *p = mesh_msg_text(&shown[m], who, sizeof(who));
 		int width = GFX_WIDTH - 3 - (shown[m].outgoing ? 8 : 0);
 
 		rows[nrows++] = (struct row){.msg = m, .head = 1};
@@ -120,6 +122,13 @@ static void radio_text(const struct msg *m, char *buf, size_t size)
 {
 	if (!m->has_radio) {
 		buf[0] = '\0';
+	} else if (m->route_hops) {
+		if (m->hops == 0) {
+			snprintf(buf, size, "%s", tr("direct"));
+		} else {
+			snprintf(buf, size, "%s %u %s", tr("route"), m->hops,
+				 tr(m->hops == 1 ? "hop" : "hops"));
+		}
 	} else if (m->hops == 0) {
 		snprintf(buf, size, "%ddBm %ddB", m->rssi, m->snr);
 	} else if (m->hops != MSG_HOPS_UNKNOWN) {
@@ -150,7 +159,7 @@ static void draw_header(struct gfx *g, int y, const struct msg *m)
 		/* The time or radio data on the right, the sender's name before it. */
 		int w = when[0] ? gfx_text_width(gfx_font_small, when, -1) + 4 : 0;
 
-		mesh_node_name(m->from, who, sizeof(who));
+		mesh_msg_text(m, who, sizeof(who));
 		gfx_text_fit(g, gfx_font_small, 1, y, GFX_WIDTH - 3 - w, who, GFX_DARK);
 		gfx_text_aligned(g, gfx_font_small, 0, y, GFX_WIDTH - 2, GFX_ALIGN_RIGHT, when,
 				 GFX_DARK);

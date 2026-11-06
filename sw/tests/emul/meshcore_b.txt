@@ -1,0 +1,38 @@
+# Two-instance MeshCore test, node B: receives the channel message, waits for
+# A's advert, opens the node list and A's details, then sends A a direct
+# message (T9 "Gut"), which A acknowledges, then a second one along the route.
+wait 18000
+shot b1.bmp
+key call
+wait 300
+key push
+wait 300
+shot b2.bmp
+key up
+key up
+key push
+key 2
+wait 300
+shot b3.bmp
+key push
+wait 300
+shot b4.bmp
+key push
+key push
+wait 300
+key 4
+key 8
+key 8
+key call
+wait 8000
+shot b5.bmp
+# A second DM: along the route learned from the first.
+key push
+wait 300
+key 4
+key 8
+key 8
+key call
+wait 6000
+shot b6.bmp
+quit

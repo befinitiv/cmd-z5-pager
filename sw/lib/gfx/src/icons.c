@@ -38,6 +38,15 @@ ICON(speaker, 5, 5,
      0x10  /* ...#. */
 );
 
+/* Speaker with a cross: a silenced conversation. */
+ICON(muted, 8, 5,
+     0x11, /* ...#...# */
+     0x3A, /* ..###.#. */
+     0xF4, /* ####.#.. */
+     0x3A, /* ..###.#. */
+     0x11  /* ...#...# */
+);
+
 ICON(bolt, 3, 5,
      0x20, /* ..# */
      0x40, /* .#. */

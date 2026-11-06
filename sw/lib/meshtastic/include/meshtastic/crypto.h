@@ -1,7 +1,6 @@
 /*
  * Cryptography for the Meshtastic protocol, in plain C without dependencies:
- * AES-128/256 (encryption direction only, enough for CTR and CCM), SHA-256
- * and X25519.
+ * AES-128/256, SHA-256 and X25519 (MeshCore, lib/meshcore, uses them too).
  *
  * Channel messages: AES-CTR with the channel key. Direct messages: AES-256-CCM
  * with SHA-256 of the X25519 shared secret ("PKI").
@@ -25,6 +24,7 @@ struct mt_aes {
 /* key_len 16 or 32. Returns 0 or -1. */
 int mt_aes_init(struct mt_aes *aes, const uint8_t *key, size_t key_len);
 void mt_aes_encrypt(const struct mt_aes *aes, const uint8_t in[16], uint8_t out[16]);
+void mt_aes_decrypt(const struct mt_aes *aes, const uint8_t in[16], uint8_t out[16]);
 
 struct mt_sha256 {
 	uint32_t h[8];

@@ -148,6 +148,7 @@ static void show_message_toast(void)
 {
 	static struct msg m;
 	char who[24], title[40];
+	const char *text;
 	bool have = false;
 
 	msgstore_lock();
@@ -159,7 +160,7 @@ static void show_message_toast(void)
 	if (!have || ui_top() == &home_screen || chat_showing(m.conv)) {
 		return;
 	}
-	mesh_node_name(m.from, who, sizeof(who));
+	text = mesh_msg_text(&m, who, sizeof(who));
 	if (conv_channel(m.conv) >= 0) {
 		char chan[16];
 
@@ -168,8 +169,21 @@ static void show_message_toast(void)
 	} else {
 		snprintf(title, sizeof(title), "%s", who);
 	}
-	ui_toast(title, m.text, open_conversation, (void *)(uintptr_t)m.conv);
+	ui_toast(title, text, open_conversation, (void *)(uintptr_t)m.conv);
 	toast_until = k_uptime_get() + TOAST_MS;
+}
+
+/* The new message is in a silenced conversation. */
+static bool newest_muted(void)
+{
+	uint32_t conv = 0;
+
+	msgstore_lock();
+	if (msgstore_newest_unread()) {
+		conv = msgstore_newest_unread()->conv;
+	}
+	msgstore_unlock();
+	return conv && mesh_muted(conv);
 }
 
 static const struct hw_note message_tune[] = {
@@ -188,7 +202,9 @@ static void handle(const struct ui_event *ev)
 		return;
 	}
 	if (ev->type == APP_EV_MESH) {
-		if (ev->value == MESH_EV_MESSAGE) {
+		if (ev->value == MESH_EV_MESSAGE && newest_muted()) {
+			/* Silenced conversation: only the unread count. */
+		} else if (ev->value == MESH_EV_MESSAGE) {
 			power_user_activity(false);
 			hw_melody(HW_SPEAKER, message_tune, ARRAY_SIZE(message_tune),
 				  app_config.volume);

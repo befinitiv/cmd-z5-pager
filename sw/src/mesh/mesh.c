@@ -14,10 +14,13 @@
 #include "../app.h"
 #include "../clock.h"
 #include "../gps.h"
+#include "../i18n.h"
 #include "meshtastic/crypto.h"
 #include "meshtastic/geo.h"
 #include "meshtastic/router.h"
 #include "mesh.h"
+#include "mesh_internal.h"
+#include "msglog.h"
 #include "msgstore.h"
 
 #ifdef CONFIG_CMDZ5_EMUL
@@ -86,6 +89,9 @@ K_MSGQ_DEFINE(evq, sizeof(struct evt), 8, 4);
 static K_MUTEX_DEFINE(lock);
 
 static struct mt_router router;
+static uint8_t proto; /* enum mesh_protocol, from the settings */
+/* Silenced conversations (0: free), "mesh/mute" or MeshCore's "mesh/mcmute". */
+static uint32_t muted[MESH_MUTED_MAX];
 static bool relay_on = true;
 static struct mt_nodedb nodedb;
 static struct mesh_config cfg = {.region = MT_REGION_EU_868, .preset = MT_PRESET_LONG_FAST};
@@ -175,21 +181,43 @@ static bool loading_nodes;
 static uint32_t drop_nodes[64];
 static int ndrop;
 
+int mesh_channels_read(size_t len, settings_read_cb read_cb, void *cb_arg)
+{
+	if (len != sizeof(chans)) {
+		return -EINVAL;
+	}
+	if (read_cb(cb_arg, chans, len) != (ssize_t)len) {
+		memset(chans, 0, sizeof(chans));
+		return -EIO;
+	}
+	for (int i = 0; i < MESH_CHANNELS; i++) {
+		chans[i].name[MESH_CHANNEL_NAME] = '\0';
+	}
+	memset(&chans[0], 0, sizeof(chans[0]));
+	return 0;
+}
+
+void mesh_channels_get(struct mesh_channel out[MESH_CHANNELS])
+{
+	k_mutex_lock(&lock, K_FOREVER);
+	memcpy(out, chans, sizeof(chans));
+	k_mutex_unlock(&lock);
+}
+
 static int mesh_set(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg)
 {
+	if (strcmp(name, "proto") == 0 && len == sizeof(proto)) {
+		return read_cb(cb_arg, &proto, len) == (ssize_t)len ? 0 : -EIO;
+	}
 	if (strcmp(name, "cfg") == 0 && len == sizeof(cfg)) {
 		return read_cb(cb_arg, &cfg, len) == (ssize_t)len ? 0 : -EIO;
 	}
-	if (strcmp(name, "ch") == 0 && len == sizeof(chans)) {
-		if (read_cb(cb_arg, chans, len) != (ssize_t)len) {
-			memset(chans, 0, sizeof(chans));
-			return -EIO;
-		}
-		for (int i = 0; i < MESH_CHANNELS; i++) {
-			chans[i].name[MESH_CHANNEL_NAME] = '\0';
-		}
-		memset(&chans[0], 0, sizeof(chans[0]));
-		return 0;
+	if (strcmp(name, proto == MESH_PROTO_MESHCORE ? "mcmute" : "mute") == 0 &&
+	    len == sizeof(muted)) {
+		return read_cb(cb_arg, muted, len) == (ssize_t)len ? 0 : -EIO;
+	}
+	if (strcmp(name, "ch") == 0) {
+		return mesh_channels_read(len, read_cb, cb_arg);
 	}
 	if (strcmp(name, "relay") == 0 && len == sizeof(relay_on)) {
 		return read_cb(cb_arg, &relay_on, len) == (ssize_t)len ? 0 : -EIO;
@@ -239,7 +267,8 @@ static void delete_node(uint32_t num)
 {
 	char key[24];
 
-	snprintf(key, sizeof(key), "mesh/n/%08x", num);
+	/* MeshCore's contacts: meshcore.c. */
+	snprintf(key, sizeof(key), "%s/n/%08x", proto == MESH_PROTO_MESHCORE ? "mc" : "mesh", num);
 	settings_delete(key);
 }
 
@@ -360,6 +389,11 @@ static void notify(enum mesh_event e)
 	app_post(&ev);
 }
 
+void mesh_notify(enum mesh_event e)
+{
+	notify(e);
+}
+
 static void send_nodeinfo(uint32_t to, bool want_response)
 {
 	struct mt_user u = {.hw_model = MT_HW_PRIVATE, .has_public_key = true};
@@ -418,10 +452,20 @@ static uint32_t uptime_mark(void)
 	return clock_valid() ? 0 : (uint32_t)(k_uptime_get() / 1000) + 1;
 }
 
+uint32_t mesh_now_time(void)
+{
+	return now_time();
+}
+
+uint32_t mesh_uptime_mark(void)
+{
+	return uptime_mark();
+}
+
 /* Messages of this boot may still lack their time. */
 static bool untimed = true;
 
-static void date_messages(void)
+void mesh_date_messages(void)
 {
 	bool changed;
 
@@ -970,7 +1014,7 @@ static void mesh_thread(void *p1, void *p2, void *p3)
 		}
 		router.now = now;
 		send_held(now);
-		date_messages();
+		mesh_date_messages();
 		if ((int32_t)(now - next_nodeinfo) >= 0) {
 			router.now = now;
 			send_nodeinfo(MT_BROADCAST, false);
@@ -994,18 +1038,46 @@ static struct k_thread mesh_tid;
 
 int mesh_init(void)
 {
+	bool mc;
+
+	settings_load_subtree("mesh/proto");
+#ifdef CONFIG_CMDZ5_EMUL
+	if (emul_meshcore()) {
+		proto = MESH_PROTO_MESHCORE;
+	}
+#endif
+	mc = proto == MESH_PROTO_MESHCORE;
+	msglog_select(mc);
 	msgstore_init();
 	mt_nodedb_init(&nodedb);
 	nodedb.keep = keep_node;
 	nodedb.evicted = node_evicted;
 	loading_nodes = true;
-	settings_load_subtree("mesh");
+	if (mc) {
+		/* The names from Meshtastic's settings, the rest MeshCore's own. */
+		settings_load_subtree("mesh/cfg");
+		settings_load_subtree("mesh/mcmute");
+		settings_load_subtree("mc");
+	} else {
+		settings_load_subtree("mesh");
+	}
 	loading_nodes = false;
 	for (int i = 0; i < ndrop; i++) {
 		delete_node(drop_nodes[i]);
 	}
 	if (ndrop) {
 		LOG_INF("%d stored nodes beyond %d deleted", ndrop, MT_MAX_NODES);
+	}
+	if (mc) {
+		available = meshcore_start(radio && device_is_ready(radio) ? radio : NULL) == 0;
+		if (!cfg.long_name[0]) {
+			snprintf(cfg.long_name, sizeof(cfg.long_name), "CMD-Z5 %04x",
+				 meshcore_my_num() & 0xffff);
+		}
+		if (!available) {
+			LOG_WRN("no mesh radio");
+		}
+		return available ? 0 : -ENODEV;
 	}
 	init_identity();
 
@@ -1035,7 +1107,8 @@ void mesh_position_update(void)
 {
 	struct evt e = {.type = EVT_POSITION};
 
-	if (available) {
+	/* MeshCore: the position goes with the next advert. */
+	if (available && proto != MESH_PROTO_MESHCORE) {
 		k_msgq_put(&evq, &e, K_NO_WAIT);
 	}
 }
@@ -1047,12 +1120,31 @@ bool mesh_available(void)
 
 uint32_t mesh_my_num(void)
 {
-	return my_num;
+	return proto == MESH_PROTO_MESHCORE ? meshcore_my_num() : my_num;
 }
 
 const char *mesh_channel_name(void)
 {
-	return mt_preset_name(cfg.preset);
+	return proto == MESH_PROTO_MESHCORE ? "Public" : mt_preset_name(cfg.preset);
+}
+
+int mesh_protocol(void)
+{
+	return proto;
+}
+
+void mesh_set_protocol(int p)
+{
+	uint8_t v = p;
+
+	settings_save_one("mesh/proto", &v, sizeof(v));
+}
+
+void mesh_send_advert(void)
+{
+	if (proto == MESH_PROTO_MESHCORE) {
+		meshcore_send_advert();
+	}
 }
 
 /* Channels ------------------------------------------------------------------ */
@@ -1086,7 +1178,7 @@ void mesh_set_channel(int slot, const struct mesh_channel *c)
 		memset(&chans[slot], 0, sizeof(chans[slot]));
 	}
 	k_mutex_unlock(&lock);
-	settings_save_one("mesh/ch", chans, sizeof(chans));
+	settings_save_one(proto == MESH_PROTO_MESHCORE ? "mc/ch" : "mesh/ch", chans, sizeof(chans));
 	if (!c) {
 		/* A new channel in this slot must not inherit the old conversation. */
 		msgstore_lock();
@@ -1094,7 +1186,9 @@ void mesh_set_channel(int slot, const struct mesh_channel *c)
 		msgstore_unlock();
 		notify(MESH_EV_STATUS);
 	}
-	if (available) {
+	if (proto == MESH_PROTO_MESHCORE) {
+		meshcore_reconfig();
+	} else if (available) {
 		k_msgq_put(&evq, &e, K_NO_WAIT);
 	}
 }
@@ -1117,7 +1211,8 @@ void mesh_channel_label(int slot, char *buf, size_t size)
 {
 	k_mutex_lock(&lock, K_FOREVER);
 	if (slot == 0) {
-		snprintf(buf, size, "%s", mt_preset_name(cfg.preset));
+		snprintf(buf, size, "%s", proto == MESH_PROTO_MESHCORE ? "Public"
+								 : mt_preset_name(cfg.preset));
 	} else if (slot > 0 && slot < MESH_CHANNELS) {
 		snprintf(buf, size, "%s", chans[slot].name);
 	} else if (size) {
@@ -1197,7 +1292,8 @@ int mesh_channel_url(int slot, char *buf, size_t size)
 	size_t name_len, n = 0;
 	int ret;
 
-	if (!mesh_get_channel(slot, &c) || size < sizeof(prefix)) {
+	/* MeshCore: no link format known for channels. */
+	if (proto == MESH_PROTO_MESHCORE || !mesh_get_channel(slot, &c) || size < sizeof(prefix)) {
 		return -1;
 	}
 	name_len = strlen(c.name);
@@ -1238,7 +1334,9 @@ void mesh_set_config(const struct mesh_config *c)
 	cfg = *c;
 	k_mutex_unlock(&lock);
 	settings_save_one("mesh/cfg", &cfg, sizeof(cfg));
-	if (available) {
+	if (proto == MESH_PROTO_MESHCORE) {
+		meshcore_reconfig();
+	} else if (available) {
 		k_msgq_put(&evq, &e, K_NO_WAIT);
 	}
 }
@@ -1247,7 +1345,7 @@ int mesh_send_text(uint32_t conv, const char *text)
 {
 	struct msg m = {
 		.conv = conv,
-		.from = my_num,
+		.from = mesh_my_num(),
 		.time = now_time(),
 		.uptime_s = uptime_mark(),
 		.outgoing = true,
@@ -1256,19 +1354,95 @@ int mesh_send_text(uint32_t conv, const char *text)
 	};
 	struct evt e = {.type = EVT_SEND};
 
-	strncpy(m.text, text, MSG_TEXT_MAX);
+	strncpy(m.text, text, MIN(mesh_text_max(conv), MSG_TEXT_MAX));
 	msgstore_lock();
 	e.local_id = msgstore_add(&m);
 	msgstore_unlock();
 	if (!available) {
 		return -ENODEV;
 	}
+	if (proto == MESH_PROTO_MESHCORE) {
+		return meshcore_send(e.local_id);
+	}
 	return k_msgq_put(&evq, &e, K_NO_WAIT) == 0 ? 0 : -EBUSY;
+}
+
+bool mesh_muted(uint32_t conv)
+{
+	bool found = false;
+
+	k_mutex_lock(&lock, K_FOREVER);
+	for (int i = 0; i < MESH_MUTED_MAX && !found; i++) {
+		found = muted[i] == conv;
+	}
+	k_mutex_unlock(&lock);
+	return found && conv != 0;
+}
+
+bool mesh_set_muted(uint32_t conv, bool on)
+{
+	int free_slot = -1;
+	bool done = false;
+
+	k_mutex_lock(&lock, K_FOREVER);
+	for (int i = 0; i < MESH_MUTED_MAX; i++) {
+		if (muted[i] == conv) {
+			if (!on) {
+				muted[i] = 0;
+			}
+			done = true;
+		} else if (muted[i] == 0 && free_slot < 0) {
+			free_slot = i;
+		}
+	}
+	if (on && !done && free_slot >= 0) {
+		muted[free_slot] = conv;
+		done = true;
+	}
+	k_mutex_unlock(&lock);
+	if (done || !on) {
+		settings_save_one(proto == MESH_PROTO_MESHCORE ? "mesh/mcmute" : "mesh/mute", muted,
+				  sizeof(muted));
+	}
+	return done || !on;
+}
+
+size_t mesh_text_max(uint32_t conv)
+{
+	return proto == MESH_PROTO_MESHCORE ? meshcore_text_max(conv) : MSG_TEXT_MAX;
+}
+
+const char *mesh_msg_text(const struct msg *m, char *who, int size)
+{
+	const char *colon;
+
+	if (proto == MESH_PROTO_MESHCORE && !m->outgoing && m->from == 0 &&
+	    (colon = strstr(m->text, ": ")) != NULL) {
+		snprintf(who, size, "%.*s", (int)(colon - m->text), m->text);
+		return colon + 2;
+	}
+	mesh_node_name(m->from, who, size);
+	return m->text;
+}
+
+int mesh_node_lines(const struct mt_node *n, char lines[][32], int max)
+{
+	if (proto == MESH_PROTO_MESHCORE) {
+		return meshcore_node_lines(n, lines, max);
+	}
+	if (max < 1) {
+		return 0;
+	}
+	snprintf(lines[0], 32, "%s", tr(n->has_user && n->user.has_public_key
+						? "Encrypted DMs"
+						: "No key (channel DMs)"));
+	return 1;
 }
 
 bool mesh_relay(void)
 {
-	return relay_on;
+	/* A MeshCore companion never repeats. */
+	return relay_on && proto != MESH_PROTO_MESHCORE;
 }
 
 void mesh_set_relay(bool on)
@@ -1283,6 +1457,10 @@ void mesh_set_relay(bool on)
 
 void mesh_get_stats(struct mesh_stats *s)
 {
+	if (proto == MESH_PROTO_MESHCORE) {
+		meshcore_get_stats(s);
+		return;
+	}
 	k_mutex_lock(&lock, K_FOREVER);
 	s->rx = router.rx_packets;
 	s->tx = router.tx_packets;
@@ -1316,7 +1494,7 @@ const char *mesh_node_name(uint32_t num, char *buf, int size)
 {
 	char tmp[16];
 
-	if (num == my_num) {
+	if (num == mesh_my_num()) {
 		snprintf(buf, size, "%s", cfg.long_name);
 		return buf;
 	}

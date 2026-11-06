@@ -9,8 +9,11 @@
 
 LOG_MODULE_REGISTER(msglog, CONFIG_CMDZ5_APP_LOG_LEVEL);
 
-#define LOG_PATH    "/lfs/msgs.log"
-#define NEW_PATH    "/lfs/msgs.new"
+/* Meshtastic's messages, and MeshCore's in their own log (msglog_select()). */
+static const char *log_path = "/lfs/msgs.log";
+static const char *new_path = "/lfs/msgs.new";
+#define LOG_PATH log_path
+#define NEW_PATH new_path
 #define MAGIC       "MSG1"
 /* Rewrite the log when it grows beyond this (40 messages need about 10 KB). */
 #ifndef MSGLOG_COMPACT_AT
@@ -30,13 +33,20 @@ enum rec_type {
 /*
  * REC_MSG: u16 local id, u32 conv, u32 from, u32 packet id, u32 time,
  * u8 flags (bit 0 outgoing, bit 1 read), u8 status, u8 text length, text.
- * REC_MSG2 (written now): the same, flags bit 2 radio data, and before the
+ * REC_MSG2 (written now): the same, flags bit 2 radio data, bit 3 hops of
+ * our route to the sender (MeshCore, see struct msg), and before the
  * text i16 RSSI, i8 SNR, u8 hops.
  */
 #define MSG_HEAD  22 /* bytes before the text, including the type */
 #define MSG2_HEAD 26
 
 static bool ok;  /* file system available */
+
+void msglog_select(bool meshcore)
+{
+	log_path = meshcore ? "/lfs/mcmsgs.log" : "/lfs/msgs.log";
+	new_path = meshcore ? "/lfs/mcmsgs.new" : "/lfs/msgs.new";
+}
 static bool replaying;
 
 static int encode_msg(const struct msg *m, uint8_t *buf)
@@ -49,7 +59,8 @@ static int encode_msg(const struct msg *m, uint8_t *buf)
 	sys_put_le32(m->from, buf + 7);
 	sys_put_le32(m->packet_id, buf + 11);
 	sys_put_le32(m->time, buf + 15);
-	buf[19] = (m->outgoing ? 1 : 0) | (m->read ? 2 : 0) | (m->has_radio ? 4 : 0);
+	buf[19] = (m->outgoing ? 1 : 0) | (m->read ? 2 : 0) | (m->has_radio ? 4 : 0) |
+		 (m->route_hops ? 8 : 0);
 	buf[20] = m->status;
 	buf[21] = n;
 	sys_put_le16(m->rssi, buf + 22);
@@ -189,6 +200,7 @@ void msglog_load(void)
 			}
 			if (buf[0] == REC_MSG2) {
 				m.has_radio = buf[19] & 4;
+				m.route_hops = buf[19] & 8;
 				m.rssi = (int16_t)sys_get_le16(buf + 22);
 				m.snr = (int8_t)buf[24];
 				m.hops = buf[25];

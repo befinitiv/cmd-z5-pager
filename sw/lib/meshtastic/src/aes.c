@@ -1,5 +1,5 @@
 /*
- * AES-128/256 block encryption (FIPS-197), CTR and CCM modes.
+ * AES-128/256 block encryption and decryption (FIPS-197), CTR and CCM modes.
  * Byte-oriented and compact; speed is not an issue for LoRa packets.
  */
 
@@ -95,6 +95,59 @@ void mt_aes_encrypt(const struct mt_aes *aes, const uint8_t in[16], uint8_t out[
 		for (int i = 0; i < 16; i++) {
 			s[i] = t[i] ^ aes->rk[16 * r + i];
 		}
+	}
+	memcpy(out, s, 16);
+}
+
+/* Multiplication in GF(2^8), for the inverse MixColumns. */
+static uint8_t gmul(uint8_t a, uint8_t b)
+{
+	uint8_t p = 0;
+
+	for (; b; b >>= 1, a = xtime(a)) {
+		if (b & 1) {
+			p ^= a;
+		}
+	}
+	return p;
+}
+
+void mt_aes_decrypt(const struct mt_aes *aes, const uint8_t in[16], uint8_t out[16])
+{
+	static uint8_t inv_sbox[256];
+	uint8_t s[16], t[16];
+
+	if (inv_sbox[0] == 0) { /* sbox[0x52] = 0 and 0x52 != 0: filled */
+		for (int i = 0; i < 256; i++) {
+			inv_sbox[sbox[i]] = i;
+		}
+	}
+	for (int i = 0; i < 16; i++) {
+		s[i] = in[i] ^ aes->rk[16 * aes->rounds + i];
+	}
+	for (int r = aes->rounds - 1; r >= 0; r--) {
+		/* InvShiftRows and InvSubBytes. */
+		for (int c = 0; c < 4; c++) {
+			for (int row = 0; row < 4; row++) {
+				t[4 * ((c + row) % 4) + row] = inv_sbox[s[4 * c + row]];
+			}
+		}
+		for (int i = 0; i < 16; i++) {
+			t[i] ^= aes->rk[16 * r + i];
+		}
+		/* InvMixColumns, except after the last round key. */
+		if (r != 0) {
+			for (int c = 0; c < 4; c++) {
+				uint8_t *col = &t[4 * c];
+				uint8_t a0 = col[0], a1 = col[1], a2 = col[2], a3 = col[3];
+
+				col[0] = gmul(a0, 14) ^ gmul(a1, 11) ^ gmul(a2, 13) ^ gmul(a3, 9);
+				col[1] = gmul(a0, 9) ^ gmul(a1, 14) ^ gmul(a2, 11) ^ gmul(a3, 13);
+				col[2] = gmul(a0, 13) ^ gmul(a1, 9) ^ gmul(a2, 14) ^ gmul(a3, 11);
+				col[3] = gmul(a0, 11) ^ gmul(a1, 13) ^ gmul(a2, 9) ^ gmul(a3, 14);
+			}
+		}
+		memcpy(s, t, 16);
 	}
 	memcpy(out, s, 16);
 }

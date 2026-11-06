@@ -4,6 +4,10 @@
  * (Meshtastic's 1-byte keys: set the same number in the app, separates
  * groups but is not secret) or a passphrase key, which the Meshtastic app
  * gets from the channel's QR code. See mesh.h.
+ *
+ * MeshCore: a new channel is a hashtag channel ("#ping": the key from the
+ * name, lower case), or private with a passphrase; its key (Key) is what the
+ * MeshCore app needs to join it.
  */
 
 #include <stdio.h>
@@ -87,6 +91,27 @@ static void show_qr(void)
 	ui_push(&qr_screen);
 }
 
+/* MeshCore: the channel's secret in hex, for the app's "join private channel". */
+static void show_key(void)
+{
+	static char text[2 * MESH_KEY_LEN + 1];
+	struct mesh_channel c;
+	uint8_t secret[MESH_KEY_LEN];
+
+	if (!mesh_get_channel(slot, &c)) {
+		return;
+	}
+	if (c.key_type == MESH_KEY_HASHTAG) {
+		mesh_hashtag_key(c.name, secret);
+	} else {
+		memcpy(secret, c.key, sizeof(secret));
+	}
+	for (int i = 0; i < MESH_KEY_LEN; i++) {
+		snprintf(text + 2 * i, 3, "%02x", secret[i]);
+	}
+	ui_message("Key", text);
+}
+
 /* One channel --------------------------------------------------------------- */
 
 static void set_title(void)
@@ -99,6 +124,28 @@ static void set_title(void)
 	channel_menu.screen.title = title;
 }
 
+/* A hashtag channel's name as the key is made from it: "#Ping " -> "ping". */
+static void hashtag_name(char *out, size_t size, const char *text)
+{
+	size_t n = 0;
+
+	for (const char *p = text[0] == '#' ? text + 1 : text; *p && n < size - 1; p++) {
+		if (*p != ' ') {
+			out[n++] = *p >= 'A' && *p <= 'Z' ? *p - 'A' + 'a' : *p;
+		}
+	}
+	out[n] = '\0';
+}
+
+static void set_name(struct mesh_channel *c, const char *text)
+{
+	if (c->key_type == MESH_KEY_HASHTAG) {
+		hashtag_name(c->name, sizeof(c->name), text);
+	} else {
+		snprintf(c->name, sizeof(c->name), "%s", text);
+	}
+}
+
 static void rename_done(const char *text)
 {
 	struct mesh_channel c;
@@ -106,7 +153,7 @@ static void rename_done(const char *text)
 	if (!text[0] || !mesh_get_channel(slot, &c)) {
 		return;
 	}
-	snprintf(c.name, sizeof(c.name), "%s", text);
+	set_name(&c, text);
 	mesh_set_channel(slot, &c);
 	set_title();
 }
@@ -140,7 +187,11 @@ static void passphrase_done(const char *text)
 	mesh_key_from_passphrase(text, c.key);
 	mesh_set_channel(slot, &c);
 	/* The app needs the key: offer it right away. */
-	show_qr();
+	if (mesh_protocol() == MESH_PROTO_MESHCORE) {
+		show_key();
+	} else {
+		show_qr();
+	}
 }
 
 static void delete_yes(void)
@@ -178,6 +229,30 @@ static void channel_action(struct ui_menu *m, int idx)
 	}
 }
 
+/* MeshCore's items: name, passphrase, key and delete. */
+static const int mc_index[] = {0, 2, 5, 4};
+
+static void mc_channel_action(struct ui_menu *m, int idx)
+{
+	if (mc_index[idx] == 5) {
+		show_key();
+		return;
+	}
+	channel_action(m, mc_index[idx]);
+}
+
+static const char *channel_value(struct ui_menu *m, int idx, char *buf, size_t len);
+
+static const char *mc_channel_value(struct ui_menu *m, int idx, char *buf, size_t len)
+{
+	struct mesh_channel c;
+
+	if (mc_index[idx] == 2 && mesh_get_channel(slot, &c)) {
+		return c.key_type == MESH_KEY_PASSPHRASE ? tr("set") : tr("#name");
+	}
+	return mc_index[idx] == 0 ? channel_value(m, 0, buf, len) : NULL;
+}
+
 static const char *channel_value(struct ui_menu *m, int idx, char *buf, size_t len)
 {
 	struct mesh_channel c;
@@ -211,12 +286,26 @@ static const struct ui_menu_item channel_items[] = {
 	{"Delete", NULL, channel_action},
 };
 
+static const struct ui_menu_item mc_channel_items[] = {
+	{"Name", NULL, mc_channel_action},
+	{"Passphrase", NULL, mc_channel_action},
+	{"Key", NULL, mc_channel_action},
+	{"Delete", NULL, mc_channel_action},
+};
+
+BUILD_ASSERT(ARRAY_SIZE(mc_channel_items) == ARRAY_SIZE(mc_index));
+
 static struct ui_menu channel_menu = UI_MENU("Channel", channel_items, channel_value);
 
 /* Channel list -------------------------------------------------------------- */
 
 static void open_channel(void)
 {
+	bool mc = mesh_protocol() == MESH_PROTO_MESHCORE;
+
+	channel_menu.items = mc ? mc_channel_items : channel_items;
+	channel_menu.count = mc ? ARRAY_SIZE(mc_channel_items) : ARRAY_SIZE(channel_items);
+	channel_menu.value = mc ? mc_channel_value : channel_value;
 	set_title();
 	channel_menu.sel = 0;
 	channel_menu.top = 0;
@@ -230,7 +319,10 @@ static void create_done(const char *text)
 	if (!text[0]) {
 		return;
 	}
-	snprintf(c.name, sizeof(c.name), "%s", text);
+	if (mesh_protocol() == MESH_PROTO_MESHCORE) {
+		c.key_type = MESH_KEY_HASHTAG;
+	}
+	set_name(&c, text);
 	/* A number other than 1, which is the public default key. */
 	c.number = 2 + k_cycle_get_32() % 254;
 	mesh_set_channel(slot, &c);
