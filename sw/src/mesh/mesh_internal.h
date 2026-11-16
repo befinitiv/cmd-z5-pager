@@ -29,6 +29,8 @@ void meshcore_get_stats(struct mesh_stats *s);
 size_t meshcore_text_max(uint32_t conv);
 int meshcore_node_lines(const struct mt_node *n, char lines[][32], int max);
 void meshcore_send_advert(void);
+/* A companion or room server (not a repeater or sensor). */
+bool meshcore_person(const struct mt_node *n);
 
 /* mesh.c ------------------------------------------------------------------------------ */
 

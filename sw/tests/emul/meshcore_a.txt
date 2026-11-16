@@ -1,5 +1,6 @@
 # Two-instance MeshCore test, node A: sends "Hallo" on the Public channel,
-# then opens the direct message from B. Run with tests/emul/run_meshcore.sh.
+# then opens the direct message from B and its details. Run with
+# tests/emul/run_meshcore.sh.
 wait 2000
 key call
 wait 300
@@ -30,4 +31,8 @@ wait 500
 shot a4.bmp
 wait 8000
 shot a5.bmp
+# Details of the newest message.
+key down
+wait 300
+shot a6.bmp
 quit

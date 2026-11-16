@@ -35,4 +35,8 @@ key 8
 key call
 wait 6000
 shot b6.bmp
+# Details of the message sent along the route.
+key down
+wait 300
+shot b7.bmp
 quit

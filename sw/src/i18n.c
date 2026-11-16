@@ -210,6 +210,11 @@ static const struct translation de[] = {
 	{"flood", "Flutung"},
 	{"direct", "direkt"},
 	{"route", "Route"},
+	{"Message", "Nachricht"},
+	{"From", "Von"},
+	{"To", "An"},
+	{"Path", "Weg"},
+	{"Way back", "Rückweg"},
 
 	/* Relaying (Settings -> Mesh, diagnostics) */
 	{"Relay packets", "Weiterleiten"},

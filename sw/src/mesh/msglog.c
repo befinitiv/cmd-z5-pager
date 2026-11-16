@@ -15,7 +15,7 @@ static const char *new_path = "/lfs/msgs.new";
 #define LOG_PATH log_path
 #define NEW_PATH new_path
 #define MAGIC       "MSG1"
-/* Rewrite the log when it grows beyond this (40 messages need about 10 KB). */
+/* Rewrite the log when it grows beyond this (64 messages need at most 19 KB). */
 #ifndef MSGLOG_COMPACT_AT
 #define MSGLOG_COMPACT_AT (24 * 1024)
 #endif
@@ -28,6 +28,8 @@ enum rec_type {
 	REC_DELETE = 4, /* u32 conv: all its messages deleted */
 	REC_MSG2 = 5,
 	REC_TIME = 6, /* u16 local id, u32 time: set when the clock became valid */
+	REC_MSG3 = 7,
+	REC_PATH = 8, /* u16 local id, u8 hops, u8 bytes per hop, the path */
 };
 
 /*
@@ -36,9 +38,13 @@ enum rec_type {
  * REC_MSG2 (written now): the same, flags bit 2 radio data, bit 3 hops of
  * our route to the sender (MeshCore, see struct msg), and before the
  * text i16 RSSI, i8 SNR, u8 hops.
+ * REC_MSG3 (written now): REC_MSG2, and before the text u8 path hops,
+ * u8 bytes per hop and the path (see struct msg).
  */
-#define MSG_HEAD  22 /* bytes before the text, including the type */
+#define MSG_HEAD  22 /* bytes before the text (and path), including the type */
 #define MSG2_HEAD 26
+#define MSG3_HEAD 28
+#define REC_MAX   (MSG3_HEAD + MSG_PATH_MAX + MSG_TEXT_MAX)
 
 static bool ok;  /* file system available */
 
@@ -51,9 +57,9 @@ static bool replaying;
 
 static int encode_msg(const struct msg *m, uint8_t *buf)
 {
-	size_t n = strlen(m->text);
+	size_t n = strlen(m->text), p = m->path_hops * m->path_size;
 
-	buf[0] = REC_MSG2;
+	buf[0] = REC_MSG3;
 	sys_put_le16(m->local_id, buf + 1);
 	sys_put_le32(m->conv, buf + 3);
 	sys_put_le32(m->from, buf + 7);
@@ -66,8 +72,11 @@ static int encode_msg(const struct msg *m, uint8_t *buf)
 	sys_put_le16(m->rssi, buf + 22);
 	buf[24] = m->snr;
 	buf[25] = m->hops;
-	memcpy(buf + MSG2_HEAD, m->text, n);
-	return MSG2_HEAD + n;
+	buf[26] = m->path_hops;
+	buf[27] = m->path_size;
+	memcpy(buf + MSG3_HEAD, m->path, p);
+	memcpy(buf + MSG3_HEAD + p, m->text, n);
+	return MSG3_HEAD + p + n;
 }
 
 static void append(const uint8_t *rec, size_t len);
@@ -76,7 +85,7 @@ static void append(const uint8_t *rec, size_t len);
 static void compact(void)
 {
 	struct fs_file_t f;
-	uint8_t buf[MSG2_HEAD + MSG_TEXT_MAX];
+	uint8_t buf[REC_MAX];
 
 	fs_file_t_init(&f);
 	if (fs_open(&f, NEW_PATH, FS_O_CREATE | FS_O_WRITE | FS_O_TRUNC) != 0) {
@@ -122,7 +131,7 @@ static void append(const uint8_t *rec, size_t len)
 
 void msglog_add(const struct msg *m)
 {
-	uint8_t buf[MSG2_HEAD + MSG_TEXT_MAX];
+	uint8_t buf[REC_MAX];
 
 	append(buf, encode_msg(m, buf));
 }
@@ -143,6 +152,24 @@ void msglog_time(uint16_t local_id, uint32_t time)
 	sys_put_le16(local_id, rec + 1);
 	sys_put_le32(time, rec + 3);
 	append(rec, sizeof(rec));
+}
+
+void msglog_path(const struct msg *m)
+{
+	uint8_t rec[5 + MSG_PATH_MAX] = {REC_PATH};
+	size_t p = m->path_hops * m->path_size;
+
+	sys_put_le16(m->local_id, rec + 1);
+	rec[3] = m->path_hops;
+	rec[4] = m->path_size;
+	memcpy(rec + 5, m->path, p);
+	append(rec, 5 + p);
+}
+
+/* A path from the log: hops and bytes per hop, if they fit. */
+static bool path_ok(uint8_t hops, uint8_t size)
+{
+	return hops * size <= MSG_PATH_MAX;
 }
 
 void msglog_read(uint32_t conv)
@@ -170,7 +197,7 @@ void msglog_load(void)
 {
 	struct fs_file_t f;
 	struct fs_statvfs vfs;
-	uint8_t buf[MSG2_HEAD + MSG_TEXT_MAX];
+	uint8_t buf[REC_MAX];
 	int records = 0;
 
 	ok = fs_statvfs("/lfs", &vfs) == 0;
@@ -190,15 +217,29 @@ void msglog_load(void)
 	}
 	replaying = true;
 	while (read_exact(&f, buf, 1) == 0) {
-		if (buf[0] == REC_MSG || buf[0] == REC_MSG2) {
+		if (buf[0] == REC_MSG || buf[0] == REC_MSG2 || buf[0] == REC_MSG3) {
 			struct msg m = {0};
-			size_t head = buf[0] == REC_MSG2 ? MSG2_HEAD : MSG_HEAD;
+			size_t head = buf[0] == REC_MSG3 ? MSG3_HEAD
+				      : buf[0] == REC_MSG2 ? MSG2_HEAD : MSG_HEAD;
 
-			if (read_exact(&f, buf + 1, head - 1) != 0 ||
-			    read_exact(&f, m.text, buf[21]) != 0) {
+			if (read_exact(&f, buf + 1, head - 1) != 0) {
 				break; /* truncated last record (power loss): ignore */
 			}
-			if (buf[0] == REC_MSG2) {
+			if (buf[0] == REC_MSG3) {
+				if (!path_ok(buf[26], buf[27])) {
+					LOG_WRN("corrupt message log after %d records", records);
+					break;
+				}
+				m.path_hops = buf[26];
+				m.path_size = buf[27];
+				if (read_exact(&f, m.path, m.path_hops * m.path_size) != 0) {
+					break;
+				}
+			}
+			if (read_exact(&f, m.text, buf[21]) != 0) {
+				break;
+			}
+			if (buf[0] != REC_MSG) {
 				m.has_radio = buf[19] & 4;
 				m.route_hops = buf[19] & 8;
 				m.rssi = (int16_t)sys_get_le16(buf + 22);
@@ -223,6 +264,26 @@ void msglog_load(void)
 
 			if (m) {
 				m->status = buf[3];
+			}
+		} else if (buf[0] == REC_PATH) {
+			uint8_t path[MSG_PATH_MAX];
+
+			if (read_exact(&f, buf + 1, 4) != 0) {
+				break;
+			}
+			if (!path_ok(buf[3], buf[4])) {
+				LOG_WRN("corrupt message log after %d records", records);
+				break;
+			}
+			if (read_exact(&f, path, buf[3] * buf[4]) != 0) {
+				break;
+			}
+			struct msg *m = msgstore_find_local(sys_get_le16(buf + 1));
+
+			if (m) {
+				m->path_hops = buf[3];
+				m->path_size = buf[4];
+				memcpy(m->path, path, buf[3] * buf[4]);
 			}
 		} else if (buf[0] == REC_TIME) {
 			if (read_exact(&f, buf + 1, 6) != 0) {

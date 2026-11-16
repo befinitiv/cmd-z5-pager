@@ -248,7 +248,7 @@ void test_router(void)
 	CHECK(nodes[1].texts == 0 && nodes[2].texts == 1, "foreign channel relay");
 }
 
-static bool keep_odd(void *ctx, const struct mt_node *n)
+static int keep_odd(void *ctx, const struct mt_node *n)
 {
 	(void)ctx;
 	return n->num & 1;

@@ -24,18 +24,16 @@ static bool replace_first(const struct mt_node *a, const struct mt_node *b)
 static struct mt_node *victim(struct mt_nodedb *db)
 {
 	struct mt_node *n = NULL;
+	int n_rank = 0;
 
-	/* First among the nodes not kept, then among all. */
-	for (int pass = 0; pass < 2 && !n; pass++) {
-		for (int i = 0; i < db->count; i++) {
-			struct mt_node *c = &db->nodes[i];
+	/* Among the nodes of the lowest rank. */
+	for (int i = 0; i < db->count; i++) {
+		struct mt_node *c = &db->nodes[i];
+		int rank = db->keep ? db->keep(db->ctx, c) : 0;
 
-			if (pass == 0 && db->keep && db->keep(db->ctx, c)) {
-				continue;
-			}
-			if (!n || replace_first(c, n)) {
-				n = c;
-			}
+		if (!n || rank < n_rank || (rank == n_rank && replace_first(c, n))) {
+			n = c;
+			n_rank = rank;
 		}
 	}
 	return n;

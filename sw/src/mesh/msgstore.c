@@ -20,17 +20,37 @@ void msgstore_unlock(void)
 	k_mutex_unlock(&lock);
 }
 
+static struct msg *at(int i)
+{
+	return &msgs[(head + i) % MSG_MAX];
+}
+
+/* Make room: the oldest message of the channels or the direct messages, whichever has more. */
+static void drop_one(void)
+{
+	int channel = 0, victim = 0;
+	bool drop_channel;
+
+	for (int i = 0; i < count; i++) {
+		channel += conv_channel(at(i)->conv) >= 0;
+	}
+	drop_channel = channel * 2 >= count;
+	while (victim < count - 1 && (conv_channel(at(victim)->conv) >= 0) != drop_channel) {
+		victim++;
+	}
+	for (int i = victim; i > 0; i--) {
+		*at(i) = *at(i - 1);
+	}
+	head = (head + 1) % MSG_MAX;
+	count--;
+}
+
 static struct msg *new_slot(void)
 {
-	int slot;
-
-	if (count < MSG_MAX) {
-		slot = (head + count++) % MSG_MAX;
-	} else {
-		slot = head;
-		head = (head + 1) % MSG_MAX;
+	if (count == MSG_MAX) {
+		drop_one();
 	}
-	return &msgs[slot];
+	return at(count++);
 }
 
 uint16_t msgstore_add(const struct msg *m)
@@ -152,6 +172,18 @@ void msgstore_set_sent(uint16_t local_id, uint32_t packet_id, enum msg_status st
 		m->packet_id = packet_id;
 		m->status = status;
 		msglog_status(local_id, status);
+	}
+}
+
+void msgstore_set_path(uint16_t local_id, const uint8_t *path, uint8_t hops, uint8_t size)
+{
+	struct msg *m = msgstore_find_local(local_id);
+
+	if (m && hops * size <= MSG_PATH_MAX) {
+		m->path_hops = hops;
+		m->path_size = size;
+		memcpy(m->path, path, hops * size);
+		msglog_path(m);
 	}
 }
 

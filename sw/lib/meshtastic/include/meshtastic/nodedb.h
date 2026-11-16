@@ -2,7 +2,8 @@
  * Known nodes: names, public keys, position and radio statistics. Fixed size;
  * when the table is full a node is replaced: one without user info if there
  * is one, else the least recently heard (by last_heard, then heard_unix).
- * Nodes the application keeps (keep()) are replaced only if all are kept.
+ * The application can rank nodes (keep()): a node of a higher rank is
+ * replaced only if all have that rank or higher.
  */
 
 #pragma once
@@ -40,8 +41,8 @@ struct mt_node {
 struct mt_nodedb {
 	struct mt_node nodes[MT_MAX_NODES];
 	int count;
-	/* Optional: nodes not to replace while others can be; ctx is passed. */
-	bool (*keep)(void *ctx, const struct mt_node *n);
+	/* Optional: a node's rank, 0 replaced first (see above); ctx is passed. */
+	int (*keep)(void *ctx, const struct mt_node *n);
 	/* Optional: a node is about to be replaced. */
 	void (*evicted)(void *ctx, const struct mt_node *n);
 	void *ctx;

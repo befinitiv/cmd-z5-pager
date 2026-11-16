@@ -1,6 +1,8 @@
 /*
  * Text messages of all conversations (the primary channel and one per node
- * for direct messages), oldest replaced first. Changes are stored in LittleFS
+ * for direct messages). When full, the oldest message goes of whichever has
+ * more messages, the channels or the direct messages: busy channels do not
+ * push out the direct conversations. Changes are stored in LittleFS
  * (msglog.c) and restored at startup.
  *
  * Shared between the mesh thread and the UI: lock around any access.
@@ -11,8 +13,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define MSG_MAX       40
+#define MSG_MAX       64
 #define MSG_TEXT_MAX  200
+#define MSG_PATH_MAX  64 /* bytes of repeater ids */
 /*
  * Conversation ids: direct messages use the node number, channels the ids
  * from CONV_CHANNEL downwards (CONV_CHANNEL itself is the primary channel,
@@ -62,6 +65,16 @@ struct msg {
 	bool route_hops;
 	int16_t rssi;
 	int8_t snr;
+	/*
+	 * MeshCore: the repeaters' ids (path_size bytes each, path_hops of
+	 * them). Received by flood: the way it came, from the sender on.
+	 * With route_hops, and for own direct messages: our route to the
+	 * other node (from us on). path_size 0: no path (flood or unknown);
+	 * path_hops 0 with a size: directly, no repeater.
+	 */
+	uint8_t path_hops;
+	uint8_t path_size;
+	uint8_t path[MSG_PATH_MAX];
 	char text[MSG_TEXT_MAX + 1];
 };
 
@@ -84,6 +97,8 @@ struct msg *msgstore_find_local(uint16_t local_id);
 bool msgstore_set_status(uint32_t packet_id, enum msg_status status);
 /* Set packet id and status of an outgoing message by its local id. */
 void msgstore_set_sent(uint16_t local_id, uint32_t packet_id, enum msg_status status);
+/* Set the route an outgoing message took (see struct msg). */
+void msgstore_set_path(uint16_t local_id, const uint8_t *path, uint8_t hops, uint8_t size);
 
 /*
  * The clock became valid: give the messages of this boot that had no time

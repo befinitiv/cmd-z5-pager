@@ -272,16 +272,22 @@ static void delete_node(uint32_t num)
 	settings_delete(key);
 }
 
-/* Node database hooks: keep the nodes we have a direct conversation with. */
-static bool keep_node(void *ctx, const struct mt_node *n)
+/*
+ * Node database hooks: keep the nodes we have a direct conversation with,
+ * and in MeshCore people before the many repeaters.
+ */
+static int keep_node(void *ctx, const struct mt_node *n)
 {
-	bool keep;
+	bool conv;
 
 	ARG_UNUSED(ctx);
 	msgstore_lock();
-	keep = msgstore_has_conv(n->num);
+	conv = msgstore_has_conv(n->num);
 	msgstore_unlock();
-	return keep;
+	if (conv) {
+		return 2;
+	}
+	return proto == MESH_PROTO_MESHCORE && meshcore_person(n) ? 1 : 0;
 }
 
 static void node_evicted(void *ctx, const struct mt_node *n)

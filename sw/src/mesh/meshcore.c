@@ -151,6 +151,11 @@ static bool node_mine(const struct mt_node *n)
 	return n->has_user && n->user.has_public_key;
 }
 
+bool meshcore_person(const struct mt_node *n)
+{
+	return node_mine(n) && (n->user.role == MC_ADV_CHAT || n->user.role == MC_ADV_ROOM);
+}
+
 /* The route entry of a node (a free or stale one if new). */
 static struct route *route_of(uint32_t num)
 {
@@ -446,6 +451,18 @@ static void cb_advert(void *ctx, const struct mc_advert *a, const struct mc_rx_i
 	mesh_notify(MESH_EV_NODES);
 }
 
+/* A MeshCore path (encoded length) into a message. */
+static void msg_path(struct msg *m, const uint8_t *path, uint8_t path_len)
+{
+	m->path_hops = 0;
+	m->path_size = 0;
+	if (path && path_len != MC_PATH_UNKNOWN && mc_path_bytes(path_len) <= MSG_PATH_MAX) {
+		m->path_hops = mc_path_count(path_len);
+		m->path_size = mc_path_hash_size(path_len);
+		memcpy(m->path, path, mc_path_bytes(path_len));
+	}
+}
+
 static void store_text(uint32_t conv, uint32_t from, const char *text,
 		       const struct mc_rx_info *rx)
 {
@@ -466,6 +483,9 @@ static void store_text(uint32_t conv, uint32_t from, const char *text,
 	if (r && r->path_len != MC_PATH_UNKNOWN) {
 		m.hops = mc_path_count(r->path_len);
 		m.route_hops = true;
+		msg_path(&m, r->path, r->path_len);
+	} else if (rx->flood) {
+		msg_path(&m, rx->path, rx->path_len);
 	}
 	snprintf(m.text, sizeof(m.text), "%s", text);
 	msgstore_lock();
@@ -683,10 +703,14 @@ static void handle_send(uint16_t local_id)
 		if (n && node_mine(n)) {
 			contact_of(n, &c);
 			id = mc_mesh_send_text(&mesh, &c, timestamp(), copy.text);
+			msg_path(&copy, c.path, c.path_len);
 		}
 	}
 	msgstore_lock();
 	msgstore_set_sent(local_id, id, id ? MSG_QUEUED : MSG_FAILED);
+	if (copy.path_size) {
+		msgstore_set_path(local_id, copy.path, copy.path_hops, copy.path_size);
+	}
 	msgstore_unlock();
 	mesh_notify(id ? MESH_EV_STATUS : MESH_EV_FAILED);
 }
