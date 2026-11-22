@@ -70,6 +70,19 @@ struct mt_node *mt_nodedb_get(struct mt_nodedb *db, uint32_t num, uint32_t now)
 	return n;
 }
 
+bool mt_nodedb_remove(struct mt_nodedb *db, uint32_t num)
+{
+	struct mt_node *n = mt_nodedb_find(db, num);
+
+	if (!n) {
+		return false;
+	}
+	db->count--;
+	memmove(n, n + 1, (char *)&db->nodes[db->count] - (char *)n);
+	memset(&db->nodes[db->count], 0, sizeof(*n));
+	return true;
+}
+
 void mt_nodedb_set_user(struct mt_node *n, const struct mt_user *u)
 {
 	if (!n->has_user || u->has_public_key != n->user.has_public_key ||

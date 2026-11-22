@@ -18,6 +18,7 @@
 #define REPEAT_WAIT_MS 15000
 
 #define TXT_TYPE_PLAIN  0
+#define TXT_TYPE_CLI    1
 #define TXT_TYPE_SIGNED 2
 
 static void put32(uint8_t *p, uint32_t v)
@@ -237,29 +238,37 @@ static uint32_t timeout_ms(const struct mc_mesh *m, size_t frame_len, uint8_t pa
 	       (t * DIRECT_PERHOP_FACTOR + DIRECT_PERHOP_EXTRA_MS) * (mc_path_count(path_len) + 1);
 }
 
+/* The time to wait for an answer to a packet to a contact (along its route or by flood). */
+static uint32_t route_timeout(const struct mc_mesh *m, const struct mc_packet *p,
+			      const struct mc_contact *c)
+{
+	size_t frame_len = 2 + p->payload_len;
+
+	if (c->path_len == MC_PATH_UNKNOWN) {
+		frame_len += m->scoped ? 4 : 0;
+	} else {
+		frame_len += mc_path_bytes(c->path_len);
+	}
+	return timeout_ms(m, frame_len, c->path_len);
+}
+
 static bool send_attempt(struct mc_mesh *m, struct mc_pending *pd)
 {
 	uint8_t data[5 + MC_MAX_TEXT];
-	size_t tlen = strlen(pd->text), frame_len;
+	size_t tlen = strlen(pd->text);
 	struct mc_packet p;
 
 	put32(data, pd->timestamp);
-	data[4] = pd->attempt & 3;
+	data[4] = (pd->first + pd->attempt) & 3;
 	memcpy(data + 5, pd->text, tlen);
 	pd->acks[pd->attempt] = ack_of(data, 5 + tlen, m->pub);
 	datagram(m, &p, MC_PT_TXT_MSG, &pd->to, data, 5 + tlen);
 	/* The last attempt floods: the path may be broken. */
-	if (pd->attempt == MC_ATTEMPTS - 1 && pd->to.path_len != MC_PATH_UNKNOWN) {
+	if (!pd->single && pd->attempt == MC_ATTEMPTS - 1 && pd->to.path_len != MC_PATH_UNKNOWN) {
 		pd->to.path_len = MC_PATH_UNKNOWN;
 		m->ops->path(m->ctx, pd->to.num, NULL, MC_PATH_UNKNOWN);
 	}
-	frame_len = 2 + p.payload_len;
-	if (pd->to.path_len == MC_PATH_UNKNOWN) {
-		frame_len += m->scoped ? 4 : 0;
-	} else {
-		frame_len += mc_path_bytes(pd->to.path_len);
-	}
-	pd->deadline = m->now + timeout_ms(m, frame_len, pd->to.path_len);
+	pd->deadline = m->now + route_timeout(m, &p, &pd->to);
 	return send_to(m, &p, &pd->to, 0, pd->attempt == 0 ? pd->id : 0);
 }
 
@@ -316,6 +325,121 @@ uint32_t mc_mesh_send_text(struct mc_mesh *m, const struct mc_contact *to, uint3
 		return 0;
 	}
 	return pd->id;
+}
+
+uint32_t mc_mesh_send_attempt(struct mc_mesh *m, const struct mc_contact *to, uint32_t timestamp,
+			      const char *text, uint8_t attempt, uint32_t *ack,
+			      uint32_t *timeout_ms, bool *flood)
+{
+	struct mc_pending *pd = new_pending(m);
+	size_t n = mc_utf8_prefix(text, MC_MAX_TEXT);
+
+	if (!pd) {
+		return 0;
+	}
+	pd->used = true;
+	pd->single = true;
+	pd->first = attempt & 3;
+	pd->id = new_id(m);
+	pd->to = *to;
+	pd->timestamp = timestamp;
+	memcpy(pd->text, text, n);
+	pd->text[n] = '\0';
+	if (!send_attempt(m, pd)) {
+		pd->used = false;
+		return 0;
+	}
+	*ack = pd->acks[0];
+	*timeout_ms = pd->deadline - m->now;
+	*flood = pd->to.path_len == MC_PATH_UNKNOWN;
+	return pd->id;
+}
+
+/* For a companion app ------------------------------------------------------------------ */
+
+static uint32_t send_packet(struct mc_mesh *m, struct mc_packet *p, const struct mc_contact *to,
+			    bool force_flood, bool *flood)
+{
+	struct mc_contact c = *to;
+
+	if (force_flood) {
+		c.path_len = MC_PATH_UNKNOWN;
+	}
+	*flood = c.path_len == MC_PATH_UNKNOWN;
+	if (!send_to(m, p, &c, 0, 0)) {
+		return 0;
+	}
+	return route_timeout(m, p, &c);
+}
+
+uint32_t mc_mesh_send_request(struct mc_mesh *m, const struct mc_contact *to, const uint8_t *data,
+			      size_t len, bool force_flood, bool *flood)
+{
+	struct mc_packet p;
+
+	if (len < 4 || len > MC_MAX_PAYLOAD - 2 - MC_MAC_SIZE - 16) {
+		return 0;
+	}
+	datagram(m, &p, MC_PT_REQ, to, data, len);
+	return send_packet(m, &p, to, force_flood, flood);
+}
+
+uint32_t mc_mesh_send_anon(struct mc_mesh *m, const struct mc_contact *to, const uint8_t *data,
+			   size_t len, bool *flood)
+{
+	struct mc_packet p;
+
+	if (len > MC_MAX_PAYLOAD - 1 - 32 - MC_MAC_SIZE - 16) {
+		return 0;
+	}
+	p.header = MC_PT_ANON_REQ << 2;
+	p.payload[0] = to->pub[0];
+	memcpy(p.payload + 1, m->pub, 32);
+	p.payload_len = 33 + mc_encrypt_then_mac(to->secret, p.payload + 33, data, len);
+	return send_packet(m, &p, to, false, flood);
+}
+
+uint32_t mc_mesh_send_cli(struct mc_mesh *m, const struct mc_contact *to, uint32_t timestamp,
+			  uint8_t attempt, const char *text, bool *flood)
+{
+	uint8_t data[5 + MC_MAX_TEXT];
+	size_t n = mc_utf8_prefix(text, MC_MAX_TEXT);
+	struct mc_packet p;
+
+	put32(data, timestamp);
+	data[4] = TXT_TYPE_CLI << 2 | (attempt & 3);
+	memcpy(data + 5, text, n);
+	datagram(m, &p, MC_PT_TXT_MSG, to, data, 5 + n);
+	return send_packet(m, &p, to, false, flood);
+}
+
+uint32_t mc_mesh_send_trace(struct mc_mesh *m, uint32_t tag, uint32_t auth, uint8_t flags,
+			    const uint8_t *path, size_t path_len)
+{
+	struct mc_packet p;
+	uint8_t h[MC_HASH_SIZE];
+	size_t frame_len;
+
+	if (path_len == 0 || path_len > MC_MAX_PAYLOAD - 9 || (path_len >> (flags & 3)) > MC_MAX_PATH ||
+	    path_len % (1u << (flags & 3)) != 0) {
+		return 0;
+	}
+	/* The hashes go into the payload; the path collects the SNR of each hop. */
+	p.header = MC_PT_TRACE << 2 | MC_ROUTE_DIRECT;
+	p.path_len = 0;
+	put32(p.payload, tag);
+	put32(p.payload + 4, auth);
+	p.payload[8] = flags;
+	memcpy(p.payload + 9, path, path_len);
+	p.payload_len = 9 + path_len;
+	mc_packet_hash(&p, h);
+	mark_seen(m, h);
+	if (!queue(m, &p, 0, 0)) {
+		return 0;
+	}
+	frame_len = 2 + p.payload_len;
+	return TIMEOUT_BASE_MS + (mc_mesh_airtime_ms(m, frame_len) * DIRECT_PERHOP_FACTOR +
+				  DIRECT_PERHOP_EXTRA_MS) * ((path_len >> (flags & 3)) + 1);
 }
 
 uint32_t mc_mesh_send_group(struct mc_mesh *m, int channel, uint32_t timestamp,
@@ -443,8 +567,14 @@ static void on_text(struct mc_mesh *m, const struct mc_packet *in, const struct 
 		tlen = strlen(text);
 		put32(ack, ack_of(data, 9 + tlen, m->pub));
 		reply_ack(m, in, c, ack, 4);
+	} else if (type == TXT_TYPE_CLI) {
+		/* A repeater's reply to a command: not acknowledged. */
+		if (m->ops->cli_text) {
+			m->ops->cli_text(m->ctx, c->num, timestamp, (const char *)data + 5, rx);
+		}
+		return;
 	} else {
-		return; /* CLI data (replies of a repeater) */
+		return;
 	}
 	if (!recent(m, c->num, timestamp)) {
 		m->ops->text(m->ctx, c->num, timestamp, text, rx);
@@ -476,6 +606,8 @@ static void on_path(struct mc_mesh *m, const struct mc_packet *in, const struct 
 	}
 	if (extra_type == MC_PT_ACK && len - 2 - n >= 4) {
 		process_ack(m, get32(extra));
+	} else if (extra_type == MC_PT_RESPONSE && len - 2 - n > 0 && m->ops->response) {
+		m->ops->response(m->ctx, c->num, extra, len - 2 - n, in->path, in->path_len);
 	}
 	/* Flooded: tell the sender our way back, directly along its path. */
 	if (mc_is_flood(in) && path_return(m, &p, c, in->path, in->path_len, 0, NULL, 0)) {
@@ -505,6 +637,8 @@ static void on_datagram(struct mc_mesh *m, const struct mc_packet *p, const stru
 			on_text(m, p, rx, &peers[i], data, len);
 		} else if (mc_type(p) == MC_PT_PATH) {
 			on_path(m, p, &peers[i], data, len);
+		} else if (mc_type(p) == MC_PT_RESPONSE && m->ops->response) {
+			m->ops->response(m->ctx, peers[i].num, data, len, NULL, MC_PATH_UNKNOWN);
 		}
 		return;
 	}
@@ -554,6 +688,20 @@ void mc_mesh_receive(struct mc_mesh *m, const uint8_t *frame, size_t len, int16_
 	rx.hops = rx.flood ? mc_path_count(p.path_len) : mc_type(&p) == MC_PT_ADVERT ? 0 : 0xff;
 	rx.path_len = p.path_len;
 	rx.path = p.path;
+	/* A trace: its path holds the SNRs so far; ours if they cover all its hashes. */
+	if (mc_type(&p) == MC_PT_TRACE) {
+		if (!rx.flood && p.payload_len > 9) {
+			uint8_t flags = p.payload[8], hlen = p.payload_len - 9;
+
+			if (((unsigned)mc_path_count(p.path_len) << (flags & 3)) >= hlen &&
+			    m->ops->trace) {
+				m->ops->trace(m->ctx, get32(p.payload), get32(p.payload + 4), flags,
+					      p.payload + 9, hlen, (const int8_t *)p.path,
+					      mc_path_count(p.path_len), &rx);
+			}
+		}
+		return;
+	}
 	/* Routed to someone else (we do not repeat); an ACK may be ours, heard early. */
 	if (!rx.flood && mc_path_count(p.path_len) > 0) {
 		if (mc_type(&p) == MC_PT_ACK && p.payload_len >= 4) {
@@ -578,6 +726,7 @@ void mc_mesh_receive(struct mc_mesh *m, const uint8_t *frame, size_t len, int16_
 		break;
 	case MC_PT_TXT_MSG:
 	case MC_PT_PATH:
+	case MC_PT_RESPONSE:
 		on_datagram(m, &p, &rx);
 		break;
 	case MC_PT_GRP_TXT:
@@ -613,7 +762,7 @@ uint32_t mc_mesh_poll(struct mc_mesh *m, uint32_t now)
 		if (pd->group) {
 			pd->used = false;
 			m->ops->status(m->ctx, pd->id, MC_TX_NO_ACK);
-		} else if (pd->attempt + 1 < MC_ATTEMPTS) {
+		} else if (!pd->single && pd->attempt + 1 < MC_ATTEMPTS) {
 			pd->attempt++;
 			if (!send_attempt(m, pd)) {
 				pd->deadline = now + 1000; /* queue full: try again */

@@ -78,6 +78,20 @@ struct mc_mesh_ops {
 	/* A route to a contact (MC_PATH_UNKNOWN: forget it, flood next time). */
 	void (*path)(void *ctx, uint32_t num, const uint8_t *path, uint8_t path_len);
 	void (*status)(void *ctx, uint32_t id, enum mc_tx_status status);
+	/*
+	 * Optional, for a companion app. A response to a request or login
+	 * (zero-padded): in a datagram (in_path NULL), or with the path back
+	 * after a flood (in_path: the path the flood took to us).
+	 */
+	void (*response)(void *ctx, uint32_t from, const uint8_t *data, size_t len,
+			 const uint8_t *in_path, uint8_t in_path_len);
+	/* A text of a CLI session (a repeater's reply to a command); not acknowledged. */
+	void (*cli_text)(void *ctx, uint32_t from, uint32_t timestamp, const char *text,
+			 const struct mc_rx_info *rx);
+	/* A trace that ended at us: its tag, hashes and the SNR (dB * 4) of each hop. */
+	void (*trace)(void *ctx, uint32_t tag, uint32_t auth, uint8_t flags, const uint8_t *hashes,
+		      uint8_t hashes_len, const int8_t *snrs, uint8_t snr_count,
+		      const struct mc_rx_info *rx);
 };
 
 struct mc_txq_entry {
@@ -99,6 +113,9 @@ struct mc_pending {
 	struct mc_contact to;
 	uint32_t timestamp;
 	uint8_t attempt;
+	/* Sent once with the caller's attempt number, no retries (a companion app retries). */
+	bool single;
+	uint8_t first; /* attempt number on the wire of the first attempt */
 	uint32_t acks[MC_ATTEMPTS]; /* expected ACK of each attempt */
 	char text[MC_MAX_TEXT + 1];
 };
@@ -153,6 +170,33 @@ void mc_mesh_send_advert(struct mc_mesh *m, const struct mc_advert *a, bool floo
 /* Returns the message id, or 0 if the queue is full or the text too long. */
 uint32_t mc_mesh_send_text(struct mc_mesh *m, const struct mc_contact *to, uint32_t timestamp,
 			   const char *text);
+/*
+ * One attempt of a message, as a companion app sends them: with the app's
+ * attempt number (0..3), no retries here; the status is MC_TX_ACKED or
+ * MC_TX_FAILED after the timeout. Returns the id (0: queue full) and the
+ * expected ACK, the timeout (ms) and whether it was flooded.
+ */
+uint32_t mc_mesh_send_attempt(struct mc_mesh *m, const struct mc_contact *to, uint32_t timestamp,
+			      const char *text, uint8_t attempt, uint32_t *ack,
+			      uint32_t *timeout_ms, bool *flood);
+/*
+ * For a companion app; each returns the time to wait for an answer (ms), or
+ * 0 if the packet could not be queued, and whether it was flooded.
+ *
+ * A request (REQ): data starts with the 4-byte tag; by flood if force_flood.
+ */
+uint32_t mc_mesh_send_request(struct mc_mesh *m, const struct mc_contact *to, const uint8_t *data,
+			      size_t len, bool force_flood, bool *flood);
+/* An anonymous request (ANON_REQ: our key in the clear), e.g. a login: data starts with a timestamp. */
+uint32_t mc_mesh_send_anon(struct mc_mesh *m, const struct mc_contact *to, const uint8_t *data,
+			   size_t len, bool *flood);
+/* A command to a repeater (TXT_MSG of type CLI_DATA); no ACK. */
+uint32_t mc_mesh_send_cli(struct mc_mesh *m, const struct mc_contact *to, uint32_t timestamp,
+			  uint8_t attempt, const char *text, bool *flood);
+/* A trace along a path of hashes (flags bits 0-1: log2 of the hash size). */
+uint32_t mc_mesh_send_trace(struct mc_mesh *m, uint32_t tag, uint32_t auth, uint8_t flags,
+			    const uint8_t *path, size_t path_len);
+
 /* "sender: text" on a channel; the text is cut to fit. Returns the id, or 0. */
 uint32_t mc_mesh_send_group(struct mc_mesh *m, int channel, uint32_t timestamp,
 			    const char *sender, const char *text);

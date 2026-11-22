@@ -14,6 +14,7 @@ struct gfx_icon {
 extern const struct gfx_icon gfx_icon_envelope; /* 7x5 */
 extern const struct gfx_icon gfx_icon_gps;      /* 5x6 */
 extern const struct gfx_icon gfx_icon_antenna;  /* 5x6 */
+extern const struct gfx_icon gfx_icon_bluetooth; /* 5x6 */
 extern const struct gfx_icon gfx_icon_speaker;  /* 5x5 */
 extern const struct gfx_icon gfx_icon_muted;    /* 8x5 */
 extern const struct gfx_icon gfx_icon_bolt;     /* 3x5, charging */

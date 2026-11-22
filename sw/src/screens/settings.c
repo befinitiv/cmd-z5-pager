@@ -9,6 +9,7 @@
 #include <zephyr/logging/log_ctrl.h>
 #include <zephyr/sys/reboot.h>
 
+#include "../ble.h"
 #include "../clock.h"
 #include "../config.h"
 #include "../factory.h"
@@ -410,7 +411,20 @@ static void mc_action(struct ui_menu *m, int idx)
 		mesh_send_advert();
 		ui_toast("Advert", "Sent to the mesh.", NULL, NULL);
 		return;
+	case 5:
+		if (!ble_available()) {
+			ui_toast("Bluetooth", "Not available.", NULL, NULL);
+			return;
+		}
+		ble_set_enabled(!ble_enabled());
+		break;
 	case 6:
+		ui_confirm("Paired phones",
+			   "Forget all paired phones? They must pair again. CALL = forget, "
+			   "C = cancel.",
+			   ble_forget);
+		return;
+	case 8:
 		protocol_action();
 		return;
 	default:
@@ -439,7 +453,12 @@ static const char *mc_value(struct ui_menu *m, int idx, char *buf, size_t len)
 	case 3:
 		snprintf(buf, len, "%08x", mesh_my_num());
 		return buf;
-	case 6:
+	case 5:
+		if (!ble_available()) {
+			return "-";
+		}
+		return tr(ble_connected() ? "app" : ble_enabled() ? "on" : "off");
+	case 8:
 		return protocol_name();
 	default:
 		return NULL;
@@ -452,6 +471,8 @@ static const struct ui_menu_item mc_items[] = {
 	{"Region", NULL, mc_action},
 	{"Node", NULL, mc_action},
 	{"Send advert", NULL, mc_action},
+	{"Bluetooth", NULL, mc_action},
+	{"Paired phones", NULL, mc_action},
 	{"Channels", &channels_menu.screen, NULL},
 	{"Protocol", NULL, mc_action},
 };

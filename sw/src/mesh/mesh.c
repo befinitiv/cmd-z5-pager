@@ -287,7 +287,7 @@ static int keep_node(void *ctx, const struct mt_node *n)
 	if (conv) {
 		return 2;
 	}
-	return proto == MESH_PROTO_MESHCORE && meshcore_person(n) ? 1 : 0;
+	return proto == MESH_PROTO_MESHCORE ? meshcore_rank(n) : 0;
 }
 
 static void node_evicted(void *ctx, const struct mt_node *n)
@@ -295,6 +295,10 @@ static void node_evicted(void *ctx, const struct mt_node *n)
 	ARG_UNUSED(ctx);
 	if (!n->has_user) {
 		return; /* never stored */
+	}
+	if (proto == MESH_PROTO_MESHCORE) {
+		meshcore_node_evicted(n); /* its record in the contacts file */
+		return;
 	}
 	if (!loading_nodes) {
 		delete_node(n->num);
@@ -1063,6 +1067,7 @@ int mesh_init(void)
 		/* The names from Meshtastic's settings, the rest MeshCore's own. */
 		settings_load_subtree("mesh/cfg");
 		settings_load_subtree("mesh/mcmute");
+		meshcore_load_contacts();
 		settings_load_subtree("mc");
 	} else {
 		settings_load_subtree("mesh");

@@ -39,6 +39,7 @@ endif()
 target_sources(app PRIVATE
   src/main.c
   src/battery.c
+  src/ble.c
   src/clock.c
   src/config.c
   src/factory.c
@@ -51,6 +52,7 @@ target_sources(app PRIVATE
   src/statusbar.c
   src/textin.c
   src/update.c
+  src/mesh/companion.c
   src/mesh/mesh.c
   src/mesh/meshcore.c
   src/mesh/msglog.c
@@ -69,6 +71,7 @@ target_sources(app PRIVATE
   src/screens/inbox.c
   src/screens/menu.c
   src/screens/nodes.c
+  src/screens/pairing.c
   src/screens/poweroff.c
   src/screens/settings.c
 )

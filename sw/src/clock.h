@@ -21,6 +21,7 @@ struct clock_tm {
 enum clock_source {
 	CLOCK_SRC_NONE,
 	CLOCK_SRC_MESH, /* time field of a received Meshtastic packet */
+	CLOCK_SRC_APP,  /* the MeshCore app on the phone */
 	CLOCK_SRC_GPS,
 	CLOCK_SRC_PC,   /* emulator */
 };

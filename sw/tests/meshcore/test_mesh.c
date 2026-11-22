@@ -32,6 +32,21 @@ struct sim_node {
 	uint8_t path[MC_MAX_PATH];
 	int transmissions;
 	uint8_t hops;
+	/* The last frame sent; responses, CLI texts and traces received. */
+	uint8_t last[MC_MAX_FRAME];
+	size_t last_len;
+	uint8_t resp[MC_MAX_PAYLOAD];
+	size_t resp_len;
+	uint32_t resp_from;
+	bool resp_in_path;
+	int responses;
+	char cli[200];
+	int clis;
+	uint32_t trace_tag;
+	uint8_t trace_hashes[16], trace_hlen;
+	int8_t trace_snrs[16];
+	uint8_t trace_nsnr;
+	int traces;
 };
 
 static struct sim_node nodes[2]; /* A, B */
@@ -100,6 +115,8 @@ static void sim_transmit(void *ctx, const uint8_t *frame, size_t len)
 	struct sim_node *src = ctx;
 
 	src->transmissions++;
+	memcpy(src->last, frame, len);
+	src->last_len = len;
 	repeater(frame, len);
 }
 
@@ -179,6 +196,40 @@ static void sim_status(void *ctx, uint32_t id, enum mc_tx_status st)
 	n->statuses++;
 }
 
+static void sim_response(void *ctx, uint32_t from, const uint8_t *data, size_t len,
+			 const uint8_t *in_path, uint8_t in_path_len)
+{
+	struct sim_node *n = ctx;
+
+	memcpy(n->resp, data, len);
+	n->resp_len = len;
+	n->resp_from = from;
+	n->resp_in_path = in_path != NULL;
+	n->responses++;
+}
+
+static void sim_cli(void *ctx, uint32_t from, uint32_t timestamp, const char *text,
+		    const struct mc_rx_info *rx)
+{
+	struct sim_node *n = ctx;
+
+	strcpy(n->cli, text);
+	n->clis++;
+}
+
+static void sim_trace(void *ctx, uint32_t tag, uint32_t auth, uint8_t flags, const uint8_t *hashes,
+		      uint8_t hlen, const int8_t *snrs, uint8_t nsnr, const struct mc_rx_info *rx)
+{
+	struct sim_node *n = ctx;
+
+	n->trace_tag = tag;
+	memcpy(n->trace_hashes, hashes, hlen);
+	n->trace_hlen = hlen;
+	memcpy(n->trace_snrs, snrs, nsnr);
+	n->trace_nsnr = nsnr;
+	n->traces++;
+}
+
 static const struct mc_mesh_ops ops = {
 	.transmit = sim_transmit,
 	.random = sim_random,
@@ -188,6 +239,9 @@ static const struct mc_mesh_ops ops = {
 	.group_text = sim_group,
 	.path = sim_path,
 	.status = sim_status,
+	.response = sim_response,
+	.cli_text = sim_cli,
+	.trace = sim_trace,
 };
 
 /* Run both nodes until nothing is due, or for ms. */
@@ -238,6 +292,118 @@ static void advert(int i, const char *name)
 	strcpy(a.name, name);
 	mc_mesh_send_advert(&nodes[i].m, &a, true);
 	run(10);
+}
+
+/* A datagram from one node to the other, as a repeater or room server sends it. */
+static size_t datagram_frame(uint8_t type, int from, int to, const uint8_t *data, size_t len,
+			     uint8_t route, const uint8_t *path, uint8_t path_len, uint8_t *frame)
+{
+	struct mc_packet p = {.header = type << 2 | route, .path_len = path_len};
+	uint8_t secret[32];
+
+	mc_shared_secret(secret, nodes[from].prv, nodes[to].pub);
+	if (path_len) {
+		memcpy(p.path, path, path_len);
+	}
+	p.payload[0] = nodes[to].pub[0];
+	p.payload[1] = nodes[from].pub[0];
+	p.payload_len = 2 + mc_encrypt_then_mac(secret, p.payload + 2, data, len);
+	return mc_packet_encode(&p, frame);
+}
+
+/* What a companion app needs: logins, requests, CLI texts, traces (B plays the server). */
+static void test_requests(void)
+{
+	struct sim_node *a = &nodes[0], *b = &nodes[1];
+	uint8_t data[64], plain[MC_MAX_PAYLOAD], secret[32], frame[MC_MAX_FRAME];
+	const uint8_t r_path[1] = {R_HASH};
+	struct mc_packet p;
+	struct mc_contact to;
+	uint32_t timeout;
+	bool flood;
+	size_t n;
+	int len, sent;
+
+	sim_find_peers(a, b->pub[0], &to, 1);
+	mc_shared_secret(secret, b->prv, a->pub);
+
+	/* Login: ANON_REQ with our key in the clear, the data encrypted. */
+	memcpy(data, "\x10\x20\x30\x40secret", 10);
+	timeout = mc_mesh_send_anon(&a->m, &to, data, 10, &flood);
+	run(10);
+	CHECK(timeout > 0, "login queued");
+	CHECK(mc_packet_decode(&p, a->last, a->last_len) == 0 && mc_type(&p) == MC_PT_ANON_REQ,
+	      "login is an ANON_REQ");
+	CHECK(p.payload[0] == b->pub[0] && memcmp(p.payload + 1, a->pub, 32) == 0,
+	      "login: B's hash and A's key");
+	len = mc_mac_then_decrypt(secret, plain, p.payload + 33, p.payload_len - 33);
+	CHECK(len >= 10 && memcmp(plain, data, 10) == 0, "login: B decrypts it");
+
+	/* The answer as a datagram. */
+	memcpy(data, "\x99\x88\x77\x66\x00\x01\x03", 7);
+	n = datagram_frame(MC_PT_RESPONSE, 1, 0, data, 7, MC_ROUTE_DIRECT, NULL, 0, frame);
+	mc_mesh_receive(&a->m, frame, n, -90, 6, now);
+	CHECK(a->responses == 1 && a->resp_from == 2 && !a->resp_in_path, "response datagram");
+	CHECK(a->resp_len >= 7 && memcmp(a->resp, data, 7) == 0, "response data");
+
+	/* The answer to a flooded request: in a PATH, with the path back. */
+	plain[0] = 1;
+	plain[1] = R_HASH;
+	plain[2] = MC_PT_RESPONSE;
+	memcpy(plain + 3, data, 7);
+	n = datagram_frame(MC_PT_PATH, 1, 0, plain, 10, MC_ROUTE_FLOOD, r_path, 1, frame);
+	mc_mesh_receive(&a->m, frame, n, -90, 6, now);
+	CHECK(a->responses == 2 && a->resp_in_path && memcmp(a->resp, data, 7) == 0,
+	      "response in a PATH");
+	CHECK(a->path_len == 1 && a->path[0] == R_HASH, "PATH gave the route");
+	run(2000);
+
+	/* A request (status): REQ, B decrypts it. */
+	sim_find_peers(a, b->pub[0], &to, 1);
+	memcpy(data, "\x01\x02\x03\x04\x01\x00\x00\x00\x00\xaa\xbb\xcc\xdd", 13);
+	timeout = mc_mesh_send_request(&a->m, &to, data, 13, false, &flood);
+	run(10);
+	CHECK(timeout > 0 && !flood, "request along the route");
+	CHECK(mc_packet_decode(&p, a->last, a->last_len) == 0 && mc_type(&p) == MC_PT_REQ &&
+	      mc_route(&p) == MC_ROUTE_DIRECT, "REQ, direct");
+	len = mc_mac_then_decrypt(secret, plain, p.payload + 2, p.payload_len - 2);
+	CHECK(len >= 13 && memcmp(plain, data, 13) == 0, "request decrypted");
+	mc_mesh_send_request(&a->m, &to, data, 13, true, &flood);
+	run(10);
+	CHECK(flood, "request forced to flood");
+
+	/* A command reply (CLI_DATA): delivered, not acknowledged. */
+	sim_find_peers(b, a->pub[0], &to, 1);
+	sent = a->transmissions;
+	timeout = mc_mesh_send_cli(&b->m, &to, 1780001000, 0, "> neighbors: 8a", &flood);
+	run(2000);
+	CHECK(timeout > 0 && a->clis == 1 && strcmp(a->cli, "> neighbors: 8a") == 0, "CLI text");
+	CHECK(a->transmissions == sent, "CLI text not acknowledged");
+
+	/* Trace: hashes in the payload, the path empty; ours back with one SNR. */
+	{
+		const uint8_t hashes[2] = {R_HASH, 0x45};
+
+		timeout = mc_mesh_send_trace(&a->m, 0xabcd0001, 7, 0, hashes, 2);
+		run(10);
+		CHECK(timeout > 0, "trace queued");
+		CHECK(mc_packet_decode(&p, a->last, a->last_len) == 0 && mc_type(&p) == MC_PT_TRACE &&
+		      mc_route(&p) == MC_ROUTE_DIRECT && p.path_len == 0 && p.payload_len == 11 &&
+		      memcmp(p.payload + 9, hashes, 2) == 0, "trace packet");
+		/* After the first hop: not at the end yet. */
+		p.path[0] = 24;
+		p.path_len = 1;
+		n = mc_packet_encode(&p, frame);
+		mc_mesh_receive(&a->m, frame, n, -90, 6, now);
+		CHECK(a->traces == 0, "trace not yet at its end");
+		p.path[1] = (uint8_t)-8;
+		p.path_len = 2;
+		n = mc_packet_encode(&p, frame);
+		mc_mesh_receive(&a->m, frame, n, -90, 6, now);
+		CHECK(a->traces == 1 && a->trace_tag == 0xabcd0001 && a->trace_hlen == 2 &&
+		      a->trace_nsnr == 2 && a->trace_snrs[0] == 24 && a->trace_snrs[1] == -8,
+		      "trace result");
+	}
 }
 
 void test_mesh(void)
@@ -348,4 +514,6 @@ void test_mesh(void)
 		run(100);
 		CHECK(b->groups == 1 && b->group_channel == 2, "#ping on B's slot 2");
 	}
+
+	test_requests();
 }

@@ -14,6 +14,7 @@
 
 #include "app.h"
 #include "battery.h"
+#include "ble.h"
 #include "clock.h"
 #include "config.h"
 #include "gps.h"
@@ -201,6 +202,20 @@ static void handle(const struct ui_event *ev)
 		power_lid(ev->value);
 		return;
 	}
+	if (ev->type == APP_EV_BLE) {
+		if (ev->value == BLE_EV_PASSKEY) {
+			power_user_activity(false);
+			pairing_show();
+		} else if (ev->value == BLE_EV_PAIRED) {
+			pairing_close();
+			ui_toast("Bluetooth", "Paired.", NULL, NULL);
+		} else if (ev->value == BLE_EV_PAIR_FAILED) {
+			pairing_close();
+			ui_toast("Bluetooth", "Pairing failed.", NULL, NULL);
+		}
+		ui_invalidate();
+		return;
+	}
 	if (ev->type == APP_EV_MESH) {
 		if (ev->value == MESH_EV_MESSAGE && newest_muted()) {
 			/* Silenced conversation: only the unread count. */
@@ -322,6 +337,7 @@ int main(void)
 		LOG_ERR("predictive text not available");
 	}
 	mesh_init();
+	ble_init();
 	gps_init();
 	update_init();
 	battery_init();

@@ -10,6 +10,7 @@
 enum app_event_type {
 	APP_EV_LID = 0x40,  /* value 1 = lid closed */
 	APP_EV_MESH = 0x41, /* value: enum mesh_event */
+	APP_EV_BLE = 0x42,  /* value: enum ble_event */
 };
 
 /* Queue an event for the UI thread. Safe to call from any thread. */

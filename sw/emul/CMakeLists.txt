@@ -8,6 +8,7 @@ target_sources(app PRIVATE
   battery_emul.c
   script.c
   radio_emul.c
+  app_emul.c
   gps_sim.c
 )
 
@@ -16,6 +17,7 @@ target_sources(app PRIVATE
 target_sources(native_simulator INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/frontpanel_bottom.c
   ${CMAKE_CURRENT_SOURCE_DIR}/radio_bottom.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/app_bottom.c
 )
 target_compile_options(native_simulator INTERFACE
   -I${CMAKE_CURRENT_SOURCE_DIR}/../lib/gfx/include

@@ -8,6 +8,7 @@
 #include <zephyr/sys/util.h>
 
 #include "battery.h"
+#include "ble.h"
 #include "clock.h"
 #include "mesh/mesh.h"
 #include "mesh/msgstore.h"
@@ -59,6 +60,11 @@ void statusbar_draw(struct gfx *g)
 		gfx_draw_icon(g, 27, 0, &gfx_icon_envelope, GFX_BLACK);
 		snprintf(buf, sizeof(buf), "%d", unread);
 		gfx_text(g, gfx_font_small, 36, 0, buf, GFX_BLACK);
+	}
+
+	/* Bluetooth: black with the app connected, light gray while waiting for it. */
+	if (ble_available() && ble_enabled()) {
+		gfx_draw_icon(g, 68, 0, &gfx_icon_bluetooth, ble_connected() ? GFX_BLACK : GFX_LIGHT);
 	}
 
 	if (clock_now(&tm)) {

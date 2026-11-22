@@ -201,6 +201,18 @@ static const struct translation de[] = {
 	{"Send advert", "Advert senden"},
 	{"Advert", "Advert"},
 	{"Sent to the mesh.", "Ins Mesh gesendet."},
+	/* Bluetooth: the MeshCore app */
+	{"Bluetooth", "Bluetooth"},
+	{"app", "App"},
+	{"Not available.", "Nicht verfügbar."},
+	{"Paired phones", "Gekoppelte Handys"},
+	{"Forget all paired phones? They must pair again. CALL = forget, C = cancel.",
+	 "Alle gekoppelten Handys vergessen? Sie müssen sich neu koppeln. CALL = vergessen, "
+	 "C = abbrechen."},
+	{"Pairing PIN", "Kopplungs-PIN"},
+	{"Enter it on the phone.", "Am Handy eingeben."},
+	{"Paired.", "Gekoppelt."},
+	{"Pairing failed.", "Kopplung fehlgeschlagen."},
 	{"Key", "Schlüssel"},
 	{"#name", "#Name"},
 	{"Repeater", "Repeater"},

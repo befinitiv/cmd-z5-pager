@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#define MT_MAX_NODES 48
+#define MT_MAX_NODES 100
 
 struct mt_node {
 	uint32_t num;
@@ -52,6 +52,8 @@ void mt_nodedb_init(struct mt_nodedb *db);
 struct mt_node *mt_nodedb_find(struct mt_nodedb *db, uint32_t num);
 /* Find or create (replacing a node when full, see above). */
 struct mt_node *mt_nodedb_get(struct mt_nodedb *db, uint32_t num, uint32_t now);
+/* Remove a node (no evicted() call); false if unknown. Pointers into the table move. */
+bool mt_nodedb_remove(struct mt_nodedb *db, uint32_t num);
 /* Set a node's user info; invalidates the cached key if the public key changed. */
 void mt_nodedb_set_user(struct mt_node *n, const struct mt_user *u);
 
